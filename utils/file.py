@@ -24,11 +24,11 @@ class _FileDownloader:
             return
 
         with requests.get(address, stream=True) as response:
-            _FileDownloader._handle(response)
+            self._handle(response)
 
             # NOTE - Write the response inside a with-block so that the request is not consumed prematurely,
             #        resulting in the connection to the server breaking.
-            _FileDownloader._write(response, filename)
+            self._write(response, filename)
 
     @staticmethod
     def _handle(response: requests.Response) -> None:
@@ -68,15 +68,7 @@ class BlockingFileDownloader(_FileDownloader):
         self.filename = filename
 
     def download(self) -> None:
-        if is_file(self.filename) and not self._overwrite:
-            return
-
-        with requests.get(self.address, stream=True) as response:
-            self._handle(response)
-
-            # NOTE - Write the response inside a with-block so that the request is not consumed prematurely,
-            #        resulting in the connection to the server breaking.
-            self._write(response, self.filename)
+        self._obtain(self.address, self.filename)
 
     # FIXME - Write the chunks into a temporary file.
     # FIXME - Refactor this function into separate ones.
