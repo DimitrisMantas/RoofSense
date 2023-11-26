@@ -7,8 +7,6 @@ import typing
 import requests
 import tqdm
 
-import config
-
 
 # TODO - Reformat, finalize function and variable names, and add documentation.
 
@@ -56,7 +54,7 @@ class _FileDownloader:
     def _write(response: requests.Response, filename: str) -> None:
         try:
             with pathlib.Path(filename).open("wb") as f:
-                for chunk in response.iter_content(chunk_size=int(config.var("CHUNK_SIZE"))):
+                for chunk in response.iter_content(chunk_size=None):
                     f.write(chunk)
         except (FileNotFoundError, IsADirectoryError) as e:
             logging.error(e, exc_info=True)
@@ -89,7 +87,7 @@ class BlockingFileDownloader(_FileDownloader):
                        unit_divisor=1024) as progress:
             try:
                 with pathlib.Path(filename).open("wb") as f:
-                    for chunk in response.iter_content(chunk_size=int(config.var("CHUNK_SIZE"))):
+                    for chunk in response.iter_content(chunk_size=None):
                         f.write(chunk)
                         progress.update(len(chunk))
             except (FileNotFoundError, IsADirectoryError) as e:
