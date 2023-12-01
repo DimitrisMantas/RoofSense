@@ -18,7 +18,7 @@ _TILE_ID_FMT = re.compile(r"[^\d/]+", re.IGNORECASE)
 
 class TileIndex(gpd.GeoDataFrame):
     def __init__(self, reconstruct: typing.Optional[bool] = False) -> None:
-        if utils.file.is_file(config.env("BAG3D_INDEX_FILENAME")) and not reconstruct:
+        if utils.file.exists(config.env("BAG3D_INDEX_FILENAME")) and not reconstruct:
             super().__init__(gpd.read_file(config.env("BAG3D_INDEX_FILENAME")))
         else:
             super().__init__(_reconstruct(), crs=os.environ["CRS"])

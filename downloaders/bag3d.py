@@ -1,7 +1,4 @@
-import json
 import os
-import pathlib
-import tempfile
 
 import cjio.cityjson
 import cjio.cjio
@@ -106,25 +103,12 @@ def download(id_: str, type_: DataType = DataType.TILE) -> None:
         raise ValueError(f"No such data type: {type_}")
 
 
-# FIXME - Refactor this function into separate ones.
 def _download_item_data(id_: str, partial_path: str) -> None:
-    address = f"{config.var('BAG3D_API_BASE_URL')}{id_}"
-    filenam = f"{partial_path}{config.var('CITY_JSON')}"
+    url = f"{config.var('BAG3D_API_BASE_URL')}{id_}"
+    filename = f"{partial_path}{config.var('CITY_JSON')}"
 
-    with requests.get(address) as response:
-        j = response.json()
-        with tempfile.TemporaryFile("w+") as f:
-            f.write(f"{json.dumps(j['metadata'])}\n", )
-            f.write(f"{json.dumps(j['feature'])} \n", )
-
-            # NOTE - Reset the offset into the file to the beginning so that it will be read in its entirety when the
-            #        standard input is pointed to it.
-            f.seek(0)
-            with utils.file.stdin(f):
-                j = cjio.cityjson.read_stdin()
-
-        with pathlib.Path(filenam).open("w") as f:
-            json.dump(j.j, f)
+    with requests.Session() as session:
+        utils.file.BlockingFileDownloader(url, filename, session=session, callbacks=utils.cjio.to_jsonl).download()
 
 
 def _download_tile_data(id_: str, partial_path: str) -> None:
@@ -132,7 +116,8 @@ def _download_tile_data(id_: str, partial_path: str) -> None:
     # FIXME - Do not recompile this constant at every function call.
     _BASE_TILE_DATA_URL = f"{config.var('BAG3D_TILE_URL')}{config.var('BAG3D_VER')}/tiles/"
 
-    address = f"{_BASE_TILE_DATA_URL}{id_.replace('-', '/')}/{id_}{config.var('CITY_JSON')}"
-    filenam = f"{partial_path}{config.var('CITY_JSON')}"
+    url = f"{_BASE_TILE_DATA_URL}{id_.replace('-', '/')}/{id_}{config.var('CITY_JSON')}"
+    filename = f"{partial_path}{config.var('CITY_JSON')}"
 
-    utils.file.BlockingFileDownloader(address, filenam).download()
+    with requests.Session() as session:
+        utils.file.BlockingFileDownloader(url, filename, session=session).download()

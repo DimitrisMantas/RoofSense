@@ -1,4 +1,5 @@
 import geopandas as gpd
+import requests
 
 import config
 import utils.file
@@ -17,8 +18,8 @@ def download(id_: str, index: gpd.GeoDataFrame) -> None:
     building_footprints = gpd.read_file(path)
 
     ids = index.overlay(building_footprints)["id_1"].unique()
-    # Gather the request URLs.
-    req = [f"{BASE_URL}{id_}{config.var('LAZ')}" for id_ in ids]
-    nms = [f"{config.var('TEMP_DIR')}{id_}{config.var('LAZ')}" for id_ in ids]
 
-    utils.file.ThreadedFileDownloader(req, nms).download()
+    urls = [f"{BASE_URL}{id_}{config.var('LAZ')}" for id_ in ids]
+    filenames = [f"{config.var('TEMP_DIR')}{id_}{config.var('LAZ')}" for id_ in ids]
+    with requests.Session() as session:
+        utils.file.ThreadedFileDownloader(urls, filenames, session=session).download()
