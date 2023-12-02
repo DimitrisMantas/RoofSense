@@ -19,7 +19,7 @@ _HookCallback = typing.Callable[[requests.Response, ...], typing.Any]
 
 class FileDownloader(abc.ABC):
 
-    def __init__(self, session: requests.Session, overwrite: bool = False, timeout: _Timeout | None = (3.05, 30),
+    def __init__(self, session: requests.Session, overwrite: bool = False, timeout: _Timeout | None = (3.05, None),
                  callbacks: _HookCallback | typing.Collection[_HookCallback] | None = None,
 
                  # FIXME - Find a way to turn progress reporting on and off automatically instead of leaving it up to
