@@ -21,7 +21,7 @@ class TileIndex(gpd.GeoDataFrame):
         if utils.file.exists(config.env("BAG3D_INDEX_FILENAME")) and not reconstruct:
             super().__init__(gpd.read_file(config.env("BAG3D_INDEX_FILENAME")))
         else:
-            super().__init__(_reconstruct(), crs=os.environ["CRS"])
+            super().__init__(_reconstruct(), crs=os.environ["DEFAULT_CRS"])
 
 
 def _download_data() -> utils.type.BAG3DTileIndexJSON:
@@ -45,13 +45,13 @@ def _reconstruct() -> utils.type.BAG3DTileIndexData:
 
 
 def _parse_tile_id(tile: utils.type.BAG3TileData) -> str:
-    return _TILE_ID_FMT.sub("", tile[os.environ["BAG3D_TILE_INDEX_ID_FIELD_NAME"]]).replace("/", "-")
+    return _TILE_ID_FMT.sub("", tile[os.environ["DEFAULT_ID_FIELD_NAME"]]).replace("/", "-")
 
 
 def _parse_tile_gm(tile: utils.type.BAG3TileData) -> shapely.Polygon:
-    return shapely.Polygon(tile[os.environ["BAG3D_TILE_INDEX_GM_FIELD_NAME"]][os.environ["BAG3D_TILE_COORDINATES"]][0])
+    return shapely.Polygon(tile[os.environ["DEFAULT_GM_FIELD_NAME"]][os.environ["BAG3D_TILE_COORDINATES"]][0])
 
 
 def _pase_tile(tile: utils.type.BAG3TileData, data: utils.type.BAG3DTileIndexData) -> None:
-    data[os.environ["BAG3D_TILE_INDEX_ID_FIELD_NAME"]].append(_parse_tile_id(tile))
-    data[os.environ["BAG3D_TILE_INDEX_GM_FIELD_NAME"]].append(_parse_tile_gm(tile))
+    data[os.environ["DEFAULT_ID_FIELD_NAME"]].append(_parse_tile_id(tile))
+    data[os.environ["DEFAULT_GM_FIELD_NAME"]].append(_parse_tile_gm(tile))
