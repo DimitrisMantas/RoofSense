@@ -1,19 +1,4 @@
-#          Copyright © 2023 Dimitris Mantas
-#
-#          This file is part of RoofSense.
-#
-#          This program is free software: you can redistribute it and/or modify
-#          it under the terms of the GNU General Public License as published by
-#          the Free Software Foundation, either version 3 of the License, or
-#          (at your option) any later version.
-#
-#          This program is distributed in the hope that it will be useful,
-#          but WITHOUT ANY WARRANTY; without even the implied warranty of
-#          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#          GNU General Public License for more details.
-#
-#          You should have received a copy of the GNU General Public License
-#          along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import urllib.parse
 
 import geopandas as gpd
 import requests
@@ -21,7 +6,9 @@ import requests
 import config
 import utils.file
 
-# TODO - Reformat, finalize function and variable names, and add documentation.
+# TODO: Reformat, finalize function and variable names, and add documentation.
+# TODO: Write a generic 3DBAG asset downloader because this downloader is more 90% the
+#       same as `bm`.
 
 BASE_URL = "https://geotiles.citg.tudelft.nl/AHN4_T/"
 
@@ -30,13 +17,28 @@ def load_index() -> gpd.GeoDataFrame:
     return gpd.read_file(config.env("AHN34_INDEX_FILENAME"))
 
 
-def download(id_: str, index: gpd.GeoDataFrame) -> None:
-    path = f"{config.env('TEMP_DIR')}{id_}{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}{config.var('GEOPACKAGE')}"
-    building_footprints = gpd.read_file(path)
+def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
+    obj_path = (f"{config.env('TEMP_DIR')}"
+                f"{obj_id}"
+                f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
+                f"{config.var('GEOPACKAGE')}")
+    obj_bbox = gpd.read_file(obj_path)
 
-    ids = index.overlay(building_footprints)["id_1"].unique()
+    # Fetch the image IDs to download.
+    img_ids = index.overlay(obj_bbox)["id_1"].unique()
 
-    urls = [f"{BASE_URL}{id_}{config.var('LAZ')}" for id_ in ids]
-    filenames = [f"{config.var('TEMP_DIR')}{id_}{config.var('LAZ')}" for id_ in ids]
-    with requests.Session() as session:
-        utils.file.ThreadedFileDownloader(urls, filenames, session=session).download()
+    # Build the image web addresses and local names.
+    # TOSELF: There has to be a way to clean up this block using `itertools`?!?
+    img_addrs = [(f"{BASE_URL}"
+                  f"{id_}"
+                  f"{config.var('LAZ')}")
+
+                 for id_ in img_ids]
+
+    img_names = [(f"{config.var('TEMP_DIR')}"
+                  f"{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}")
+
+                 for addr in img_addrs]
+
+    with requests.Session() as s:
+        utils.file.ThreadedFileDownloader(img_addrs, img_names, session=s).download()

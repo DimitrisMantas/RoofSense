@@ -1,84 +1,46 @@
-#          Copyright © 2023 Dimitris Mantas
-#
-#          This file is part of RoofSense.
-#
-#          This program is free software: you can redistribute it and/or modify
-#          it under the terms of the GNU General Public License as published by
-#          the Free Software Foundation, either version 3 of the License, or
-#          (at your option) any later version.
-#
-#          This program is distributed in the hope that it will be useful,
-#          but WITHOUT ANY WARRANTY; without even the implied warranty of
-#          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#          GNU General Public License for more details.
-#
-#          You should have received a copy of the GNU General Public License
-#          along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import urllib.parse
 
-import enum
+import geopandas as gpd
+import requests
+
+import config
+import utils.file
+
+# TODO: Reformat, finalize function and variable names, and add documentation.
+# TODO: Write a generic 3DBAG asset downloader because this downloader is more 90% the
+#       same as `ahn`.
+
+BASE_URL = "https://geotiles.citg.tudelft.nl/Luchtfoto_2023/"
 
 
-class TileResolution(enum.Enum):
-    LOW, HIGH = range(2)
+def load_index() -> gpd.GeoDataFrame:
+    return gpd.read_file(config.env("ORTHO_INDEX_FILENAME"))
 
 
-def _low_resolution_tile_index(point: tuple[float, float]) -> tuple[float, float]:
-    pass
+def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
+    obj_path = (f"{config.env('TEMP_DIR')}"
+                f"{obj_id}"
+                f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
+                f"{config.var('GEOPACKAGE')}")
+    obj_bbox = gpd.read_file(obj_path)
 
+    # Fetch the image IDs to download.
+    img_ids = index.overlay(obj_bbox)["id_1"].unique()
 
-def _high_resolution_tile_index(point: tuple[float, float]) -> tuple[float, float]:
-    pass
+    # Build the image web addresses and local names.
+    # TOSELF: There has to be a way to clean up this block using `itertools`?!?
+    img_addrs = [(f"{BASE_URL}"
+                  f"{tp}"
+                  f"_"
+                  f"{id_}"
+                  f"{config.var('TIFF')}")
 
+                 for id_ in img_ids for tp in ['RGB', "CIR"]]
 
-_TILE_RESOLUTION_T0_INDEX = {
-    TileResolution.LOW: _low_resolution_tile_index,
-    TileResolution.HIGH: _high_resolution_tile_index, }
+    img_names = [(f"{config.var('TEMP_DIR')}"
+                  f"{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}")
 
+                 for addr in img_addrs]
 
-class TileIndex:
-    # NOTE - Is it OK to hardcode strings?
-    _BASE_URL = "https://ns_hwh.fundaments.nl/hwh-ortho/"
-
-    def __init__(self, year: int, resolution: TileResolution) -> None:
-        self.__year = year
-        self.__resolution = resolution
-        self.__init_url()
-
-        self.__index = _TILE_RESOLUTION_T0_INDEX[self.__resolution]
-
-    @property
-    def year(self) -> int:
-        return self.__year
-
-    @year.setter
-    def year(self, value: int) -> None:
-        # NOTE - Is this check worth it?
-        if self.__year == value:
-            return
-        self.__year = value
-        self.__init_url()
-
-    @property
-    def resolution(self) -> TileResolution:
-        return self.__resolution
-
-    @resolution.setter
-    def resolution(self, value: TileResolution) -> None:
-        # NOTE - Is this check worth it?
-        if self.__resolution == value:
-            return
-        self.__resolution = value
-        self.__index = _TILE_RESOLUTION_T0_INDEX[self.__resolution]
-
-    def __init_url(self) -> None:
-        self.__url = TileIndex._BASE_URL
-        # NOTE - Is it OK to hardcode strings?
-        if self.__resolution == TileResolution.LOW:
-            self.__url += f"{self.__year}/Ortho/6/CIR_tif/"
-        else:
-            # TODO - Find out how HR URLs work. If the missing information is tile-dependent, use placeholders and
-            #        handle them in `__build_url`.
-            self.__url += f"{self.__year}/Ortho/{0}/{1}/beelden_tif_tegels/"
-
-    def build_url(self, point: tuple[float, float]) -> str:
-        pass
+    with requests.Session() as s:
+        utils.file.ThreadedFileDownloader(img_addrs, img_names, session=s).download()

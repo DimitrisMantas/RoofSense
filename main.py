@@ -1,20 +1,3 @@
-#          Copyright © 2023 Dimitris Mantas
-#
-#          This file is part of RoofSense.
-#
-#          This program is free software: you can redistribute it and/or modify
-#          it under the terms of the GNU General Public License as published by
-#          the Free Software Foundation, either version 3 of the License, or
-#          (at your option) any later version.
-#
-#          This program is distributed in the hope that it will be useful,
-#          but WITHOUT ANY WARRANTY; without even the implied warranty of
-#          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#          GNU General Public License for more details.
-#
-#          You should have received a copy of the GNU General Public License
-#          along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 import config
 import downloaders
 
@@ -24,24 +7,31 @@ def main():
     config.config()
 
     # Fetch a tile id.
-    # NOTE - The program can operate on a building-by-building or tile-by-tile basis. The default is the latter since
-    #        the 3DBGAG tile identifiers are contained in the corresponding index, and thus the classification process
-    #        can continue automatically.
-    id_ = "9-284-556"
+
+    # NOTE - The program can operate on a building-by-building or tile-by-tile basis.
+    #        The default is the latter since the 3DBGAG tile identifiers are contained
+    #        in the corresponding index, and thus the classification process can
+    #        continue automatically.
+    obj_id = "9-284-556"
 
     # Download the corresponding 3DBAG data.
-    downloaders.bag3d.download(id_)
+    downloaders.bag3d.download(obj_id)
 
     # Parse the tile.
-    # FIXME - Do not parse previously processed tiles.
-    # FIXME - Move the data parser out of the downloader module.
-    downloaders.bag3d.DataParser(id_).parse()
+    # FIXME: Do not parse previously processed tiles.
+    # FIXME: Move the 3DBAG data parser to `downloaders.utils`.
+    downloaders.bag3d.DataParser(obj_id).parse()
 
-    # Download the corresponding AHN4 and BM5 data.
-    # NOTE - Load the index now so that it does not have to be reloaded when processing a different tile.
-    # FIXME - Move the index loader out of the downloader module.
-    index = downloaders.ahn34.load_index()
-    downloaders.ahn34.download(id_, index)
+    # Download the corresponding AHN and BM data.
+    # NOTE - Load the index now so that it does not have to be reloaded when processing
+    #        a different tile.
+    # FIXME - Aggregate all index loaders and move them to a separate file inside  a
+    #         data module.
+    index1 = downloaders.ahn34.load_index()
+    downloaders.ahn34.download(obj_id, index1)
+
+    index2 = downloaders.ortho.load_index()
+    downloaders.ortho.download(obj_id, index2)
 
 
 if __name__ == "__main__":
