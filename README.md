@@ -1,9 +1,11 @@
-© 2023-2024 Dimitris Mantas
+# Legal
+
+Copyright © 2023-2024 Dimitris Mantas
 <br>
-<a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
-<img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" />
+<br>
+<a rel="license" href="https://www.gnu.org/licenses/">
+<img alt="Creative Commons License" style="border-width:0; height:42px" src="https://www.gnu.org/graphics/gplv3-or-later.svg" />
 </a>
 <br>
-Except where otherwise noted, this work is licensed under
-a <a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0
-International License</a>.
+Except where otherwise noted, this work is licensed under the <a rel="license" href="https://www.gnu.org/licenses/">GNU
+General Public License</a>.
