@@ -13,8 +13,9 @@ def _high_resolution_tile_index(point: tuple[float, float]) -> tuple[float, floa
     pass
 
 
-_TILE_RESOLUTION_T0_INDEX = {TileResolution.LOW: _low_resolution_tile_index,
-                             TileResolution.HIGH: _high_resolution_tile_index}
+_TILE_RESOLUTION_T0_INDEX = {
+    TileResolution.LOW: _low_resolution_tile_index,
+    TileResolution.HIGH: _high_resolution_tile_index, }
 
 
 class TileIndex:

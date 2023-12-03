@@ -34,8 +34,5 @@ class stdin:
     def __enter__(self) -> None:
         sys.stdin = self._file
 
-    def __exit__(self,
-                 exc_type,
-                 exc_val,
-                 exc_tb) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         sys.stdin = sys.__stdin__

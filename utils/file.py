@@ -19,7 +19,10 @@ _HookCallback = typing.Callable[[requests.Response, ...], typing.Any]
 
 class FileDownloader(abc.ABC):
 
-    def __init__(self, session: requests.Session, overwrite: bool = False, timeout: _Timeout | None = (3.05, None),
+    def __init__(self,
+                 session: requests.Session,
+                 overwrite: bool = False,
+                 timeout: _Timeout | None = (3.05, None),
                  callbacks: _HookCallback | typing.Collection[_HookCallback] | None = None,
 
                  # FIXME - Find a way to turn progress reporting on and off automatically instead of leaving it up to
@@ -80,8 +83,12 @@ class FileDownloader(abc.ABC):
     def _write(self, response: requests.Response, file: typing.BinaryIO) -> None:
         content_length = response.headers["content-length"]
         # FIXME - Color the entire progress bar white.
-        with tqdm.tqdm(desc="Download Progress", total=int(content_length) if content_length is not None else None,
-                       disable=not self._preport, unit="iB", unit_scale=True, unit_divisor=1024) as progress_bar:
+        with tqdm.tqdm(desc="Download Progress",
+                       total=int(content_length) if content_length is not None else None,
+                       disable=not self._preport,
+                       unit="iB",
+                       unit_scale=True,
+                       unit_divisor=1024) as progress_bar:
             # NOTE - Write the response as it arrives instead of splitting it into possibly smaller-than-received chunks
             #        resulting in additional I/O operations.
             for chunk in response.iter_content(chunk_size=None):
