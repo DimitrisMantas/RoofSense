@@ -1,3 +1,20 @@
+#          Copyright © 2023 Dimitris Mantas
+#
+#          This file is part of RoofSense.
+#
+#          This program is free software: you can redistribute it and/or modify
+#          it under the terms of the GNU General Public License as published by
+#          the Free Software Foundation, either version 3 of the License, or
+#          (at your option) any later version.
+#
+#          This program is distributed in the hope that it will be useful,
+#          but WITHOUT ANY WARRANTY; without even the implied warranty of
+#          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#          GNU General Public License for more details.
+#
+#          You should have received a copy of the GNU General Public License
+#          along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import os
 
 import cjio.cityjson
@@ -84,8 +101,10 @@ class DataParser:
             # Get the exterior `Polygon` of the corresponding `Surface`.
             surface = shapely.force_2d(shapely.Polygon(surface[0]))
 
-            self._surfaces_boundaries[os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
-            self._surfaces_boundaries[os.environ["DEFAULT_GM_FIELD_NAME"]].append(surface)
+            self._surfaces_boundaries[
+                os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
+            self._surfaces_boundaries[os.environ["DEFAULT_GM_FIELD_NAME"]].append(
+                surface)
 
 
 class DataType:
@@ -108,7 +127,10 @@ def _download_item_data(id_: str, partial_path: str) -> None:
     filename = f"{partial_path}{config.var('CITY_JSON')}"
 
     with requests.Session() as session:
-        utils.file.BlockingFileDownloader(url, filename, session=session, callbacks=utils.cjio.to_jsonl).download()
+        utils.file.BlockingFileDownloader(url,
+                                          filename,
+                                          session=session,
+                                          callbacks=utils.cjio.to_jsonl).download()
 
 
 def _download_tile_data(id_: str, partial_path: str) -> None:

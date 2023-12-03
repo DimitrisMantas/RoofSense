@@ -1,3 +1,20 @@
+#          Copyright © 2023 Dimitris Mantas
+#
+#          This file is part of RoofSense.
+#
+#          This program is free software: you can redistribute it and/or modify
+#          it under the terms of the GNU General Public License as published by
+#          the Free Software Foundation, either version 3 of the License, or
+#          (at your option) any later version.
+#
+#          This program is distributed in the hope that it will be useful,
+#          but WITHOUT ANY WARRANTY; without even the implied warranty of
+#          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#          GNU General Public License for more details.
+#
+#          You should have received a copy of the GNU General Public License
+#          along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from __future__ import annotations
 
 import abc
@@ -5,6 +22,7 @@ import concurrent.futures
 import logging
 import pathlib
 import typing
+from typing import Union
 
 import requests
 import requests.adapters
@@ -13,7 +31,7 @@ import urllib3
 
 # TODO - Reformat, finalize function and variable names, and add documentation.
 
-_Timeout = float | tuple[float, float] | tuple[float, None]
+_Timeout = Union[float, tuple[float, float], tuple[float, None]]
 _HookCallback = typing.Callable[[requests.Response, ...], typing.Any]
 
 
@@ -23,15 +41,19 @@ class FileDownloader(abc.ABC):
                  session: requests.Session,
                  overwrite: bool = False,
                  timeout: _Timeout | None = (3.05, None),
-                 callbacks: _HookCallback | typing.Collection[_HookCallback] | None = None,
+                 callbacks: _HookCallback | typing.Collection[
+                     _HookCallback] | None = None,
 
                  # FIXME - Find a way to turn progress reporting on and off automatically instead of leaving it up to
                  #         the user to decide.
                  report_progress: bool = True) -> None:
         self._session = session
         # FIXME - Expose these options to the user.
-        self._retries = urllib3.util.Retry(total=3, backoff_factor=0.5, backoff_jitter=0.5)
-        self._session.mount("https://", requests.adapters.HTTPAdapter(max_retries=self._retries))
+        self._retries = urllib3.util.Retry(total=3,
+                                           backoff_factor=0.5,
+                                           backoff_jitter=0.5)
+        self._session.mount("https://",
+                            requests.adapters.HTTPAdapter(max_retries=self._retries))
 
         self._overwrite = overwrite
         self._timeout = timeout
@@ -47,7 +69,10 @@ class FileDownloader(abc.ABC):
         if exists(filename) and not self._overwrite:
             return
 
-        with self._session.get(url, timeout=self._timeout, hooks=self._callbacks, stream=True) as response:
+        with self._session.get(url,
+                               timeout=self._timeout,
+                               hooks=self._callbacks,
+                               stream=True) as response:
             self._handle(response)
 
             # NOTE - Write the response inside a with-block so that the request is not consumed prematurely resulting
@@ -122,10 +147,12 @@ class ThreadedFileDownloader(FileDownloader):
 
     def download(self) -> None:
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_conns) as executor:
-            futures = {executor.submit(self._fetch, url, filename): (url, filename) for url, filename in
-                       zip(self._urls, self._filenames)}
+            futures = {executor.submit(self._fetch, url, filename): (url, filename) for
+                       url, filename in zip(self._urls, self._filenames)}
             # FIXME - Color the entire progress bar white.
-            with tqdm.tqdm(desc="Download Progress", total=len(futures), unit="File") as progress_bar:
+            with tqdm.tqdm(desc="Download Progress",
+                           total=len(futures),
+                           unit="File") as progress_bar:
                 for task in concurrent.futures.as_completed(futures):
                     address, filename = futures[task]
                     try:

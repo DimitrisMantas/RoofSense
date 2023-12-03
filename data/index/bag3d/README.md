@@ -9,6 +9,7 @@
 [//]: # (its [website]&#40;https://geotiles.citg.tudelft.nl/&#41;.)
 
 [//]: # ()
+
 [//]: # (For more information regarding the GeoTiles tiling schema, please refer to the)
 
 [//]: # (relevant [documentation]&#40;https://weblog.fwrite.org/kaartbladen/&#41;.)
