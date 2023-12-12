@@ -131,9 +131,7 @@ if __name__ == "__main__":
     # Create the required directory to store the output file.
     utils.mkdirs(filename + ".gpkg")
 
-    with fiona.open(filename + ".gpkg",
-                    "w",
-                    crs=pyproj.CRS("EPSG:28992").to_wkt(),
+    with fiona.open(filename + ".gpkg", "w", crs=pyproj.CRS("EPSG:28992").to_wkt(),
                     driver="GPKG",
                     schema=schema) as f:
         for i, contour in enumerate(contours):

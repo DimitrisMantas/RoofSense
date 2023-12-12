@@ -4,12 +4,12 @@ import random
 from enum import Enum
 from typing import Optional
 
-import geom
 import laspy
 import numpy as np
 import scipy
 import startinpy
 
+import geom
 import raster
 import utils
 

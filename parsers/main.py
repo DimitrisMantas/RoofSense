@@ -1,6 +1,6 @@
-import geom
 import numpy as np
 
+import geom
 import point_cloud
 
 
