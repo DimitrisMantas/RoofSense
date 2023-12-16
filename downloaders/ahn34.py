@@ -18,10 +18,12 @@ def load_index() -> gpd.GeoDataFrame:
 
 
 def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
-    obj_path = (f"{config.env('TEMP_DIR')}"
-                f"{obj_id}"
-                f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
-                f"{config.var('GEOPACKAGE')}")
+    obj_path = (
+        f"{config.env('TEMP_DIR')}"
+        f"{obj_id}"
+        f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
+        f"{config.var('GEOPACKAGE')}"
+    )
     obj_bbox = gpd.read_file(obj_path)
 
     # Fetch the image IDs to download.
@@ -29,16 +31,15 @@ def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
 
     # Build the image web addresses and local names.
     # TOSELF: There has to be a way to clean up this block using `itertools`?!?
-    img_addrs = [(f"{BASE_URL}"
-                  f"{id_}"
-                  f"{config.var('LAZ')}")
+    img_addrs = [f"{BASE_URL}" f"{id_}" f"{config.var('LAZ')}" for id_ in img_ids]
 
-                 for id_ in img_ids]
-
-    img_names = [(f"{config.var('TEMP_DIR')}"
-                  f"{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}")
-
-                 for addr in img_addrs]
+    img_names = [
+        (
+            f"{config.var('TEMP_DIR')}"
+            f"{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}"
+        )
+        for addr in img_addrs
+    ]
 
     with requests.Session() as s:
         utils.file.ThreadedFileDownloader(img_addrs, img_names, session=s).download()

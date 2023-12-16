@@ -55,7 +55,7 @@ class DataParser:
         boundary = geometry.boundaries[0][0]
         boundary = shapely.force_2d(shapely.Polygon(boundary))
 
-        # TOSELF - Rewrite the default dataframe into its own class so that its fields can be accessed without 
+        # TOSELF - Rewrite the default dataframe into its own class so that its fields can be accessed without
         #          needing to look up environment variables, which reduces readability?
         self._building_boundaries[os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
         self._building_boundaries[os.environ["DEFAULT_GM_FIELD_NAME"]].append(boundary)
@@ -84,10 +84,12 @@ class DataParser:
             # Get the exterior `Polygon` of the corresponding `Surface`.
             surface = shapely.force_2d(shapely.Polygon(surface[0]))
 
-            self._surfaces_boundaries[
-                os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
+            self._surfaces_boundaries[os.environ["DEFAULT_ID_FIELD_NAME"]].append(
+                item.id
+            )
             self._surfaces_boundaries[os.environ["DEFAULT_GM_FIELD_NAME"]].append(
-                surface)
+                surface
+            )
 
 
 class DataType:
@@ -110,16 +112,17 @@ def _download_item_data(id_: str, partial_path: str) -> None:
     filename = f"{partial_path}{config.var('CITY_JSON')}"
 
     with requests.Session() as session:
-        utils.file.BlockingFileDownloader(url,
-                                          filename,
-                                          session=session,
-                                          callbacks=utils.cjio.to_jsonl).download()
+        utils.file.BlockingFileDownloader(
+            url, filename, session=session, callbacks=utils.cjio.to_jsonl
+        ).download()
 
 
 def _download_tile_data(id_: str, partial_path: str) -> None:
     # Compile static, compound environment variables.
     # FIXME - Do not recompile this constant at every function call.
-    _BASE_TILE_DATA_URL = f"{config.var('BAG3D_TILE_URL')}{config.var('BAG3D_VER')}/tiles/"
+    _BASE_TILE_DATA_URL = (
+        f"{config.var('BAG3D_TILE_URL')}{config.var('BAG3D_VER')}/tiles/"
+    )
 
     url = f"{_BASE_TILE_DATA_URL}{id_.replace('-', '/')}/{id_}{config.var('CITY_JSON')}"
     filename = f"{partial_path}{config.var('CITY_JSON')}"

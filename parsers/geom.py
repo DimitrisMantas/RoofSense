@@ -14,10 +14,9 @@ class Point:
 class BoundingBox:
     """An axis-aligned rectangle."""
 
-    def __init__(self,
-                 origin: Point,
-                 len_x: float,
-                 len_y: Optional[Union[float, None]] = None) -> None:
+    def __init__(
+        self, origin: Point, len_x: float, len_y: Optional[Union[float, None]] = None
+    ) -> None:
         """
         Creates a new axis-aligned rectangle.
 
@@ -56,7 +55,11 @@ class BoundingBox:
             IndexError:
                 If the point set is one-dimensional i.e., contains only one point.
         """
-        return np.logical_and(np.logical_and(self.origin.x <= pts[:, 0],
-                                             pts[:, 0] <= self.origin.x + self.len_x),
-                              np.logical_and(self.origin.y <= pts[:, 1],
-                                             pts[:, 1] <= self.origin.y + self.len_y))
+        return np.logical_and(
+            np.logical_and(
+                self.origin.x <= pts[:, 0], pts[:, 0] <= self.origin.x + self.len_x
+            ),
+            np.logical_and(
+                self.origin.y <= pts[:, 1], pts[:, 1] <= self.origin.y + self.len_y
+            ),
+        )

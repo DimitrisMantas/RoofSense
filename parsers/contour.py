@@ -67,11 +67,13 @@ def isolines(filename: str, isovalue: float):
         for edge in edges:
             # Compute the location of the intersection of each edge and the contour lines along its length.
             p = (isovalue - dt.get_point(edge.e2)[2]) / (
-                        dt.get_point(edge.e1)[2] - dt.get_point(edge.e2)[2])
+                dt.get_point(edge.e1)[2] - dt.get_point(edge.e2)[2]
+            )
             # Compute the intersection.
             intersection = (
-            (1 - p) * dt.get_point(edge.e2)[0] + p * dt.get_point(edge.e1)[0],
-            (1 - p) * dt.get_point(edge.e2)[1] + p * dt.get_point(edge.e1)[1])
+                (1 - p) * dt.get_point(edge.e2)[0] + p * dt.get_point(edge.e1)[0],
+                (1 - p) * dt.get_point(edge.e2)[1] + p * dt.get_point(edge.e1)[1],
+            )
 
             endpts.append(intersection)
 
@@ -121,21 +123,27 @@ if __name__ == "__main__":
     isovalues = [16, 18, 20, 22]
 
     with multiprocessing.Pool() as pool:
-        contours = pool.starmap(isolines,
-                                zip(itertools.repeat(filename + ".tif"), isovalues))
+        contours = pool.starmap(
+            isolines, zip(itertools.repeat(filename + ".tif"), isovalues)
+        )
 
-    # contours = isolines("data/test/dtm/0_5/test_dtm_0_5_cls.tif", 22)
+    # contours = isolines("data/tests/dtm/0_5/test_dtm_0_5_cls.tif", 22)
 
     schema = {"geometry": "MultiLineString", "properties": [["ELEV", "float"]]}
 
     # Create the required directory to store the output file.
     utils.mkdirs(filename + ".gpkg")
 
-    with fiona.open(filename + ".gpkg", "w", crs=pyproj.CRS("EPSG:28992").to_wkt(),
-                    driver="GPKG",
-                    schema=schema) as f:
+    with fiona.open(
+        filename + ".gpkg",
+        "w",
+        crs=pyproj.CRS("EPSG:28992").to_wkt(),
+        driver="GPKG",
+        schema=schema,
+    ) as f:
         for i, contour in enumerate(contours):
             output = {
-                "geometry": {'type': 'MultiLineString', 'coordinates': contour},
-                "properties": {"ELEV": isovalues[i]}}
+                "geometry": {"type": "MultiLineString", "coordinates": contour},
+                "properties": {"ELEV": isovalues[i]},
+            }
             f.write(output)

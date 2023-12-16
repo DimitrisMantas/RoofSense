@@ -47,11 +47,14 @@ def _parse_tile_id(tile: utils.type.BAG3TileData) -> str:
 def _parse_tile_gm(tile: utils.type.BAG3TileData) -> shapely.Polygon:
     return shapely.Polygon(
         tile[os.environ["DEFAULT_GM_FIELD_NAME"]][os.environ["BAG3D_TILE_COORDINATES"]][
-            0])
+            0
+        ]
+    )
 
 
-def _pase_tile(tile: utils.type.BAG3TileData,
-               data: utils.type.BAG3DTileIndexData) -> None:
+def _pase_tile(
+    tile: utils.type.BAG3TileData, data: utils.type.BAG3DTileIndexData
+) -> None:
     data[os.environ["DEFAULT_ID_FIELD_NAME"]].append(_parse_tile_id(tile))
     data[os.environ["DEFAULT_GM_FIELD_NAME"]].append(_parse_tile_gm(tile))
 

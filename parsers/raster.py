@@ -18,16 +18,14 @@ class Profiles:
     AHN3 = {  # "tiled": True,
         # "blockxsize": 256,
         # "blockysize": 256,
-
         # "interleave": "band",
-
         "compress": "lzw",
-
         "dtype": "float32",
-
         "driver": "GTiff",
-
-        "count": 1, "crs": pyproj.CRS("EPSG:28992"), "nodata": 3.4028234663852886e+38}
+        "count": 1,
+        "crs": pyproj.CRS("EPSG:28992"),
+        "nodata": 3.4028234663852886e38,
+    }
 
 
 class Raster:
@@ -38,10 +36,12 @@ class Raster:
     # This suppression is so that PyCharm does not complain about Iterable not declaring a concrete implementation of
     # __getitem__.
     # noinspection PyUnresolvedReferences
-    def __init__(self,
-                 resolution: float,
-                 bbox: Sequence[float],
-                 profile: Optional[dict[str, str]] = None) -> None:
+    def __init__(
+        self,
+        resolution: float,
+        bbox: Sequence[float],
+        profile: Optional[dict[str, str]] = None,
+    ) -> None:
         """
         Creates an empty raster of a given resolution and profile.
 
@@ -90,15 +90,16 @@ class Raster:
         # Define an appropriate transformation to map the position of each cell from raster space to real-world
         # coordinates.
         # noinspection PyUnresolvedReferences
-        ij_to_xy = rasterio.transform.from_origin(self.bbox[0],
-                                                  self.bbox[3],
-                                                  self.__cell_size,
-                                                  self.__cell_size)
+        ij_to_xy = rasterio.transform.from_origin(
+            self.bbox[0], self.bbox[3], self.__cell_size, self.__cell_size
+        )
 
-        with rasterio.open(filename,
-                           "w",
-                           width=self.len_x,
-                           height=self.len_y,
-                           transform=ij_to_xy,
-                           **self.profile) as f:
+        with rasterio.open(
+            filename,
+            "w",
+            width=self.len_x,
+            height=self.len_y,
+            transform=ij_to_xy,
+            **self.profile,
+        ) as f:
             f.write(self.__data, 1)

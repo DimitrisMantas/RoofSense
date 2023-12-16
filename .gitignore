@@ -1,6 +1,6 @@
 /.idea/
 /data/temp/
-/testbench/
+/dev/
 /logs/
-/test/data/ahn34/
-/test/data/ortho/
+/tests/data/ahn34/
+/tests/data/ortho/
