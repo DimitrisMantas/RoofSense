@@ -17,8 +17,8 @@ def to_jsonl(response: requests.Response, *args, **kwargs):
             for feat in j["features"]:
                 f.write(f"{json.dumps(feat)}\n")
 
-        # NOTE - Reset the offset into the file to the beginning so that it will be read in its entirety when the
-        #        standard input is pointed to it.
+        # NOTE - Reset the offset into the file to the beginning so that it will be
+        #        read in its entirety when the standard input is pointed to it.
         f.seek(0)
         with stdin(f):
             j = cjio.cityjson.read_stdin()
