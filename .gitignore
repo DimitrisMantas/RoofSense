@@ -1,6 +1,8 @@
 /.idea/
 /data/temp/
-/dev/
+*.las
+*.laz
+*.tiff
 /logs/
 /tests/data/ahn34/
 /tests/data/ortho/
