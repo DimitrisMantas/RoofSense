@@ -29,35 +29,12 @@ class Profiles:
 
 
 class Raster:
-    """
-    A square-cell raster.
-    """
-
-    # This suppression is so that PyCharm does not complain about Iterable not declaring a concrete implementation of
-    # __getitem__.
-    # noinspection PyUnresolvedReferences
     def __init__(
         self,
         resolution: float,
         bbox: Sequence[float],
         profile: Optional[dict[str, str]] = None,
     ) -> None:
-        """
-        Creates an empty raster of a given resolution and profile.
-
-        The value of each cell of the raster is initially set to the ``nodata`` value defined in its profile.
-
-        Args:
-            resolution:
-                A non-negative number representing the side length (i.e., the size) of each cell of the raster in the
-                units used by the coordinate reference system defined in its profile.
-            bbox:
-                An iterable containing at least four real numbers defining the axis-aligned minimum bounding rectangle
-                of the raster in the order: ``(min_x, min_y, max_x, max_y)``.
-            profile:
-                A string-keyed dictionary defining the profile of the raster. See :class:`Profiles<raster.Profiles>` for
-                more information.
-        """
         if profile is None:
             self.profile = Profiles.AHN3
 
@@ -70,7 +47,8 @@ class Raster:
         self.__data = np.full([self.len_y, self.len_x], self.profile["nodata"])
 
     def __getitem__(self, idx: Union[int, Sequence[int]]) -> None:
-        return self.__data[idx]
+        if isinstance(idx, int):
+            return self.__data[divmod()]
 
     def __setitem__(self, idx: Union[int, Sequence[int]], val: float) -> None:
         self.__data[idx] = val
