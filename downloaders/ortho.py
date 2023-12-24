@@ -8,7 +8,7 @@ import utils.file
 
 # TODO: Reformat, finalize function and variable names, and add documentation.
 # TODO: Write a generic 3DBAG asset downloader because this downloader is more 90% the
-#       same as `ahn`.
+#       same as `lidar`.
 
 BASE_URL = "https://geotiles.citg.tudelft.nl/Luchtfoto_2023/"
 

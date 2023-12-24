@@ -27,8 +27,8 @@ def main():
     #        a different tile.
     # FIXME - Aggregate all index loaders and move them to a separate file inside  a
     #         data module.
-    index1 = downloaders.ahn34.load_index()
-    downloaders.ahn34.download(obj_id, index1)
+    index1 = downloaders.lidar.load_index()
+    downloaders.lidar.download(obj_id, index1)
 
     index2 = downloaders.ortho.load_index()
     downloaders.ortho.download(obj_id, index2)
