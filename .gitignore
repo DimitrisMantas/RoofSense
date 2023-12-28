@@ -1,7 +1,9 @@
 /.idea/
 /data/temp/
+*.gpkg
 *.las
 *.laz
+*.tif
 *.tiff
 /logs/
 /tests/data/ahn34/

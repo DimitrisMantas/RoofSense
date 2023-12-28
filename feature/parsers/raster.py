@@ -1,70 +1,62 @@
+from __future__ import annotations
+
 import math
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 import numpy as np
 import pyproj
 import rasterio
-
-import utils
-
-
-class Profiles:
-    """
-    A collection of named raster profiles.
-    """
-
-    # A[n] [tiled, band-interleaved,] LZW-compressed, 32-bit floating-point GeoTIFF raster which is compatible with
-    # corresponding AHN3 datasets.
-    AHN3 = {  # "tiled": True,
-        # "blockxsize": 256,
-        # "blockysize": 256,
-        # "interleave": "band",
-        "compress": "lzw",
-        "dtype": "float32",
-        "driver": "GTiff",
-        "count": 1,
-        "crs": pyproj.CRS("EPSG:28992"),
-        "nodata": 3.4028234663852886e38,
-    }
 
 
 class Raster:
     def __init__(
         self,
         resolution: float,
-        bbox: Sequence[float],
+        extents: Sequence[float],
         profile: Optional[dict[str, str]] = None,
     ) -> None:
+        # grid = raster.Raster(CELL_SIZE, dt.get_bbox())
+        #
+        # # FIXME: Integrate this block into the Raster initializer.
+        # # Construct the grid.
+        # # TODO: Add documentation.
+        # rows, cols = np.mgrid[grid.len_y - 1:-1:-1, 0:grid.len_x]
+        # # TODO: Add documentation.
+        # xx = grid.bbox[0] + CELL_SIZE * (cols + 0.5)
+        # yy = grid.bbox[1] + CELL_SIZE * (rows + 0.5)
+        # # TODO: Add documentation.
+        # cells = np.column_stack([xx.ravel(), yy.ravel()])
+
         if profile is None:
             self.profile = Profiles.AHN3
 
         self.__cell_size = resolution
 
-        self.bbox = bbox
+        self.bbox = extents
         self.len_x = math.ceil((self.bbox[2] - self.bbox[0]) / resolution)
         self.len_y = math.ceil((self.bbox[3] - self.bbox[1]) / resolution)
 
         self.__data = np.full([self.len_y, self.len_x], self.profile["nodata"])
 
-    def __getitem__(self, idx: Union[int, Sequence[int]]) -> None:
+    def __getitem__(self, idx: int | Sequence[int]) -> None:
         if isinstance(idx, int):
             return self.__data[divmod()]
 
-    def __setitem__(self, idx: Union[int, Sequence[int]], val: float) -> None:
+    def __setitem__(self, idx: int | Sequence[int], val: float) -> None:
         self.__data[idx] = val
 
+    @property
+    def width(self):
+        return self.len_x
+
+    @property
+    def height(self):
+        return self.len_y
+
+    def crop(self, extents: Sequence[float]) -> Raster:
+        return self
+
     def save(self, filename: str) -> None:
-        """
-        Saves the raster to a file.
-
-        Args:
-            filename:
-                A string representing the relative or absolute system path to the output file.
-        """
-
-        # Create the required directory to store the output file.
-        utils.mkdirs(filename)
-
         # Define an appropriate transformation to map the position of each cell from raster space to real-world
         # coordinates.
         # noinspection PyUnresolvedReferences
@@ -81,3 +73,23 @@ class Raster:
             **self.profile,
         ) as f:
             f.write(self.__data, 1)
+
+
+class Profiles:
+    """
+    A collection of named raster profiles.
+    """
+
+    # A[n] [tiled, band-interleaved,] LZW-compressed, 32-bit floating-point GeoTIFF raster which is compatible with
+    # corresponding AHN3 datasets.
+    AHN3 = {  # "tiled": True,
+        # "blockxsize": 256,
+        # "blockysize": 256,
+        # "interleave": "band",
+        "compress": "lzw",
+        "dtype": "float32",
+        "driver": "GTiff",
+        "count": 4,
+        "crs": pyproj.CRS("EPSG:28992"),
+        "nodata": 3.4028234663852886e38,
+    }
