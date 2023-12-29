@@ -27,7 +27,7 @@ def main():
     # Download the corresponding AHN and BM data.
     # NOTE - Load the index now so that it does not have to be reloaded when processing
     #        a different tile.
-    # FIXME - Aggregate all index loaders and move them to a separate file inside  a
+    # FIXME - Aggregate all index loaders and move them to a separate file inside a
     #         data module.
     index1 = downloaders.lidar.load_index()
     downloaders.lidar.download(obj_id, index1)
