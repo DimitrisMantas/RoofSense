@@ -36,7 +36,7 @@ def main():
     downloaders.ortho.download(obj_id, index2)
 
     LidarDataParser("").parse()
-    OrthoDataParser("").parse()
+    OrthoDataParser(obj_id).parse(index2)
 
 
 if __name__ == "__main__":

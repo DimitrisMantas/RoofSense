@@ -16,7 +16,7 @@ class BAG3DDataParser(DataParser):
     def __init__(self, id_: str) -> None:
         super().__init__(id_)
 
-        path = f"{config.env('TEMP_DIR')}{self.id}{config.var('CITY_JSON')}"
+        path = f"{config.env('TEMP_DIR')}{self.obj_id}{config.var('CITY_JSON')}"
         self._data = cjio.cityjson.load(path)
 
         self._building_boundaries = config.default_data_dict()
@@ -33,8 +33,8 @@ class BAG3DDataParser(DataParser):
             # TOSELF - Parse its parts.
             self._parse_pitem(item)
 
-        building_path = f"{config.env('TEMP_DIR')}{self.id}{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}{config.var('GEOPACKAGE')}"
-        surfaces_path = f"{config.env('TEMP_DIR')}{self.id}{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}{config.var('GEOPACKAGE')}"
+        building_path = f"{config.env('TEMP_DIR')}{self.obj_id}{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}{config.var('GEOPACKAGE')}"
+        surfaces_path = f"{config.env('TEMP_DIR')}{self.obj_id}{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}{config.var('GEOPACKAGE')}"
         config.default_data_tabl(self._building_boundaries).to_file(building_path)
         config.default_data_tabl(self._surfaces_boundaries).to_file(surfaces_path)
 

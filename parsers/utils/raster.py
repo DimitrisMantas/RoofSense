@@ -4,8 +4,58 @@ import math
 from typing import Optional, Sequence
 
 import numpy as np
-import pyproj
 import rasterio
+import rasterio.mask
+import rasterio.windows
+import shapely
+
+
+def crop(i_name, o_name, bbox, bands=None):
+    f: rasterio.io.DatasetReader
+    with rasterio.open(i_name) as f:
+        win = rasterio.windows.from_bounds(*bbox, transform=f.transform)
+        img = f.read(indexes=bands, window=win)
+
+        win_poly = shapely.Polygon(
+            (
+                (bbox[0], bbox[1]),
+                (bbox[2], bbox[1]),
+                (bbox[2], bbox[3]),
+                (bbox[0], bbox[3]),
+                (bbox[0], bbox[1]),
+            )
+        )
+        img_poly = shapely.Polygon(
+            (
+                (f.bounds.left, f.bounds.bottom),
+                (f.bounds.right, f.bounds.bottom),
+                (f.bounds.right, f.bounds.top),
+                (f.bounds.left, f.bounds.top),
+                (f.bounds.left, f.bounds.bottom),
+            )
+        )
+
+        crp_poly = shapely.intersection(win_poly, img_poly)
+
+        g: rasterio.io.DatasetWriter
+        # print(img.shape[0] if len(img.shape) == 3 else 1,)
+        with rasterio.open(
+            o_name,
+            "w",
+            width=img.shape[-1],
+            height=img.shape[-2],
+            count=img.shape[0] if len(img.shape) == 3 else 1,
+            transform=rasterio.transform.from_bounds(
+                *crp_poly.bounds,
+                width=img.shape[-1],
+                height=img.shape[-2],
+            ),
+            **Profiles.SENSE,
+        ) as g:
+            g.write(
+                img,  # TOSELF: Why is this required when the count is specified?
+                indexes=bands,
+            )
 
 
 class Raster:
@@ -81,20 +131,44 @@ class Raster:
 
 
 class Profiles:
-    """
-    A collection of named raster profiles.
-    """
-
-    # A[n] [tiled, band-interleaved,] LZW-compressed, 32-bit floating-point GeoTIFF raster which is compatible with
-    # corresponding AHN3 datasets.
-    AHN3 = {  # "tiled": True,
-        # "blockxsize": 256,
-        # "blockysize": 256,
-        # "interleave": "band",
-        "compress": "lzw",
-        "dtype": "float32",
+    # Source: https://gdal.org/drivers/raster/gtiff.html
+    SENSE = {
         "driver": "GTiff",
-        "count": 4,
-        "crs": pyproj.CRS("EPSG:28992"),
+        "dtype": "uint8",
+        "nodata": None,  # "count": 3,
+        # TODO: Hardcoded value.
+        "crs": "EPSG:28992",
+        "blockxsize": 256,
+        "blockysize": 256,
+        "tiled": True,
+        # NOTE: Do not recompress the image.
+        # "compress": "jpeg",
+        "interleave": "pixel",  # "photometric": "ycbcr",
+    }
+
+    ORTHO = {
+        "driver": "GTiff",
+        "dtype": "uint8",
+        "nodata": None,
+        "count": 3,
+        # TODO: Hardcoded value.
+        "crs": "EPSG:28992",
+        "blockxsize": 256,
+        "blockysize": 256,
+        "tiled": True,
+        # NOTE: Do not recompress the image.
+        # "compress": "jpeg",
+        "interleave": "pixel",  # "photometric": "ycbcr",
+    }
+
+    LIDAR = {
+        "driver": "GTiff",
+        "dtype": "float32",
         "nodata": 3.4028234663852886e38,
+        "count": 1,  # TODO: Hardcoded value.
+        "crs": "EPSG:28992",
+        "blockxsize": 256,
+        "blockysize": 256,
+        "tiled": True,
+        "interleave": "band",
     }

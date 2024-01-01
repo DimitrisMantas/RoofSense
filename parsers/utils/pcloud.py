@@ -102,6 +102,13 @@ class PointCloud:
             crs="EPSG:28992",
         )
 
+    def slope(self):
+        """Compute the slope field."""
+        if self.dt is None:
+            self.triangulate()
+
+        # Compute the
+
     def __len__(self) -> int:
         return len(self.las.points)
 
