@@ -10,6 +10,7 @@ import rasterio.windows
 import shapely
 
 
+# TODO: Clean up
 def crop(i_name, o_name, bbox, bands=None):
     f: rasterio.io.DatasetReader
     with rasterio.open(i_name) as f:

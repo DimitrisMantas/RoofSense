@@ -22,7 +22,7 @@
       most likely be required to process
       more than a single tile.
 4. *Rasterize the remaining LiDAR data.*
-5. *Merge all similar rasters.*
+5. *Merge all similar rasters.*
     - TODO: Use the profile of the BM5
       imagery.
     - TODO: Check if overlapping rasters

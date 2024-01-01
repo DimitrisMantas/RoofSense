@@ -6,6 +6,7 @@ from parsers._base import DataParser
 from parsers.utils import raster
 
 
+# TODO: Clean up
 class OrthoDataParser(DataParser):
     def __init__(self, obj_id: str) -> None:
         super().__init__(obj_id)
@@ -13,7 +14,7 @@ class OrthoDataParser(DataParser):
     def parse(self, index: gpd.GeoDataFrame) -> None:
         ###########################
         # Fetch the image names.
-        # FIXME: The initializer should take in the image names.
+        # TODO: The initializer should take in the image names.
         obj_filename = (
             f"{config.env('TEMP_DIR')}"
             f"{self.obj_id}"
@@ -21,6 +22,8 @@ class OrthoDataParser(DataParser):
             f"{config.var('GEOPACKAGE')}"
         )
         obj = gpd.read_file(obj_filename)
+        # TODO:Check lidar.ipynb.
+        obj["geometry"] = obj["geometry"].buffer(10)
 
         img_ids = index.overlay(obj)["id_1"].unique()
         img_nms_cir = [
@@ -40,7 +43,6 @@ class OrthoDataParser(DataParser):
             i_nm = f"{nm}{config.var('TIFF')}"
             o_nm = f"{nm}{'.crop'}{config.var('TIFF')}"
             cropped_names_rgb.append(o_nm)
-            # FIXME: Buffer the dataset!
             raster.crop(i_nm, o_nm, obj.total_bounds)
         # Merge the RGB.
         rgb_merged, rgb_merged_transform = rasterio.merge.merge(cropped_names_rgb)
@@ -61,7 +63,6 @@ class OrthoDataParser(DataParser):
             i_nm = f"{nm}{config.var('TIFF')}"
             o_nm = f"{nm}{'.crop'}{config.var('TIFF')}"
             cropped_names_cir.append(o_nm)
-            # FIXME: Buffer the dataset!
             # NOTE: Keep the NIR band onnly.
             raster.crop(i_nm, o_nm, obj.total_bounds, bands=1)
         # Merge the CIR.
