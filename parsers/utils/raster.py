@@ -79,7 +79,7 @@ class Raster:
         # cells = np.column_stack([xx.ravel(), yy.ravel()])
 
         if profile is None:
-            self.profile = Profiles.AHN3
+            self.profile = Profiles.SENSE
 
         self.__cell_size = resolution
 
