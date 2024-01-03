@@ -14,7 +14,7 @@ class Profiles:
     """
 
     # A[n] [tiled, band-interleaved,] LZW-compressed, 32-bit floating-point GeoTIFF raster which is compatible with
-    # corresponding AHN3 datasets.
+    # corresponding AHN3 data.
     AHN3 = {  # "tiled": True,
         # "blockxsize": 256,
         # "blockysize": 256,

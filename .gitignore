@@ -7,4 +7,5 @@
 /logs/
 /tests/data/ahn34/
 /tests/data/ortho/
-/testbench/dset-s2/
+/testbench/data/
+/testbench/lightning_logs/
