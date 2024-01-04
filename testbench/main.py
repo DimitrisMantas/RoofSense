@@ -1,6 +1,8 @@
 import lightning.pytorch
 import torch.utils.data
 import torchgeo.datamodules
+import torchgeo.datasets
+import torchgeo.samplers
 import torchgeo.trainers
 import torchgeo.transforms
 
@@ -11,11 +13,13 @@ def main():
     #       degraded numerical precision.
     torch.set_float32_matmul_precision("high")
 
-    datamodule = torchgeo.datamodules.LandCoverAIDataModule(
+    datamodule = torchgeo.datamodules.L7IrishDataModule(
+        paths="data/l7irish",
         # NOTE: The batch size is device-specific and must be specified empirically such
         #       that the available memory space not exhausted.
         batch_size=16,
         num_workers=8,
+        download=True,
     )
 
     task = torchgeo.trainers.SemanticSegmentationTask(
