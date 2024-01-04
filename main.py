@@ -1,8 +1,6 @@
 import config
 import downloaders
-from parsers.bag3d import BAG3DDataParser
-from parsers.lidar import LidarDataParser
-from parsers.ortho import OrthoDataParser
+import parsers
 
 
 def main():
@@ -22,7 +20,7 @@ def main():
 
     # Parse the tile.
     # FIXME: Do not parse previously processed tiles.
-    BAG3DDataParser(obj_id).parse()
+    parsers.bag3d.BAG3DDataParser(obj_id).parse()
 
     # Download the corresponding AHN and BM data.
     # NOTE - Load the index now so that it does not have to be reloaded when processing
@@ -35,8 +33,8 @@ def main():
     index2 = downloaders.ortho.load_index()
     downloaders.ortho.download(obj_id, index2)
 
-    LidarDataParser("").parse()
-    OrthoDataParser(obj_id).parse(index2)
+    parsers.lidar.LidarDataParser("").parse()
+    parsers.ortho.OrthoDataParser(obj_id).parse(index2)
 
 
 if __name__ == "__main__":

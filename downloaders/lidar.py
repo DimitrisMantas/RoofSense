@@ -21,10 +21,11 @@ def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
     obj_path = (
         f"{config.env('TEMP_DIR')}"
         f"{obj_id}"
-        f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
+        f"{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}"
         f"{config.var('GEOPACKAGE')}"
     )
     obj_bbox = gpd.read_file(obj_path)
+    obj_bbox["geometry"] = obj_bbox["geometry"].buffer(10)
 
     # Fetch the image IDs to download.
     img_ids = index.overlay(obj_bbox)["id_1"].unique()

@@ -18,7 +18,7 @@ class OrthoDataParser(DataParser):
         obj_filename = (
             f"{config.env('TEMP_DIR')}"
             f"{self.obj_id}"
-            f"{config.var('DEFAULT_BUILDING_FOOTPRINT_FILE_ID')}"
+            f"{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}"
             f"{config.var('GEOPACKAGE')}"
         )
         obj = gpd.read_file(obj_filename)
