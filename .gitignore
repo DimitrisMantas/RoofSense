@@ -7,5 +7,7 @@
 /logs/
 /tests/data/ahn34/
 /tests/data/ortho/
-/testbench/data/
+/testbench/data/src/
+/testbench/data/src/img/
+/testbench/data/src/msk/
 /testbench/lightning_logs/

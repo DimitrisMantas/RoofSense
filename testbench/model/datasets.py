@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""L7 Irish dataset."""
+"""L8 Biome dataset."""
 
 import glob
 import os
@@ -9,43 +9,35 @@ from collections.abc import Iterable, Sequence
 from typing import Any, Callable, Optional, Union, cast
 
 import matplotlib.pyplot as plt
-import torchgeo.datasets
 from matplotlib.figure import Figure
 from rasterio.crs import CRS
 from torch import Tensor
+from torchgeo.datasets import RasterDataset
 from torchgeo.datasets.utils import BoundingBox, download_url, extract_archive
 
 
-class Images(torchgeo.datasets.RasterDataset):
-    pass
+class L8Biome(RasterDataset):
+    """L8 Biome dataset.
 
-
-class Truths(torchgeo.datasets.RasterDataset):
-    pass
-
-
-class RoofSenseDataset(torchgeo.datasets.RasterDataset):
-    """L7 Irish dataset.
-
-    The `L7 Irish <https://landsat.usgs.gov/landsat-7-cloud-cover-assessment-validation-data>`__
-    dataset is based on Landsat 7 Enhanced Thematic Mapper Plus (ETM+) Level-1G scenes.
-    Manually generated cloud msks are used to train and validate cloud cover assessment
-    algorithms, which in turn are intended to compute the percentage of cloud cover in
-    each scene.
+    The `L8 Biome <https://landsat.usgs.gov/landsat-8-cloud-cover-assessment-validation-data>`__
+    dataset is a validation dataset for cloud cover assessment algorithms, consisting
+    of Pre-Collection Landsat 8 Operational Land Imager (OLI) Thermal Infrared Sensor
+    (TIRS) terrain-corrected (Level-1T) scenes.
 
     Dataset features:
 
-    * Images divided between 9 unique biomes
-    * 206 scenes from Landsat 7 ETM+ sensor
-    * Imagery from global tiles between June 2000--December 2001
-    * 9 Level-1 spectral bands with 30 m per pixel resolution
+    * Images evenly divided between 8 unique biomes
+    * 96 scenes from Landsat 8 OLI/TIRS sensors
+    * Imagery from global tiles between April 2013--October 2014
+    * 11 Level-1 spectral bands with 30 m per pixel resolution
 
     Dataset format:
 
     * Images are composed of single multiband geotiffs
     * Labels are multiclass, stored in single geotiffs
+    * Quality assurance bands, stored in single geotiffs
     * Level-1 metadata (MTL.txt file)
-    * Landsat 7 ETM+ bands: (B10, B20, B30, B40, B50, B61, B62, B70, B80)
+    * Landsat 8 OLI/TIRS bands: (B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11)
 
     Dataset classes:
 
@@ -57,48 +49,47 @@ class RoofSenseDataset(torchgeo.datasets.RasterDataset):
 
     If you use this dataset in your research, please cite the following:
 
-    * https://doi.org/10.5066/F7XD0ZWC
-    * https://doi.org/10.1109/TGRS.2011.2164087
-    * https://www.sciencebase.gov/catalog/item/573ccf18e4b0dae0d5e4b109
+    * https://doi.org/10.5066/F7251GDH
+    * https://doi.org/10.1016/j.rse.2017.03.026
 
     .. versionadded:: 0.5
     """  # noqa: E501
 
-    url = "https://huggingface.co/datasets/torchgeo/l7irish/resolve/main/{}.tar.gz"  # noqa: E501
+    url = "https://huggingface.co/datasets/torchgeo/l8biome/resolve/main/{}.tar.gz"  # noqa: E501
 
     md5s = {
-        "austral": "0a34770b992a62abeb88819feb192436",
-        "boreal": "b7cfdd689a3c2fd2a8d572e1c10ed082",
-        "mid_latitude_north": "c40abe5ad2487f8ab021cfb954982faa",
-        "mid_latitude_south": "37abab7f6ebe3d6cf6a3332144145427",
-        "polar_north": "49d9e616bd715057db9acb1c4d234d45",
-        "polar_south": "c1503db1cf46d5c37b579190f989e7ec",
-        "subtropical_north": "a6010de4c50167260de35beead9d6a65",
-        "subtropical_south": "c37d439df2f05bd7cfe87cf6ff61a690",
-        "tropical": "d7931419c70f3520a17361d96f1a4810",
+        "barren": "0eb691822d03dabd4f5ea8aadd0b41c3",
+        "forest": "4a5645596f6bb8cea44677f746ec676e",
+        "grass_crops": "a69ed5d6cb227c5783f026b9303cdd3c",
+        "shrubland": "19df1d0a604faf6aab46d6a7a5e6da6a",
+        "snow_ice": "af8b189996cf3f578e40ee12e1f8d0c9",
+        "urban": "5450195ed95ee225934b9827bea1e8b0",
+        "water": "a81153415eb662c9e6812c2a8e38c743",
+        "wetlands": "1f86cc354631ca9a50ce54b7cab3f557",
     }
 
     classes = ["Fill", "Cloud Shadow", "Clear", "Thin Cloud", "Cloud"]
 
-    # https://landsat.usgs.gov/cloud-validation/cca_irish_2015/L7_Irish_Cloud_Validation_Masks.xml
-    filename_glob = "L71*.TIF"
+    # https://gisgeography.com/landsat-file-naming-convention/
+    filename_glob = "LC8*.TIF"
     filename_regex = r"""
-        ^L71
+        ^LC8
         (?P<wrs_path>\d{3})
         (?P<wrs_row>\d{3})
-        _(?P=wrs_row)
-        (?P<date>\d{8})
+        (?P<date>\d{7})
+        (?P<gsi>[A-Z]{3})
+        (?P<version>\d{2})
         \.TIF$
     """
-    date_format = "%Y%m%d"
+    date_format = "%Y%j"
 
     separate_files = False
-    rgb_bands = ["B30", "B20", "B10"]
-    all_bands = ["B10", "B20", "B30", "B40", "B50", "B61", "B62", "B70", "B80"]
+    rgb_bands = ["B4", "B3", "B2"]
+    all_bands = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11"]
 
     def __init__(
         self,
-        paths: Union[str, Iterable[str]] = "data",
+        paths: Union[str, Iterable[str]],
         crs: Optional[CRS] = CRS.from_epsg(3857),
         res: Optional[float] = None,
         bands: Sequence[str] = all_bands,
@@ -107,7 +98,7 @@ class RoofSenseDataset(torchgeo.datasets.RasterDataset):
         download: bool = False,
         checksum: bool = False,
     ) -> None:
-        """Initialize a new RoofSenseDataset instance.
+        """Initialize a new L8Biome instance.
 
         Args:
             paths: one or more root directories to search or files to load
@@ -203,10 +194,7 @@ class RoofSenseDataset(torchgeo.datasets.RasterDataset):
 
         mask_filepaths = []
         for filepath in filepaths:
-            path, row = os.path.basename(os.path.dirname(filepath)).split("_")[:2]
-            mask_filepath = filepath.replace(
-                os.path.basename(filepath), f"L7_{path}_{row}_newmask2015.TIF"
-            )
+            mask_filepath = filepath.replace(".TIF", "_fixedmask.TIF")
             mask_filepaths.append(mask_filepath)
 
         mask = self._merge_files(mask_filepaths, query)

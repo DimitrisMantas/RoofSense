@@ -1,18 +1,28 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+"""L8 Biome datamodule."""
+
 from typing import Any, Optional, Union
 
 import kornia.augmentation as K
 import torch
-import torchgeo.datamodules
-import torchgeo.samplers
 from kornia.constants import DataKey, Resample
+from torchgeo.datamodules import GeoDataModule
 from torchgeo.datasets import random_bbox_assignment
+from torchgeo.samplers import GridGeoSampler, RandomBatchGeoSampler
 from torchgeo.samplers.utils import _to_tuple
 from torchgeo.transforms import AugmentationSequential
 
-from testbench.datasets import RoofSenseDataset
+import testbench
 
 
-class RoofSenseDataModule(torchgeo.datamodules.GeoDataModule):
+class L8BiomeDataModule(GeoDataModule):
+    """LightningDataModule implementation for the L8 Biome dataset.
+
+    .. versionadded:: 0.5
+    """
+
     def __init__(
         self,
         batch_size: int = 1,
@@ -21,36 +31,24 @@ class RoofSenseDataModule(torchgeo.datamodules.GeoDataModule):
         num_workers: int = 0,
         **kwargs: Any,
     ) -> None:
-        """Initialize a new GeoDataModule instance.
+        """Initialize a new L8BiomeDataModule instance.
 
         Args:
-            dataset_class: Class used to instantiate a new dataset.
             batch_size: Size of each mini-batch.
             patch_size: Size of each patch, either ``size`` or ``(height, width)``.
             length: Length of each training epoch.
             num_workers: Number of workers for parallel data loading.
-            **kwargs: Additional keyword arguments passed to ``dataset_class``
+            **kwargs: Additional keyword arguments passed to
+                :class:`~torchgeo.datasets.L8Biome`.
         """
         super().__init__(
-            RoofSenseDataset,
+            testbench.model.datasets.L8Biome,
             batch_size=batch_size,
             patch_size=patch_size,
             length=length,
             num_workers=num_workers,
             **kwargs,
         )
-        # NOTE: Check the Lightning documentation for more information.
-        """
-        # Data augmentation
-        Transform = Callable[[dict[str, Tensor]], dict[str, Tensor]]
-        self.aug: Transform = AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std), data_keys=["image"]
-        )
-        self.train_aug: Optional[Transform] = None
-        self.val_aug: Optional[Transform] = None
-        self.test_aug: Optional[Transform] = None
-        self.predict_aug: Optional[Transform] = None
-        """
 
         self.train_aug = AugmentationSequential(
             K.Normalize(mean=self.mean, std=self.std),
@@ -64,16 +62,12 @@ class RoofSenseDataModule(torchgeo.datamodules.GeoDataModule):
         )
 
     def setup(self, stage: str) -> None:
-        """Set up datasets and samplers.
-
-        Called at the beginning of fit, validate, test, or predict. During distributed
-        training, this method is called from every process across all the nodes. Setting
-        state here is recommended.
+        """Set up datasets.
 
         Args:
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
-        dataset = RoofSenseDataset(**self.kwargs)
+        dataset = testbench.model.datasets.L8Biome(**self.kwargs)
         generator = torch.Generator().manual_seed(0)
         (
             self.train_dataset,
@@ -82,17 +76,14 @@ class RoofSenseDataModule(torchgeo.datamodules.GeoDataModule):
         ) = random_bbox_assignment(dataset, [0.6, 0.2, 0.2], generator)
 
         if stage in ["fit"]:
-            self.train_sampler = torchgeo.samplers.PreChippedGeoSampler(
-                self.train_dataset,
-                # TOSELF: Should the data be reshuffled at the beginning of each epoch?
-                shuffle=True,
+            self.train_batch_sampler = RandomBatchGeoSampler(
+                self.train_dataset, self.patch_size, self.batch_size, self.length
             )
         if stage in ["fit", "validate"]:
-            # TODO: Should this sampler be used in the validation stage?
-            self.val_sampler = torchgeo.samplers.GridGeoSampler(
+            self.val_sampler = GridGeoSampler(
                 self.val_dataset, self.patch_size, self.patch_size
             )
         if stage in ["test"]:
-            self.test_sampler = torchgeo.samplers.GridGeoSampler(
+            self.test_sampler = GridGeoSampler(
                 self.test_dataset, self.patch_size, self.patch_size
             )
