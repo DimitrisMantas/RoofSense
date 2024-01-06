@@ -53,7 +53,7 @@ class OrthoDataParser(DataParser):
             height=rgb_merged.shape[1],
             count=3,
             transform=rgb_merged_transform,
-            **raster.Profiles.SENSE,
+            **raster.DefaultProfile(),
         ) as f:
             f.write(rgb_merged)
         ###########################
@@ -74,7 +74,7 @@ class OrthoDataParser(DataParser):
             height=cir_merged.shape[1],
             count=1,
             transform=cir_merged_transform,
-            **raster.Profiles.SENSE,
+            **raster.DefaultProfile(),
         ) as f:
             f.write(cir_merged)
         ###########################
