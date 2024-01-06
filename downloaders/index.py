@@ -27,7 +27,7 @@ class TileIndex(gpd.GeoDataFrame):
 # TOSELF: The download operation involves fetching and returning web data as-is in this
 #         module but fetching *and* writing to disk in another.
 #
-# TODO: Come up with a common terminology.
+# TODO: Come up with a common.txt terminology.
 def _download() -> utils.type.BAG3DTileIndexJSON:
     # TODO: Include this variable in the runtime configuration file.
     path = f"{os.environ['BAG3D_WFS_BASE_URL']}&version={os.environ['BAG3D_WFS_VERSION']}&request={os.environ['BAG3D_WFS_REQUEST']}&typeNames={os.environ['BAG3D_WFS_TYPENAMES']}&outputFormat={os.environ['BAG3D_WFS_OUTPUT_FORMAT']}"
