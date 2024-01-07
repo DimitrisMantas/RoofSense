@@ -21,7 +21,7 @@ class TileIndex(gpd.GeoDataFrame):
         if utils.file.exists(config.env("BAG3D_INDEX_FILENAME")) and not overwrite:
             super().__init__(gpd.read_file(config.env("BAG3D_INDEX_FILENAME")))
         else:
-            super().__init__(_reconstruct(), crs=os.environ["DEFAULT_CRS"])
+            super().__init__(_reconstruct(), crs=os.environ["CRS"])
 
 
 # TOSELF: The download operation involves fetching and returning web data as-is in this

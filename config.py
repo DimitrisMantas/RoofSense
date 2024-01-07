@@ -39,4 +39,4 @@ def default_data_dict() -> dict:
 
 
 def default_data_tabl(data: dict) -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(data, crs=var("DEFAULT_CRS"))
+    return gpd.GeoDataFrame(data, crs=var("CRS"))

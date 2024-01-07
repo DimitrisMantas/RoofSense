@@ -23,7 +23,7 @@ class OrthoDataParser(DataParser):
         )
         obj = gpd.read_file(obj_filename)
         # TODO:Check lidar.ipynb.
-        obj["geometry"] = obj["geometry"].buffer(10)
+        obj["geometry"] = obj["geometry"].buffer(config.var("BUFFER_DISTANCE"))
 
         img_ids = index.overlay(obj)["id_1"].unique()
         img_nms_cir = [
