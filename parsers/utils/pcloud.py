@@ -13,7 +13,6 @@ from feature.utils import timing
 
 
 class PointCloud:
-    @timing
     def __init__(self, filename: str) -> None:
         self.dt = None
         with laspy.open(filename) as f:
