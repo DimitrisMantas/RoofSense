@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import copy
 import math
 import typing
+from collections.abc import Sequence
 
 import numpy as np
 import rasterio
+import rasterio.fill
 import rasterio.windows
 import shapely
 
@@ -37,12 +40,31 @@ class Raster:
         self._data[key] = val
 
     @property
-    def width(self) -> float:
+    def width(self) -> int:
         return self._lenx
 
     @property
-    def height(self) -> float:
+    def height(self) -> int:
         return self._leny
+
+    # TODO: Add type hints to this function.
+    def xy(self):
+        # Place the origin of the grid at its bottom left corner.
+        # NOTE: This simplifies the following step.
+        rows, cols = np.mgrid[self.height - 1 : -1 : -1, 0 : self.width]
+
+        # Transform the image to world coordinates.
+        x = self._bbox[0] + self._size * (cols + 0.5)
+        y = self._bbox[1] + self._size * (rows + 0.5)
+
+        return np.column_stack([x.ravel(), y.ravel()])
+
+    def slope(self, degrees: bool = True) -> Raster:
+        r = copy.deepcopy(self)
+        r._data = np.arctan(np.hypot(*np.gradient(self._data, self._size)))
+        if degrees:
+            r._data = np.degrees(r._data)
+        return r
 
     def save(self, filename: str) -> None:
         count = _count(self._data)
@@ -103,6 +125,49 @@ def crop(inname: str, outname: str, bbox: typing.Sequence[float], bands=None):
         **DefaultProfile(),
     ) as g:
         g.write(data, indexes=bands)
+
+
+# FIXME: Parallelize this function.
+# TODO: Add type hints to this function.
+def rasterize(
+    pc, scalars: str | Sequence[str], size: typing.Optional[float] = None
+) -> Raster | dict[str, Raster]:
+    # FIXME: Refactor ``xy()`` into a module function because doesn't make sense to
+    #        create an empty raster just for the sake of using its accessors.
+    r = Raster(size, pc.bbox())
+
+    # TODO: The point cloud should ensure that its spatial index has been initialized
+    #       before this call.
+    neighbors, distances = pc.index.query_radius(r.xy(), r=size, return_distance=True)
+
+    rasters = {scalar: Raster(size, pc.bbox()) for scalar in scalars}
+    nodata = []
+    for cell_id, cell_nb in enumerate(neighbors):
+        if len(cell_nb) == 0:
+            nodata.append(cell_id)
+            continue
+        attribs = {scalar: [] for scalar in scalars}
+        for scalar in scalars:
+            attribs[scalar].append(pc[cell_nb][scalar])
+        row, col = np.divmod(cell_id, r.width)
+        if np.any(distances[cell_id] == 0):
+            # The cell center belongs to the point cloud.
+            nb_id = cell_nb[np.argsort(distances[cell_id])[0]]
+            for scalar in scalars:
+                rasters[scalar][row, col] = pc[nb_id][scalar].scaled_array()
+        else:
+            weights = distances[cell_id] ** -2
+            for scalar in scalars:
+                rasters[scalar][row, col] = np.sum(attribs[scalar] * weights) / np.sum(
+                    weights
+                )
+    mask = np.ones((r.height, r.width))
+    mask[np.divmod(nodata, r.width)] = 0
+
+    for scalar, raster_ in rasters.items():
+        raster_._data = rasterio.fill.fillnodata(raster_._data, mask)
+
+    return rasters
 
 
 def merge(filenames):
