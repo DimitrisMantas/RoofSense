@@ -1,7 +1,7 @@
 from ._base import DataParser
 
 
-class LidarDataParser(DataParser):
+class LiDARDataParser(DataParser):
     def __init__(self, id_: str) -> None:
         super().__init__(id_)
 

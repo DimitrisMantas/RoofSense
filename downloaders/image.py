@@ -25,7 +25,9 @@ def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
         f"{config.var('GEOPACKAGE')}"
     )
     obj_bbox = gpd.read_file(obj_path)
-    obj_bbox["geometry"] = obj_bbox["geometry"].buffer(config.var("BUFFER_DISTANCE"))
+    obj_bbox["geometry"] = obj_bbox["geometry"].buffer(
+        float(config.var("BUFFER_DISTANCE"))
+    )
 
     # Fetch the image IDs to download.
     img_ids = index.overlay(obj_bbox)["id_1"].unique()

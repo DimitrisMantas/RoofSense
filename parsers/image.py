@@ -7,7 +7,7 @@ from parsers.utils import raster
 
 
 # TODO: Clean up
-class OrthoDataParser(DataParser):
+class ImageDataParser(DataParser):
     def __init__(self, obj_id: str) -> None:
         super().__init__(obj_id)
 
@@ -23,7 +23,7 @@ class OrthoDataParser(DataParser):
         )
         obj = gpd.read_file(obj_filename)
         # TODO:Check lidar.ipynb.
-        obj["geometry"] = obj["geometry"].buffer(config.var("BUFFER_DISTANCE"))
+        obj["geometry"] = obj["geometry"].buffer(float(config.var("BUFFER_DISTANCE")))
 
         img_ids = index.overlay(obj)["id_1"].unique()
         img_nms_cir = [

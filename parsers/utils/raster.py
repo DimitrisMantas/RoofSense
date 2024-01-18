@@ -66,6 +66,10 @@ class Raster:
             r._data = np.degrees(r._data)
         return r
 
+    def fill(self) -> None:
+        mask = ~(self._data == self._meta["nodata"])
+        self._data = rasterio.fill.fillnodata(self._data, mask)
+
     def save(self, filename: str) -> None:
         count = _count(self._data)
         transform = rasterio.transform.from_origin(
@@ -129,6 +133,7 @@ def crop(inname: str, outname: str, bbox: typing.Sequence[float], bands=None):
 
 # FIXME: Parallelize this function.
 # TODO: Add type hints to this function.
+# TODO: Optimize the search radius, power, and filler hyperparameters.
 def rasterize(
     pc, scalars: str | Sequence[str], size: typing.Optional[float] = None
 ) -> Raster | dict[str, Raster]:
@@ -141,10 +146,8 @@ def rasterize(
     neighbors, distances = pc.index.query_radius(r.xy(), r=size, return_distance=True)
 
     rasters = {scalar: Raster(size, pc.bbox()) for scalar in scalars}
-    nodata = []
     for cell_id, cell_nb in enumerate(neighbors):
         if len(cell_nb) == 0:
-            nodata.append(cell_id)
             continue
         attribs = {scalar: [] for scalar in scalars}
         for scalar in scalars:
@@ -161,11 +164,9 @@ def rasterize(
                 rasters[scalar][row, col] = np.sum(attribs[scalar] * weights) / np.sum(
                     weights
                 )
-    mask = np.ones((r.height, r.width))
-    mask[np.divmod(nodata, r.width)] = 0
 
-    for scalar, raster_ in rasters.items():
-        raster_._data = rasterio.fill.fillnodata(raster_._data, mask)
+    for raster in rasters.values():
+        raster.fill()
 
     return rasters
 

@@ -30,11 +30,11 @@ def main():
     index1 = downloaders.lidar.load_index()
     downloaders.lidar.download(obj_id, index1)
 
-    index2 = downloaders.ortho.load_index()
-    downloaders.ortho.download(obj_id, index2)
+    index2 = downloaders.image.load_index()
+    downloaders.image.download(obj_id, index2)
 
-    parsers.lidar.LidarDataParser("").parse()
-    parsers.ortho.OrthoDataParser(obj_id).parse(index2)
+    parsers.lidar.LiDARDataParser("").parse()
+    parsers.image.ImageDataParser(obj_id).parse(index2)
 
 
 if __name__ == "__main__":
