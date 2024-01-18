@@ -1,0 +1,112 @@
+{
+  "name": "roofsense",
+  "port": 6060,
+  "host": "127.0.0.1",
+  "images": {
+    "path": "imgs/{id}.tif"
+  },
+  "classes": [
+    {
+      "name": "Background",
+      "description": "",
+      "colour": [
+        255,
+        255,
+        255,
+        0
+      ],
+      "user_colour": [
+        0,
+        255,
+        255,
+        70
+      ]
+    },
+    {
+      "name": "Bituminus Membranes",
+      "description": "",
+      "colour": [
+        255,
+        0,
+        0,
+        70
+      ]
+    },
+    {
+      "name": "Solar Panels",
+      "description": "",
+      "colour": [
+        0,
+        255,
+        0,
+        70
+      ]
+    },
+    {
+      "name": "Concrete",
+      "description": "",
+      "colour": [
+        0,
+        0,
+        255,
+        70
+      ]
+    }
+  ],
+  "views": {
+    "RGB": {
+      "description": "Normal RGB image.",
+      "type": "image",
+      "data": [
+        "$B1",
+        "$B2",
+        "$B3"
+      ],
+      "clip": "1"
+    },
+    "NIR": {
+      "description": "NIR",
+      "type": "image",
+      "data": "$B4",
+      "cmap": "jet",
+      "clip": "1"
+    },
+    "Slope": {
+      "description": "Reflectance",
+      "type": "image",
+      "data": "$B5",
+      "cmap": "gray",
+      "clip": "1"
+    },
+    "Reflectance": {
+      "description": "Reflectance",
+      "type": "image",
+      "data": "$B6",
+      "cmap": "jet",
+      "clip": "1"
+    }
+  },
+  "view_groups": {
+    "default": [
+      "RGB",
+      "NIR"
+    ],
+    "lidar": [
+      "Slope",
+      "Reflectance"
+    ]
+  },
+  "segmentation": {
+    "path": "msks/{id}.tif",
+    "mask_encoding": "integer",
+    "score": "f1",
+    "mask_area": [
+      0,
+      0,
+      4780,
+      4794
+    ],
+    "unverified_threshold": 1,
+    "test_images": null
+  }
+}
