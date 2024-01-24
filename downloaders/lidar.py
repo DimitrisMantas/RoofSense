@@ -30,7 +30,7 @@ def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
     )
 
     # Fetch the image IDs to download.
-    img_ids = index.overlay(obj_bbox)["id_1"].unique()
+    img_ids = index.overlay(obj_bbox)["lidar_id"].unique()
 
     # Build the image web addresses and local names.
     # TOSELF: There has to be a way to clean up this block using `itertools`?!?

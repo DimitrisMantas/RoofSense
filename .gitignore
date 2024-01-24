@@ -1,11 +1,16 @@
+# Project Configuration
 /.idea/
+
+# Runtime-Generated Directories
 /data/temp/
-*.gpkg
+/logs/
+
+
 *.las
 *.laz
 *.tif
 *.tiff
-/logs/
+
 /tests/data/ahn34/
 /tests/data/ortho/
 /testbench/
