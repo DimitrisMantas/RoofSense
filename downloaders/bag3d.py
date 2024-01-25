@@ -16,7 +16,8 @@ class BAG3DDataDownloader(DataDownloader):
         # TODO: Figure out whether this class should exist or not.
         super().__init__()
 
-    # TODO: Find out why this decorator can be imported from the typing module.
+    # TODO: Find out why the override decorator cannot be imported from the typing
+    #       module.
     def download(self, obj_id: str | BoundingBoxLike) -> None:
         if _is_bbox_like(obj_id):
             obj_type = _ObjectType.BBOX

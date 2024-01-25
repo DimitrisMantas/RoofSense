@@ -15,7 +15,8 @@ class LiDARDataDownloader(DataDownloader):
     def __init__(self) -> None:
         super().__init__(config.env("ASSET_INDEX_FILENAME"))
 
-    # TODO: Find out why this decorator can be imported from the typing module.
+    # TODO: Find out why the override decorator cannot be imported from the typing
+    #       module.
     # TODO: Find out if there's more code than can be factored out between the image
     #       and LiDAR data downloaders. @override
     def download(self, obj_id: str) -> None:
@@ -28,6 +29,7 @@ class LiDARDataDownloader(DataDownloader):
         pathnam = [
             (
                 f"{config.var('TEMP_DIR')}"
+                f"{obj_id}."
                 f"{urllib.parse.urlparse(i).path.rsplit('/')[-1]}"
             )
             for i in request

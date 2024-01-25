@@ -10,6 +10,8 @@ import config
 from parsers._base import DataParser
 
 
+# TODO: Do not parse previously processed tiles.
+# TODO: Rewrite the data parsers so that they can be reused across multiple object.
 # noinspection PyDeprecation
 class BAG3DDataParser(DataParser):
     def __init__(self, obj_id: str) -> None:
@@ -21,8 +23,8 @@ class BAG3DDataParser(DataParser):
 
         self._surf = config.default_data_dict()
 
-    # FIXME: Find out why this decorator can be imported from the typing module.
-    # @override
+    # TODO: Find out why the override decorator cannot be imported from the typing
+    #       module.
     def parse(self) -> None:
         items: dict[str, cjio.models.CityObject]
         items = self._data.get_cityobjects(type="building")
