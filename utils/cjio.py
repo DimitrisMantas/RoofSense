@@ -23,7 +23,7 @@ def to_jsonl(response: requests.Response, *args, **kwargs):
         with stdin(f):
             j = cjio.cityjson.read_stdin()
 
-    response._content = json.dumps(j.scalar_id).encode()
+    response._content = json.dumps(j.j).encode()
     return response
 
 
