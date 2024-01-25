@@ -17,7 +17,7 @@ class ImageDataParser(DataParser):
         # TODO: The initializer should take in the image names.
         obj_filename = (
             f"{config.env('TEMP_DIR')}"
-            f"{self.obj_id}"
+            f"{self._obj_id}"
             f"{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}"
             f"{config.var('GEOPACKAGE')}"
         )
@@ -47,7 +47,7 @@ class ImageDataParser(DataParser):
         # Merge the RGB.
         rgb_merged, rgb_merged_transform = rasterio.merge.merge(cropped_names_rgb)
         with rasterio.open(
-            f"{config.env('TEMP_DIR')}{self.obj_id}.rgb{config.var('TIFF')}",
+            f"{config.env('TEMP_DIR')}{self._obj_id}.rgb{config.var('TIFF')}",
             "w",
             width=rgb_merged.shape[2],
             height=rgb_merged.shape[1],
@@ -68,7 +68,7 @@ class ImageDataParser(DataParser):
         # Merge the CIR.
         cir_merged, cir_merged_transform = rasterio.merge.merge(cropped_names_cir)
         with rasterio.open(
-            f"{config.env('TEMP_DIR')}{self.obj_id}.nir{config.var('TIFF')}",
+            f"{config.env('TEMP_DIR')}{self._obj_id}.nir{config.var('TIFF')}",
             "w",
             width=cir_merged.shape[2],
             height=cir_merged.shape[1],
@@ -80,14 +80,14 @@ class ImageDataParser(DataParser):
         ###########################
         # Merge the cropped RGB and CIR
         cropped_names = [
-            f"{config.env('TEMP_DIR')}{self.obj_id}.rgb{config.var('TIFF')}",
-            f"{config.env('TEMP_DIR')}{self.obj_id}.nir{config.var('TIFF')}",
+            f"{config.env('TEMP_DIR')}{self._obj_id}.rgb{config.var('TIFF')}",
+            f"{config.env('TEMP_DIR')}{self._obj_id}.nir{config.var('TIFF')}",
         ]
         with rasterio.open(cropped_names[0]) as f:
             meta = f.meta
         meta.update(count=4)
         with rasterio.open(
-            f"{config.env('TEMP_DIR')}{self.obj_id}{config.var('TIFF')}", "w", **meta
+            f"{config.env('TEMP_DIR')}{self._obj_id}{config.var('TIFF')}", "w", **meta
         ) as f:
             with rasterio.open(cropped_names[0]) as src1:
                 f.write_band(1, src1.read(1))

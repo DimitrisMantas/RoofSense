@@ -5,24 +5,40 @@ import re
 import requests
 
 import config
+from downloaders._base import DataDownloader
 from utils.cjio import to_jsonl
 from utils.file import BlockingFileDownloader
 from utils.type import BoundingBoxLike
 
 
-def download(obj_id: str | BoundingBoxLike) -> None:
-    if _is_bbox_like(obj_id):
-        obj_type = _ObjectType.BBOX
-    else:
-        obj_type = _get_object_type(obj_id)
+class BAG3DDataDownloader(DataDownloader):
+    def __init__(self) -> None:
+        # TODO: Figure out whether this class should exist or not.
+        super().__init__()
 
-    partial_path = f"{config.env('TEMP_DIR')}"
-    if obj_type == _ObjectType.BBOX:
-        _download_bbox_data(obj_id, partial_path)
-    elif obj_type == _ObjectType.ITEM:
-        _download_item_data(obj_id, partial_path)
-    else:
-        _download_tile_data(obj_id, partial_path)
+    # TODO: Find out why this decorator can be imported from the typing module.
+    def download(self, obj_id: str | BoundingBoxLike) -> None:
+        if _is_bbox_like(obj_id):
+            obj_type = _ObjectType.BBOX
+        else:
+            obj_type = _get_object_type(obj_id)
+
+        dirname = f"{config.env('TEMP_DIR')}"
+        if obj_type == _ObjectType.BBOX:
+            _download_bbox_data(obj_id, dirname)
+        elif obj_type == _ObjectType.ITEM:
+            _download_item_data(obj_id, dirname)
+        else:
+            _download_tile_data(obj_id, dirname)
+
+
+# TODO: Promote these static constants to environment variables.
+_ITEM_ID = r"^NL\.IMBAG\.Pand\.\d{16}$"
+_TILE_ID = r"^\d{1,3}-\d{1,3}-\d{1,3}$"
+
+
+class _ObjectType:
+    BBOX, ITEM, TILE = range(3)
 
 
 def _is_bbox_like(obj_id: str):
@@ -31,14 +47,6 @@ def _is_bbox_like(obj_id: str):
         and len(obj_id) == 4
         and all([(isinstance(i, int) or isinstance(i, float)) for i in BoundingBoxLike])
     )
-
-
-_ITEM_ID = r"^NL\.IMBAG\.Pand\.\d{16}$"
-_TILE_ID = r"^\d{1,3}-\d{1,3}-\d{1,3}$"
-
-
-class _ObjectType:
-    BBOX, ITEM, TILE = range(3)
 
 
 def _get_object_type(obj_id: str) -> _ObjectType:

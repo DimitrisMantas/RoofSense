@@ -1,48 +1,37 @@
 import urllib.parse
 
-import geopandas as gpd
 import requests
 
 import config
-import utils.file
+import utils
+from downloaders._base import DataDownloader
+from utils.file import ThreadedFileDownloader
 
-# TODO: Reformat, finalize function and variable names, and add documentation.
-# TODO: Write a generic 3DBAG asset downloader because this downloader is more 90% the
-#       same as `image`.
-
-BASE_URL = "https://geotiles.citg.tudelft.nl/AHN4_T/"
-
-
-def load_index() -> gpd.GeoDataFrame:
-    return gpd.read_file(config.env("AHN34_INDEX_FILENAME"))
+# TODO: Promote this static constant to an environment variable.
+_BASE_DATA_ADDRESS = "https://geotiles.citg.tudelft.nl/AHN4_T/"
 
 
-def download(obj_id: str, index: gpd.GeoDataFrame) -> None:
-    obj_path = (
-        f"{config.env('TEMP_DIR')}"
-        f"{obj_id}"
-        f"{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}"
-        f"{config.var('GEOPACKAGE')}"
-    )
-    obj_bbox = gpd.read_file(obj_path)
-    obj_bbox["geometry"] = obj_bbox["geometry"].buffer(
-        float(config.var("BUFFER_DISTANCE"))
-    )
+class LiDARDataDownloader(DataDownloader):
+    def __init__(self) -> None:
+        super().__init__(config.env("ASSET_INDEX_FILENAME"))
 
-    # Fetch the image IDs to download.
-    img_ids = index.overlay(obj_bbox)["lidar_id"].unique()
+    # TODO: Find out why this decorator can be imported from the typing module.
+    # TODO: Find out if there's more code than can be factored out between the image
+    #       and LiDAR data downloaders. @override
+    def download(self, obj_id: str) -> None:
+        surf = utils.geom.read(obj_id)
+        buff = utils.geom.buffer(surf)
 
-    # Build the image web addresses and local names.
-    # TOSELF: There has to be a way to clean up this block using `itertools`?!?
-    img_addrs = [f"{BASE_URL}" f"{id_}" f"{config.var('LAZ')}" for id_ in img_ids]
+        # TODO: Harmonize these variable names.
+        data_id = self._sindex.overlay(buff)["lidar_id"].unique()
+        request = [f"{_BASE_DATA_ADDRESS}{i}{config.var('LAZ')}" for i in data_id]
+        pathnam = [
+            (
+                f"{config.var('TEMP_DIR')}"
+                f"{urllib.parse.urlparse(i).path.rsplit('/')[-1]}"
+            )
+            for i in request
+        ]
 
-    img_names = [
-        (
-            f"{config.var('TEMP_DIR')}"
-            f"{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}"
-        )
-        for addr in img_addrs
-    ]
-
-    with requests.Session() as s:
-        utils.file.ThreadedFileDownloader(img_addrs, img_names, session=s).download()
+        with requests.Session() as s:
+            ThreadedFileDownloader(request, pathnam, session=s).download()
