@@ -67,7 +67,7 @@ class Raster:
         return r
 
     def fill(self) -> None:
-        mask = ~(self._data == self._meta["nodata"])
+        mask = ~np.ma.getmaskarray(np.ma.masked_invalid(self._data))
         self._data = rasterio.fill.fillnodata(self._data, mask)
 
     def save(self, filename: str) -> None:
@@ -135,8 +135,10 @@ def crop(inname: str, outname: str, bbox: typing.Sequence[float], bands=None):
 # TODO: Add type hints to this function.
 # TODO: Optimize the search radius, power, and filler hyperparameters.
 def rasterize(
-    pc, scalars: str | Sequence[str], size: typing.Optional[float] = None
+    pc, scalars: str | Sequence[str], size: typing.Optional[float] = 0.25
 ) -> Raster | dict[str, Raster]:
+    if isinstance(scalars, str):
+        scalars = [scalars]
     # FIXME: Refactor ``xy()`` into a module function because doesn't make sense to
     #        create an empty raster just for the sake of using its accessors.
     r = Raster(size, pc.bbox())
@@ -157,7 +159,7 @@ def rasterize(
             # The cell center belongs to the point cloud.
             nb_id = cell_nb[np.argsort(distances[cell_id])[0]]
             for scalar in scalars:
-                rasters[scalar][row, col] = pc[nb_id][scalar].scaled_array()
+                rasters[scalar][row, col] = pc[[nb_id]][scalar].scaled_array()
         else:
             weights = distances[cell_id] ** -2
             for scalar in scalars:
