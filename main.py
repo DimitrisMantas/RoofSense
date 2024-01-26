@@ -14,12 +14,13 @@ def main():
     downloaders.BAG3DDataDownloader().download(obj_id)
 
     # Parse the tile.
-    parsers.bag3d.BAG3DDataParser().parse(obj_id)
+    parsers.BAG3DDataParser().parse(obj_id)
 
     # Download the corresponding AHN and BM data.
     downloaders.AssetDataDownloader().download(obj_id)
 
-    parsers.image.ImageDataParser().parse(obj_id)
+    parsers.ImageDataParser().parse(obj_id)
+    parsers.LiDARDataParser().parse(obj_id)
 
 
 if __name__ == "__main__":

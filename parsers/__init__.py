@@ -1,4 +1,4 @@
-import parsers.bag3d
 import parsers.base
-import parsers.image
-import parsers.lidar
+from .bag3d import BAG3DDataParser
+from .image import ImageDataParser
+from .lidar import LiDARDataParser
