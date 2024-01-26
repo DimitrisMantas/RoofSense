@@ -4,16 +4,15 @@ from typing import Optional
 import geopandas as gpd
 
 
-# TODO: Harmonize this class name.
 class DataDownloader(ABC):
     def __init__(
-        self,  # TODO: Harmonize this parameter name.
-        sindex: Optional[str] = None,
+        self,
+        index: Optional[str] = None,
     ) -> None:
-        if sindex is not None:
-            self._sindex = gpd.read_file(sindex)
+        if index is not None:
+            self._index = gpd.read_file(index)
         else:
-            self._sindex = None
+            self._index = None
 
     @abstractmethod
     def download(self, obj_id: str) -> None:

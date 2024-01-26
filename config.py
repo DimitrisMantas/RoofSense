@@ -18,10 +18,6 @@ def config() -> None:
     gpd.options.io_engine = "pyogrio"
     os.environ["PYOGRIO_USE_ARROW"] = "1"
 
-    utils.file.mkdirs(env("AHN34_INDEX_DIR"))
-    utils.file.mkdirs(env("BAG3D_INDEX_DIR"))
-    utils.file.mkdirs(env("ORTHO_INDEX_DIR"))
-
     utils.file.mkdirs(env("TEMP_DIR"))
     utils.file.mkdirs(env("LOG_DIR"))
 
