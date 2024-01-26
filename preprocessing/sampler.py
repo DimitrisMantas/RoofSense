@@ -1,23 +1,34 @@
+from abc import ABC, abstractmethod
+
 import geopandas as gpd
 import numpy as np
 import shapely
+from typing_extensions import override
 
 import config
 
 
-class RandomTrainingTrainingDataSampler:
+class DataSamplerABC(ABC):
     def __init__(self) -> None:
+        self.rand = np.random.default_rng(int(config.var("SEED")))
+
+    @abstractmethod
+    def sample(self, size: int):
+        ...
+
+
+class DataSampler(DataSamplerABC):
+    def __init__(self) -> None:
+        super().__init__()
+
         self.index = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
         self.cities = gpd.read_file(config.env("CITIES"))
-        # TODO: Harmonize this variable name.
-        self.randm = np.random.default_rng(int(config.var("SEED")))
 
-    # TODO: Find out why the override decorator cannot be imported from the typing
-    #       module.
+    @override
     def sample(self, size: int = 10):
         sample = []
         while len(sample) < size:
-            city_pt = self.cities.sample(random_state=self.randm)["geometry"]
+            city_pt = self.cities.sample(random_state=self.rand)["geometry"]
 
             # TODO: Refactor this line.
             tile_pt = gpd.GeoDataFrame(
@@ -38,7 +49,7 @@ class RandomTrainingTrainingDataSampler:
         self, pt: gpd.GeoSeries, radius: float = 10000
     ) -> shapely.Point:
         # noinspection PyTypeChecker
-        off = self.randm.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
+        off = self.rand.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
         off /= np.linalg.norm(off)
         off *= radius
         return shapely.Point(pt.x + off[0], pt.y + off[1])

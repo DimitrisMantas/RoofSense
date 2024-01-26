@@ -19,7 +19,7 @@ class BAG3DDataDownloader(DataDownloader):
 
     @override
     def download(self, obj_id: str | BoundingBoxLike) -> None:
-        if utils.geom.is_bboxlike(obj_id):
+        if utils.geom.is_bbox_like(obj_id):
             obj_tp = _ObjectType.BBOX
         else:
             obj_tp = _find_object_type(obj_id)
@@ -28,7 +28,7 @@ class BAG3DDataDownloader(DataDownloader):
         if obj_tp == _ObjectType.BBOX:
             _download_bbox_data(obj_id, base_dir)
         elif obj_tp == _ObjectType.BUILDING:
-            _download_item_data(obj_id, base_dir)
+            _download_building_data(obj_id, base_dir)
         else:
             _download_tile_data(obj_id, base_dir)
 
@@ -49,19 +49,9 @@ def _download_bbox_data(obj_id: BoundingBoxLike, dirname: str) -> None:
     raise NotImplementedError
 
 
-def _download_item_data(obj_id: str, base_dir: str) -> None:
-    addr = f"{config.var('BAG3D_API_BASE_URL')}{obj_id}"
-    path = f"{base_dir}{obj_id}{config.var('CITY_JSON')}"
-
-    with requests.Session() as s:
-        utils.file.BlockingFileDownloader(
-            addr, path, session=s, callbacks=utils.cjio.to_jsonl
-        ).download()
-
-
 def _download_tile_data(obj_id: str, base_dir: str) -> None:
     addr = (
-        f"{config.var('BAG3D_API_BASE_URL')}"
+        f"{config.var('BASE_TILE_ADDRESS')}"
         f"{obj_id.replace('-', '/')}/"
         f"{obj_id}"
         f"{config.var('CITY_JSON')}"
@@ -70,3 +60,13 @@ def _download_tile_data(obj_id: str, base_dir: str) -> None:
 
     with requests.Session() as s:
         utils.file.BlockingFileDownloader(addr, path, session=s).download()
+
+
+def _download_building_data(obj_id: str, base_dir: str) -> None:
+    addr = f"{config.var('BAG3D_API_BASE_URL')}{obj_id}"
+    path = f"{base_dir}{obj_id}{config.var('CITY_JSON')}"
+
+    with requests.Session() as s:
+        utils.file.BlockingFileDownloader(
+            addr, path, session=s, callbacks=utils.cjio.to_jsonl
+        ).download()

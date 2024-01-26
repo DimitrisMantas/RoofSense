@@ -20,9 +20,9 @@ def buffer(geom: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return geom
 
 
-def is_bboxlike(obj_id: str):
+def is_bbox_like(seq) -> bool:
     return (
-        isinstance(obj_id, BoundingBoxLike.__origin__)
-        and len(obj_id) == 4
-        and all([(isinstance(i, int) or isinstance(i, float)) for i in obj_id])
+        isinstance(seq, BoundingBoxLike.__origin__)
+        and len(seq) == 4
+        and all([(isinstance(i, int) or isinstance(i, float)) for i in seq])
     )

@@ -2,22 +2,24 @@ from __future__ import annotations
 
 import copy
 import math
-import typing
 from collections.abc import Sequence
+from os import PathLike
+from typing import Optional
 
 import numpy as np
 import rasterio
 import rasterio.fill
+import rasterio.mask
+import rasterio.merge
 import rasterio.windows
-import shapely
 
 
 class Raster:
     def __init__(
         self,
         size: float,
-        bbox: typing.Sequence[float],
-        meta: typing.Optional[rasterio.profiles.Profile] = None,
+        bbox: Sequence[float],
+        meta: Optional[rasterio.profiles.Profile] = None,
     ) -> None:
         if meta is None:
             self._meta = DefaultProfile()
@@ -71,7 +73,7 @@ class Raster:
         self._data = rasterio.fill.fillnodata(self._data, mask)
 
     def save(self, filename: str) -> None:
-        count = _count(self._data)
+        count = _get_num_bands(self._data)
         transform = rasterio.transform.from_origin(
             self._bbox[0], self._bbox[3], self._size, self._size
         )
@@ -103,39 +105,11 @@ class DefaultProfile(rasterio.profiles.Profile):
     }
 
 
-def crop(inname: str, outname: str, bbox: typing.Sequence[float], bands=None):
-    f: rasterio.io.DatasetReader
-    with rasterio.open(inname) as f:
-        window = rasterio.windows.from_bounds(*bbox, transform=f.transform)
-        data = f.read(indexes=bands, window=window)
-
-    # NOTE: The crop area may extend beyond the bounds of the raster and so may need to
-    #       be "cropped" to them.
-    valid_bbox = shapely.intersection(_geom(bbox), _geom(f.bounds))
-
-    count = _count(data)
-    transform = rasterio.transform.from_bounds(
-        *valid_bbox.bounds, width=data.shape[-1], height=data.shape[-2]
-    )
-
-    g: rasterio.io.DatasetWriter
-    with rasterio.open(
-        outname,
-        "w",
-        width=data.shape[-1],
-        height=data.shape[-2],
-        count=count,
-        transform=transform,
-        **DefaultProfile(),
-    ) as g:
-        g.write(data, indexes=bands)
-
-
 # FIXME: Parallelize this function.
 # TODO: Add type hints to this function.
 # TODO: Optimize the search radius, power, and filler hyperparameters.
 def rasterize(
-    pc, scalars: str | Sequence[str], size: typing.Optional[float] = 0.25
+    pc, scalars: str | Sequence[str], size: Optional[float] = 0.25
 ) -> Raster | dict[str, Raster]:
     if isinstance(scalars, str):
         scalars = [scalars]
@@ -173,22 +147,25 @@ def rasterize(
     return rasters
 
 
-def merge(filenames):
-    raise NotImplementedError
+# TODO: Figure out a good type hint for image-like arguments.
+def write(
+    data,
+    transform: rasterio.Affine,
+    filename: str | PathLike,
+    bands: Optional[int | Sequence[int]] = None,
+) -> None:
+    f: rasterio.io.DatasetWriter
+    with rasterio.open(
+        filename,
+        "w",
+        width=data.shape[-1],
+        height=data.shape[-2],
+        count=_get_num_bands(data),
+        transform=transform,
+        **DefaultProfile(),
+    ) as f:
+        f.write(data, indexes=bands)
 
 
-def _count(data: np.ndarray) -> int:
+def _get_num_bands(data: np.ndarray) -> int:
     return data.shape[0] if len(data.shape) == 3 else 1
-
-
-# TODO: Add type hints to this function.
-def _geom(bbox) -> shapely.Polygon:
-    return shapely.Polygon(
-        (
-            (bbox[0], bbox[1]),
-            (bbox[2], bbox[1]),
-            (bbox[2], bbox[3]),
-            (bbox[0], bbox[3]),
-            (bbox[0], bbox[1]),
-        )
-    )

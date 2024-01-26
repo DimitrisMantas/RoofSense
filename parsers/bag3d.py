@@ -5,46 +5,50 @@ import cjio.cjio
 # noinspection PyDeprecation
 import cjio.models
 import shapely
+from typing_extensions import override
 
 import config
-from parsers._base import DataParser
+import utils.file
+from parsers.base import DataParser
 
 
-# TODO: Do not parse previously processed tiles.
-# TODO: Rewrite the data parsers so that they can be reused across multiple object.
 # noinspection PyDeprecation
 class BAG3DDataParser(DataParser):
-    def __init__(self, obj_id: str) -> None:
-        super().__init__(obj_id)
+    def __init__(self) -> None:
+        super().__init__()
 
-        # TODO: Harmonize this variable name.
-        pathnam = f"{config.env('TEMP_DIR')}{self._obj_id}{config.var('CITY_JSON')}"
-        self._data = cjio.cityjson.load(pathnam)
-
-        self._surf = config.default_data_dict()
-
-    # TODO: Find out why the override decorator cannot be imported from the typing
-    #       module.
-    def parse(self) -> None:
-        items: dict[str, cjio.models.CityObject]
-        items = self._data.get_cityobjects(type="building")
-
-        for item in items.values():
-            self._parse_parts(item)
-
-        # TODO: Harmonize this variable name.
-        pathnam = (
+    @override
+    def parse(self, obj_id: str) -> None:
+        path = (
             f"{config.env('TEMP_DIR')}"
-            f"{self._obj_id}"
+            f"{obj_id}"
             f"{config.var('DEFAULT_SURFACES_FOOTPRINT_FILE_ID')}"
             f"{config.var('GEOPACKAGE')}"
         )
-        config.default_data_tabl(self._surf).to_file(pathnam)
+        if utils.file.exists(path):
+            return
 
-    def _parse_parts(self, item: cjio.models.CityObject) -> None:
-        item_parts: dict[str, cjio.models.CityObject]
-        item_parts = self._data.get_cityobjects(id=item.children)
-        for part in item_parts.values():
+        self._update_fields(obj_id)
+
+        buildings: dict[str, cjio.models.CityObject]
+        buildings = self._data.get_cityobjects(type="building")
+
+        for building in buildings.values():
+            self._parse_building_parts(building)
+
+        config.default_data_tabl(self._surfs).to_file(path)
+
+    @override
+    def _update_fields(self, obj_id: str) -> None:
+        self._data = cjio.cityjson.load(
+            f"{config.env('TEMP_DIR')}{obj_id}{config.var('CITY_JSON')}"
+        )
+        self._surfs = config.default_data_dict()
+
+    def _parse_building_parts(self, item: cjio.models.CityObject) -> None:
+        parts: dict[str, cjio.models.CityObject]
+        parts = self._data.get_cityobjects(id=item.children)
+        for part in parts.values():
             self._parse_surfaces(item, part)
 
     def _parse_surfaces(self, item, building_part) -> None:
@@ -57,11 +61,11 @@ class BAG3DDataParser(DataParser):
         # Parse the roof surfaces.
         # NOTE: Wall and roof surfaces appear first and second in the underlying
         #       array, respectively.
-        part_surf = part_geom.surfaces[1]
-        part_surf = part_geom.get_surface_boundaries(part_surf)
-        for surface in part_surf:
+        part_surfs = part_geom.surfaces[1]
+        part_surfs = part_geom.get_surface_boundaries(part_surfs)
+        for surf in part_surfs:
             # Parse the exterior surface boundary.
-            surface = shapely.force_2d(shapely.Polygon(surface[0]))
+            surf = shapely.force_2d(shapely.Polygon(surf[0]))
 
-            self._surf[os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
-            self._surf[os.environ["DEFAULT_GM_FIELD_NAME"]].append(surface)
+            self._surfs[os.environ["DEFAULT_ID_FIELD_NAME"]].append(item.id)
+            self._surfs[os.environ["DEFAULT_GM_FIELD_NAME"]].append(surf)

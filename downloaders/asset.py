@@ -36,9 +36,9 @@ class AssetDataDownloader(DataDownloader):
         )
 
 
-def _write_asset_manifest(
-    obj_id: str, image_ids: list[str], lidar_ids: list[str]
-) -> None:
+def _write_asset_manifest(obj_id: str, img_ids: list[str], ldr_ids: list[str]) -> None:
+    # TODO: Create this path using a utility function ro avoid duplicate code in the
+    #       parser module.
     path = (
         f"{config.var('TEMP_DIR')}"
         f"{obj_id}"
@@ -49,7 +49,10 @@ def _write_asset_manifest(
         return
 
     # TODO: Read the manifest sceleton from a relevant environment variable.
-    manifest = {"image_ids": image_ids, "lidar_ids": lidar_ids}
+    manifest = {
+        "image_ids": [f"{img_id}{config.var('TIFF')}" for img_id in img_ids],
+        "lidar_ids": [f"{ldr_id}{config.var('LAZ')}" for ldr_id in ldr_ids],
+    }
     with pathlib.Path(path).open("w") as f:
         json.dump(manifest, f)
 
@@ -78,7 +81,7 @@ def _download_lidar_data(ids: list[str]) -> None:
         utils.file.ThreadedFileDownloader(addrs, paths, session=s).download()
 
 
-# TODO: Consider moving this function to a more appropriate location.
+# TODO: Move this function to a more appropriate location.
 def _build_paths(addrs: list[str]) -> list[str]:
     return [
         f"{config.var('TEMP_DIR')}{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}"
