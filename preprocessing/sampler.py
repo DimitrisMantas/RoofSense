@@ -1,90 +1,44 @@
-import math
-import random
-
 import geopandas as gpd
+import numpy as np
+import shapely
 
 import config
 
 
-# Amsterdam
-# Rotterdam
-# The Hague
-# Utrecht
-# Eindhoven
-# Groningen
-# Tilburg
-# Almere
-# Breda
-# Nijmegen
-# Apeldoorn
-# Arnhem
-# Haarlem
-# Haarlemmermeer
-# Amersfoort
-# Zaanstad
-# Enschede
-# Den Bosch
-# Zwolle
-# Leiden
-# Zoetermeer
-# Leeuwarden
-# Ede
-# Maastricht
-# Dordrecht
-# Westland
-# Alphen aan den Rijn
-# Alkmaar
-# Emmen
-# Delft
-# Venlo
-# Deventer
-
-
 class RandomTrainingTrainingDataSampler:
     def __init__(self) -> None:
-        self.index = gpd.read_file(config.env("BAG3D_INDEX_FILENAME"))
+        self.index = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
+        self.cities = gpd.read_file(config.env("CITIES"))
+        # TODO: Harmonize this variable name.
+        self.randm = np.random.default_rng(int(config.var("SEED")))
 
     # TODO: Find out why the override decorator cannot be imported from the typing
     #       module.
-    def sample(self, size: int = -1):
-        cities = _get_citizen_data()
+    def sample(self, size: int = 10):
+        sample = []
+        while len(sample) < size:
+            city_pt = self.cities.sample(random_state=self.randm)["geometry"]
 
-        # Randomly select one of the most populous cities in the Netherlands (i.e.,
-        # a municipality with at least 100.000 residents) using a uniform distribution.
-        # TODO: Sample with replacement to allow for more samples.
-        size = len(cities) if size == -1 else size
-        sample = random.sample(cities, size)
-        # TODO: Harmonize the name of this variable.
-        # TODO: Keep sampling until the sample size is equal to the provided value.
-        for i in sample:
-            # Randomly select a point within a 10 km radius from the city center using a
-            # normal distribution.
-            center = cities[i]
-            offset = _gen_random_point(*center, radius=10000)
-            # Find the corresponding tile.
-            # TODO: If the intersection of the point with the 3DBAG sheet index is null,
-            #       then the point is out of bounds and the closest tile to it should be
-            #       picked.
-            # tile = index.overlay(point)
-            # TODO: Check whether the tile has been selected before.
-            pass
+            # TODO: Refactor this line.
+            tile_pt = gpd.GeoDataFrame(
+                {"id": [0], "geometry": [self._gen_random_point(city_pt)]},
+                crs="EPSG:28992",
+            )
+            # NOTE: The point can be positioned on the interface of two or more
+            #       adjacent tiles.
+            tile_ids = self.index.overlay(tile_pt, keep_geom_type=False)["id_1"]
+            for id_ in tile_ids:
+                # TODO: Replace this linear search with a more efficient method.
+                if id_ in sample:
+                    continue
+                sample.append(id_)
+        return sample
 
-
-def _get_citizen_data() -> list:
-    pass
-
-
-def _gen_random_point(x, y, radius):
-    # Generate two independent normally distributed random variables
-    u, v = random.normalvariate(0, 1), random.normalvariate(0, 1)
-
-    # Calculate the magnitude of the vector (u, v)
-    magnitude = math.sqrt(u**2 + v**2)
-
-    # Scale the point to lie within the specified radius
-    u, v = (u / magnitude) * radius, (v / magnitude) * radius
-
-    # Add the offset of the original point (x, y)
-    random_point = (x + u, y + v)
-
-    return random_point
+    def _gen_random_point(
+        self, pt: gpd.GeoSeries, radius: float = 10000
+    ) -> shapely.Point:
+        # noinspection PyTypeChecker
+        off = self.randm.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
+        off /= np.linalg.norm(off)
+        off *= radius
+        return shapely.Point(pt.x + off[0], pt.y + off[1])

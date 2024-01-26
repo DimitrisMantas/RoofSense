@@ -13,7 +13,7 @@ _BASE_DATA_ADDRESS = "https://geotiles.citg.tudelft.nl/Luchtfoto_2023/"
 
 class ImageDataDownloader(DataDownloader):
     def __init__(self) -> None:
-        super().__init__(config.env("ASSET_INDEX_FILENAME"))
+        super().__init__(config.env("ASSET_SHEET_INDEX"))
 
     # TODO: Find out why the override decorator cannot be imported from the typing
     #       module.
