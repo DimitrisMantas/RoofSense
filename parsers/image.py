@@ -30,8 +30,6 @@ class ImageDataParser(DataParser):
             for img_id in self._data["image_ids"]
         ]
 
-        # FIXME: Merging images results in the result product being shifted in
-        #        relation to its constituents.
         # TODO: Parallelize this operation.
         # TODO: Read the object ID from the asset manifest.
         self._parse_cir_images(obj_id, cir_paths)
@@ -54,16 +52,24 @@ class ImageDataParser(DataParser):
         path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
         if utils.file.exists(path):
             return
-        merged_img, merged_transform = rasterio.merge.merge(
-            paths, bounds=self._surfs.total_bounds.tolist(), indexes=[1]
+        # NOTE: Mapping the merged image to an integer-coordinate grid ensures
+        #       pixel-level alignment with its constituents.
+        rasterio.merge.merge(
+            paths,
+            bounds=self._surfs.total_bounds.tolist(),
+            target_aligned_pixels=True,
+            dst_path=path,
+            indexes=[1],
+            dst_kwds=raster.SingleBandParseProfile(),
         )
-        raster.write(merged_img, merged_transform, path)
 
     def _parse_rgb_images(self, obj_id: str, paths: list[str | PathLike]):
         path = f"{config.env('TEMP_DIR')}{obj_id}.rgb{config.var('TIFF')}"
         if utils.file.exists(path):
             return
-        merged_img, merged_transform = rasterio.merge.merge(
-            paths, bounds=self._surfs.total_bounds.tolist()
+        rasterio.merge.merge(
+            paths,
+            bounds=self._surfs.total_bounds.tolist(),
+            target_aligned_pixels=True,
+            dst_path=path,
         )
-        raster.write(merged_img, merged_transform, path)

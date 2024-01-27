@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import math
 from collections.abc import Sequence
-from os import PathLike
 from typing import Optional
 
 import numpy as np
@@ -92,16 +91,24 @@ class Raster:
 
 
 class DefaultProfile(rasterio.profiles.Profile):
-    defaults = {
-        "driver": "GTiff",  # FIXME: How to select the optimal data type?
+    defaults = {  # TODO: See which is the most suitable. no-data value.
+        "nodata": np.nan,  # TODO: See which is the most suitable data type.
         "dtype": np.float32,
-        "nodata": np.nan,  # FIXME: Hardcoded value!
-        "crs": "EPSG:28992",  # FIXME: Determine the optimal patch size for sampling.
-        "blockxsize": 256,
-        "blockysize": 256,
-        "tiled": True,  # TODO: Check the other available settings.
-        #       https://gdal.org/drivers/raster/gtiff.html
-        "interleave": "pixel",
+        # NOTE: Tiled images cam be efficiently split into patches by exploring their
+        #       internal data block mechanism.
+        "tiled": True,  # TODO: Read the block size from an environment variable.
+        "blockxsize": 1024,
+        "blockysize": 1024,
+        "compress": "LZW",
+    }
+
+
+class SingleBandParseProfile(rasterio.profiles.Profile):
+    defaults = {
+        "compress": "LZW",
+        # NOTE: The default colorimetric interpretation of the BM5 imagery is not
+        #       compatible with single-band rasters.
+        "photometric": "MINISBLACK",
     }
 
 
@@ -145,26 +152,6 @@ def rasterize(
         raster.fill()
 
     return rasters
-
-
-# TODO: Figure out a good type hint for image-like arguments.
-def write(
-    data,
-    transform: rasterio.Affine,
-    filename: str | PathLike,
-    bands: Optional[int | Sequence[int]] = None,
-) -> None:
-    f: rasterio.io.DatasetWriter
-    with rasterio.open(
-        filename,
-        "w",
-        width=data.shape[-1],
-        height=data.shape[-2],
-        count=_get_num_bands(data),
-        transform=transform,
-        **DefaultProfile(),
-    ) as f:
-        f.write(data, indexes=bands)
 
 
 def _get_num_bands(data: np.ndarray) -> int:
