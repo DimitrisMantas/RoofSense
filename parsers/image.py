@@ -59,8 +59,8 @@ class ImageDataParser(DataParser):
             bounds=self._surfs.total_bounds.tolist(),
             target_aligned_pixels=True,
             dst_path=path,
+            dst_kwds=raster.SingleBandProfile(),
             indexes=[1],
-            dst_kwds=raster.SingleBandParseProfile(),
         )
 
     def _parse_rgb_images(self, obj_id: str, paths: list[str | PathLike]):
@@ -72,4 +72,5 @@ class ImageDataParser(DataParser):
             bounds=self._surfs.total_bounds.tolist(),
             target_aligned_pixels=True,
             dst_path=path,
+            dst_kwds=raster.MultiBandProfile(),
         )

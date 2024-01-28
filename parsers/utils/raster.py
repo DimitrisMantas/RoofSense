@@ -103,10 +103,19 @@ class DefaultProfile(rasterio.profiles.Profile):
     }
 
 
-class SingleBandParseProfile(rasterio.profiles.Profile):
+class MultiBandProfile(rasterio.profiles.Profile):
     defaults = {
         "compress": "LZW",
-        # NOTE: The default colorimetric interpretation of the BM5 imagery is not
+        # NOTE: The default photometric interpretation of the BM5 imagery is not
+        #       compatible with lossless compression.
+        "photometric": "RGB",
+    }
+
+
+class SingleBandProfile(rasterio.profiles.Profile):
+    defaults = {
+        "compress": "LZW",
+        # NOTE: The default photometric interpretation of the BM5 imagery is not
         #       compatible with single-band rasters.
         "photometric": "MINISBLACK",
     }
