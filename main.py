@@ -8,7 +8,7 @@ def main():
     config.config()
 
     # Fake a random, valid user input.
-    obj_id = "9-284-556"
+    obj_id = "NL.IMBAG.Pand.0503100000032914"
 
     # Download the corresponding 3DBAG data.
     downloaders.BAG3DDataDownloader().download(obj_id)

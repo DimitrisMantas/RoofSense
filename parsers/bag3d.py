@@ -2,7 +2,6 @@ import os
 
 import cjio.cityjson
 import cjio.cjio
-# noinspection PyDeprecation
 import cjio.models
 import shapely
 from typing_extensions import override
@@ -12,7 +11,6 @@ import utils.file
 from parsers.base import DataParser
 
 
-# noinspection PyDeprecation
 class BAG3DDataParser(DataParser):
     def __init__(self) -> None:
         super().__init__()

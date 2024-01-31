@@ -48,7 +48,6 @@ class DataSampler(DataSamplerABC):
     def _gen_random_point(
         self, pt: gpd.GeoSeries, radius: float = 10000
     ) -> shapely.Point:
-        # noinspection PyTypeChecker
         off = self.rand.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
         off /= np.linalg.norm(off)
         off *= radius
