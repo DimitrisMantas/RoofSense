@@ -94,7 +94,7 @@ class DefaultProfile(rasterio.profiles.Profile):
     defaults = {  # TODO: See which is the most suitable. no-data value.
         "nodata": np.nan,  # TODO: See which is the most suitable data type.
         "dtype": np.float32,
-        # NOTE: Tiled images cam be efficiently split into patches by exploring their
+        # NOTE: Tiled images can be efficiently split into patches by exploiting their
         #       internal data block mechanism.
         "tiled": True,  # TODO: Read the block size from an environment variable.
         "blockxsize": 1024,
@@ -119,48 +119,6 @@ class SingleBandProfile(rasterio.profiles.Profile):
         #       compatible with single-band rasters.
         "photometric": "MINISBLACK",
     }
-
-
-# FIXME: Parallelize this function.
-# TODO: Add type hints to this function.
-# TODO: Optimize the search radius, power, and filler hyperparameters.
-def rasterize(
-    pc, scalars: str | Sequence[str], size: Optional[float] = 0.25
-) -> Raster | dict[str, Raster]:
-    if isinstance(scalars, str):
-        scalars = [scalars]
-    # FIXME: Refactor ``xy()`` into a module function because doesn't make sense to
-    #        create an empty raster just for the sake of using its accessors.
-    r = Raster(size, pc.bbox())
-
-    # TODO: The point cloud should ensure that its spatial index has been initialized
-    #       before this call.
-    neighbors, distances = pc.index.query_radius(r.xy(), r=size, return_distance=True)
-
-    rasters = {scalar: Raster(size, pc.bbox()) for scalar in scalars}
-    for cell_id, cell_nb in enumerate(neighbors):
-        if len(cell_nb) == 0:
-            continue
-        attribs = {scalar: [] for scalar in scalars}
-        for scalar in scalars:
-            attribs[scalar].append(pc[cell_nb][scalar])
-        row, col = np.divmod(cell_id, r.width)
-        if np.any(distances[cell_id] == 0):
-            # The cell center belongs to the point cloud.
-            nb_id = cell_nb[np.argsort(distances[cell_id])[0]]
-            for scalar in scalars:
-                rasters[scalar][row, col] = pc[[nb_id]][scalar].scaled_array()
-        else:
-            weights = distances[cell_id] ** -2
-            for scalar in scalars:
-                rasters[scalar][row, col] = np.sum(attribs[scalar] * weights) / np.sum(
-                    weights
-                )
-
-    for raster in rasters.values():
-        raster.fill()
-
-    return rasters
 
 
 def _get_num_bands(data: np.ndarray) -> int:

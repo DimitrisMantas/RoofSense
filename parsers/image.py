@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+from collections.abc import Sequence
 from os import PathLike
 
 import rasterio.merge
@@ -48,7 +49,7 @@ class ImageDataParser(DataParser):
 
         self._surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
 
-    def _parse_cir_images(self, obj_id: str, paths: list[str | PathLike]):
+    def _parse_cir_images(self, obj_id: str, paths: Sequence[str | PathLike]):
         path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
         if utils.file.exists(path):
             return
@@ -63,7 +64,7 @@ class ImageDataParser(DataParser):
             indexes=[1],
         )
 
-    def _parse_rgb_images(self, obj_id: str, paths: list[str | PathLike]):
+    def _parse_rgb_images(self, obj_id: str, paths: Sequence[str | PathLike]):
         path = f"{config.env('TEMP_DIR')}{obj_id}.rgb{config.var('TIFF')}"
         if utils.file.exists(path):
             return

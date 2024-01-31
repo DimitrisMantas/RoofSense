@@ -54,12 +54,12 @@ class BAG3DDataParser(DataParser):
     def _parse_surfaces(self, item, building_part) -> None:
         part_geom: cjio.models.Geometry
         # Parse the LoD 2.2 surfaces.
-        # NOTE: The LoD 1.1, 1.2, and 2.2 geometry representations appear first,
-        #       second, and third in the underlying array, respectively.
+        # NOTE: The LoD 1.1, 1.2, and 2.2 representations appear first, second,
+        #       and third in the corresponding array, respectively.
         part_geom = building_part.geometry[2]
 
         # Parse the roof surfaces.
-        # NOTE: Wall and roof surfaces appear first and second in the underlying
+        # NOTE: The wall and roof surfaces appear first and second in the corresponding
         #       array, respectively.
         part_surfs = part_geom.surfaces[1]
         part_surfs = part_geom.get_surface_boundaries(part_surfs)
