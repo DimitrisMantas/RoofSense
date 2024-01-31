@@ -130,7 +130,7 @@ def merge(
     with laspy.open(out_path, "a") as f:
         # Initialize the output header.
         # NOTE: The initial bounding box of the merged output should be defined
-        # around its region so that it can grow correctly.
+        #       around its region so that it can grow correctly.
         f.header.mins = out_header.mins
         f.header.maxs = out_header.maxs
 
@@ -156,14 +156,14 @@ def _init_out_file(
     return out_header
 
 
-# TODO: Consider adopting  shapely.Polygon to avoid spaghetti code like this function.
+# TODO: Consider adopting shapely.Polygon to avoid spaghetti code.
 def _remove_overlap(tile: PointCloud, visited_bboxes: list[BoundingBoxLike]) -> None:
     tile_bbox: shapely.Polygon
     tile_bbox = shapely.box(*tile.bbox)
     for bbox in visited_bboxes:
         tile_bbox -= tile_bbox.intersection(bbox)
-    # NOTE: The bounding box of the tile must be recorded as-is so that its neighbors
-    #       can be corrected.
+    # NOTE: The bounding box of the tile must be marked as visited and stored in its
+    #       original state so that its neighbors can be processed correctly.
     visited_bboxes.append(shapely.box(*tile.bbox))
     tile.crop(tile_bbox.bounds)
 
