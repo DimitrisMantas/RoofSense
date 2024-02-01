@@ -53,8 +53,8 @@ class ImageDataParser(DataParser):
         path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
         if utils.file.exists(path):
             return
-        # NOTE: Mapping the output image to an integer-coordinate grid ensures
-        #       pixel-level alignment with its constituents.
+        # NOTE: Mapping the output image to an integer-coordinate grid ensures that it
+        #       will be aligned pixel-wise with its constituents.
         rasterio.merge.merge(
             paths,
             bounds=self._surfs.total_bounds.tolist(),

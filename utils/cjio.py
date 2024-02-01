@@ -1,7 +1,7 @@
 import json
 import sys
 import tempfile
-import typing
+from typing import IO
 
 import cjio.cityjson
 import requests
@@ -28,7 +28,7 @@ def to_jsonl(response: requests.Response, *args, **kwargs):
 
 
 class stdin:
-    def __init__(self, file: typing.TextIO) -> None:
+    def __init__(self, file: IO[str]) -> None:
         self._file = file
 
     def __enter__(self) -> None:

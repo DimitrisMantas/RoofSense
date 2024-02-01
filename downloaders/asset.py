@@ -17,8 +17,9 @@ class AssetDataDownloader(DataDownloader):
 
     @override
     def download(self, obj_id: str) -> None:
-        # TODO: See if there is a significant difference in performance between
-        #       intersecting the index with individual buffers versus their union.
+        # TODO: Check if there is a significant performance improvement difference
+        #       between computing the intersection of the sheet index with individual
+        #       buffers compared to their spatial union.
         surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
 
         img_ids, ldr_ids = self._find_asset_ids(surfs)
@@ -37,8 +38,7 @@ class AssetDataDownloader(DataDownloader):
 
 
 def _write_asset_manifest(obj_id: str, img_ids: list[str], ldr_ids: list[str]) -> None:
-    # TODO: Create this path using a utility function ro avoid duplicate code in the
-    #       parser module.
+    # TODO: Create this path using a utility function ro avoid code duplication.
     path = (
         f"{config.var('TEMP_DIR')}"
         f"{obj_id}"
@@ -48,7 +48,7 @@ def _write_asset_manifest(obj_id: str, img_ids: list[str], ldr_ids: list[str]) -
     if utils.file.exists(path):
         return
 
-    # TODO: Read the manifest sceleton from a relevant environment variable.
+    # TODO: Read the asset manifest sceleton from a relevant environment variable.
     manifest = {
         "image_ids": [f"{img_id}{config.var('TIFF')}" for img_id in img_ids],
         "lidar_ids": [f"{ldr_id}{config.var('LAZ')}" for ldr_id in ldr_ids],
@@ -81,7 +81,7 @@ def _download_lidar_data(ids: list[str]) -> None:
         utils.file.ThreadedFileDownloader(addrs, paths, session=s).download()
 
 
-# TODO: Move this function to a more appropriate location.
+# TODO: Move this function to a more appropriate module.
 def _build_paths(addrs: list[str]) -> list[str]:
     return [
         f"{config.var('TEMP_DIR')}{urllib.parse.urlparse(addr).path.rsplit('/')[-1]}"

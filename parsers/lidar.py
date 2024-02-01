@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import pathlib
 
+import rasterio
 from typing_extensions import override
 
 import config
@@ -22,21 +23,29 @@ class LiDARDataParser(DataParser):
         ipaths = [
             f"{config.env('TEMP_DIR')}{ldr_id}" for ldr_id in self._data["lidar_ids"]
         ]
-        opath = f"{config.env('TEMP_DIR')}{obj_id}.ldr{config.var('LAZ')}"
-
+        opath = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
+        ref_img_path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
         # NOTE: something about the remove duplicate thing
-        pcloud.merge(
-            ipaths, opath, crop=self._surfs.total_bounds, remove_duplicates=True
-        )
+        if not utils.file.exists(opath):
+            pcloud.merge(ipaths, opath, crop=self._surfs.total_bounds, rem_dpls=True)
+        f: rasterio.io.DatasetReader
+        with rasterio.open(ref_img_path) as f:
+            ref_meta = f.profile
+        left = ref_meta["transform"].c
+        top = ref_meta["transform"].f
 
-        # TODO: Overwrite the bounding box with that of an image??
-        rasters = pcloud.PointCloud(opath).rasterize(["z", "Reflectance"], resol=0.25)
+        right = ref_meta["transform"].a * ref_meta["width"] + left
+        bottom = ref_meta["transform"].e * ref_meta["height"] + top
+        ref_bbox = [left, bottom, right, top]
+        rasters = pcloud.PointCloud(opath).rasterize(
+            ["z", "Reflectance"], resol=0.25, bbox=ref_bbox
+        )
         slope_opath = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIFF')}"
         refl_opath = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIFF')}"
         rasters["z"].slope().save(slope_opath)
         rasters["Reflectance"].save(refl_opath)
 
-    # FIXME: Write an asset data parser to avoid duplicate methods in the parser module.
+    # FIXME: Write an asset data parser to avoid code duplication
     @override
     def _update_fields(self, obj_id: str) -> None:
         path = (

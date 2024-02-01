@@ -13,8 +13,8 @@ from utils.type import BoundingBoxLike
 
 class BAG3DDataDownloader(DataDownloader):
     def __init__(self) -> None:
-        # TODO: See if having a state-less class just for API-related purposes is a
-        #       design smell.
+        # TODO: Check if having a state-less class only to maintain a consistent API is
+        #       a design smell.
         super().__init__()
 
     @override

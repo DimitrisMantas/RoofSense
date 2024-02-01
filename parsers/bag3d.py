@@ -2,6 +2,7 @@ import os
 
 import cjio.cityjson
 import cjio.cjio
+# noinspection PyDeprecation
 import cjio.models
 import shapely
 from typing_extensions import override
@@ -27,7 +28,7 @@ class BAG3DDataParser(DataParser):
             return
 
         self._update_fields(obj_id)
-
+        # noinspection PyDeprecation
         buildings: dict[str, cjio.models.CityObject]
         buildings = self._data.get_cityobjects(type="building")
 
@@ -38,11 +39,13 @@ class BAG3DDataParser(DataParser):
 
     @override
     def _update_fields(self, obj_id: str) -> None:
+        # noinspection PyDeprecation
         self._data = cjio.cityjson.load(
             f"{config.env('TEMP_DIR')}{obj_id}{config.var('CITY_JSON')}"
         )
         self._surfs = config.default_data_dict()
 
+    # noinspection PyDeprecation
     def _parse_building_parts(self, item: cjio.models.CityObject) -> None:
         parts: dict[str, cjio.models.CityObject]
         parts = self._data.get_cityobjects(id=item.children)
@@ -50,6 +53,7 @@ class BAG3DDataParser(DataParser):
             self._parse_surfaces(item, part)
 
     def _parse_surfaces(self, item, building_part) -> None:
+        # noinspection PyDeprecation
         part_geom: cjio.models.Geometry
         # Parse the LoD 2.2 surfaces.
         # NOTE: The LoD 1.1, 1.2, and 2.2 representations appear first, second,

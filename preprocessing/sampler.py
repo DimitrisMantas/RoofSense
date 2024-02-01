@@ -39,7 +39,8 @@ class DataSampler(DataSamplerABC):
             #       adjacent tiles.
             tile_ids = self.index.overlay(tile_pt, keep_geom_type=False)["id_1"]
             for id_ in tile_ids:
-                # TODO: Replace this linear search with a more efficient method.
+                # TODO: Check if there is a significant performance improvement
+                #       between using linear search compared to a hash-based approach.
                 if id_ in sample:
                     continue
                 sample.append(id_)
@@ -48,6 +49,7 @@ class DataSampler(DataSamplerABC):
     def _gen_random_point(
         self, pt: gpd.GeoSeries, radius: float = 10000
     ) -> shapely.Point:
+        # noinspection PyTypeChecker
         off = self.rand.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
         off /= np.linalg.norm(off)
         off *= radius

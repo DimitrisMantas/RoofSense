@@ -17,7 +17,6 @@ class ConfigurationFile:
         self._base = read_base()
 
     def create(self, filename: str | PathLike) -> None:
-        # TODO: Consider splitting the components of this method into separate ones.
         p = pathlib.Path(filename)
 
         f: rasterio.io.DatasetReader
