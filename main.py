@@ -8,7 +8,7 @@ def main():
     config.config()
 
     # Fake a valid user input.
-    obj_id = "9-280-552"
+    obj_id = "9-284-556"
 
     # Download the corresponding 3DBAG data.
     downloaders.BAG3DDataDownloader().download(obj_id)

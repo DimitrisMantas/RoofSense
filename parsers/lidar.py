@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import pathlib
-import time
 
 import rasterio
 from typing_extensions import override
@@ -28,9 +27,7 @@ class LiDARDataParser(DataParser):
         ref_img_path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
         # NOTE: something about the remove duplicate thing
         if not utils.file.exists(opath):
-            t0 = time.perf_counter()
             pcloud.merge(ipaths, opath, crop=self._surfs.total_bounds, rem_dpls=True)
-            print(time.perf_counter() - t0)
         f: rasterio.io.DatasetReader
         with rasterio.open(ref_img_path) as f:
             ref_meta = f.profile
