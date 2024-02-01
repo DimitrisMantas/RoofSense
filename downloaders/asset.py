@@ -17,7 +17,7 @@ class AssetDataDownloader(DataDownloader):
 
     @override
     def download(self, obj_id: str) -> None:
-        # TODO: Check if there is a significant performance improvement difference
+        # TODO: Check whether there is a significant performance improvement difference
         #       between computing the intersection of the sheet index with individual
         #       buffers compared to their spatial union.
         surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))

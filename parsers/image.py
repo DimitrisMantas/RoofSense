@@ -57,7 +57,7 @@ class ImageDataParser(DataParser):
         #       will be aligned pixel-wise with its constituents.
         rasterio.merge.merge(
             paths,
-            bounds=self._surfs.total_bounds.tolist(),
+            bounds=self._surfs.total_bounds,
             target_aligned_pixels=True,
             dst_path=path,
             dst_kwds=raster.SingleBandProfile(),
@@ -70,7 +70,7 @@ class ImageDataParser(DataParser):
             return
         rasterio.merge.merge(
             paths,
-            bounds=self._surfs.total_bounds.tolist(),
+            bounds=self._surfs.total_bounds,
             target_aligned_pixels=True,
             dst_path=path,
             dst_kwds=raster.MultiBandProfile(),

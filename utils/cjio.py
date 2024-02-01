@@ -1,13 +1,14 @@
 import json
 import sys
 import tempfile
-from typing import IO
+from typing import IO, Never
 
 import cjio.cityjson
 import requests
 
 
-def to_jsonl(response: requests.Response, *args, **kwargs):
+# noinspection PyUnusedLocal
+def to_jsonl(response: requests.Response, *args: Never, **kwargs: Never):
     j = response.json()
     with tempfile.TemporaryFile("w+") as f:
         f.write(f"{json.dumps(j['metadata'])}\n")

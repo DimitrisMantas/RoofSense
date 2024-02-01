@@ -39,7 +39,7 @@ class DataSampler(DataSamplerABC):
             #       adjacent tiles.
             tile_ids = self.index.overlay(tile_pt, keep_geom_type=False)["id_1"]
             for id_ in tile_ids:
-                # TODO: Check if there is a significant performance improvement
+                # TODO: Check whether there is a significant performance improvement
                 #       between using linear search compared to a hash-based approach.
                 if id_ in sample:
                     continue

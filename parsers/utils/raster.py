@@ -69,7 +69,7 @@ class Raster:
         return r
 
     def fill(self, radius: float = 100, smoothing_iters: int = 0) -> None:
-        # TODO: Check if there is a more general-purpose method of computing the
+        # TODO: Check whether there is a more general-purpose method of computing the
         #       no-data mask.
         mask = np.logical_not(np.ma.getmaskarray(np.ma.masked_invalid(self._data)))
         self._data = rasterio.fill.fillnodata(
@@ -81,7 +81,7 @@ class Raster:
 
     def save(self, path: str | PathLike) -> None:
         num_bands = self._data.shape[0] if len(self._data.shape) == 3 else 1
-        # TODO: Check if this statement is true.
+        # TODO: Check whether this statement is true.
         # NOTE: The output transform will be overriden if included in the image
         #       metadata.
         transform = rasterio.transform.from_origin(

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from os import PathLike
-from typing import Optional
+from typing import Optional, Self
 
 import laspy
 import numpy as np
-import pandas as pd
+import polars as pl
 import rasterio
 import sklearn.neighbors
 
@@ -38,7 +38,7 @@ class PointCloud:
             self.header.y_max,
         )
 
-    def crop(self, bbox: BoundingBoxLike) -> PointCloud:
+    def crop(self, bbox: BoundingBoxLike) -> Self:
         xmin = (bbox[0] - self.header.x_offset) / self.header.x_scale
         ymin = (bbox[1] - self.header.y_offset) / self.header.y_scale
         xmax = (bbox[2] - self.header.x_offset) / self.header.x_scale
@@ -51,20 +51,26 @@ class PointCloud:
         ]
         return self
 
-    def remove_duplicates(self) -> PointCloud:
+    def remove_duplicates(self) -> Self:
         pts = np.vstack(
-            [self.points["X"], self.points["Y"], self.points["Z"]]
+            [
+                np.arange(len(self.points["X"])),
+                self.points["X"],
+                self.points["Y"],
+                self.points["Z"],
+            ]
         ).transpose()
         # NOTE: The unique element filter provided by NumPy is inefficient.
         #       See https://github.com/numpy/numpy/issues/11136 for more information.
         #       In addition,
-        #       this approach does not disturb the internal record order.
-        pts = pd.DataFrame(pts, columns=["X", "Y", "Z"])
+        #       this approach does not disturb the internal record order
+        #       and is multithreaded.
+        pts = pl.DataFrame(pts, schema=["I", "X", "Y", "Z"])
         # NOTE: The point records are sorted by their elevation to ensure that only
         #       contextually irrelevant points will be discarded.
-        pts = pts.sort_values("Z")
+        pts = pts.sort("Z")
         self.las.points = self.las.points[
-            pts.drop_duplicates(subset=["X", "Y"], keep="last").index.tolist()
+            pts.unique(subset=["X", "Y"], keep="last")["I"].to_numpy()
         ]
         return self
 
