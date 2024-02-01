@@ -74,7 +74,7 @@ class PointCloud:
         ]
         return self
 
-    # TODO: Parallelize this method.
+    # FIXME: Parallelize this method.
     # TODO: Optimize the interpolation and postprocessing hyperparameters.
     def rasterize(
         self,
@@ -146,6 +146,15 @@ class PointCloud:
         pts = np.vstack([self.points["x"], self.points["y"]]).transpose()
         # noinspection PyUnresolvedReferences
         self._index = sklearn.neighbors.KDTree(pts)
+
+    def _rasterize(
+        self,
+        scalar: str,
+        resol: float,
+        bbox: Optional[BoundingBoxLike] = None,
+        meta: Optional[rasterio.profiles.Profile] = None,
+    ):
+        raise NotImplementedError
 
 
 def merge(
