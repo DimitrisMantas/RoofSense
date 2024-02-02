@@ -171,8 +171,8 @@ def merge(
         if crop is not None:
             tmp.crop(crop)
         tmp.las.change_scaling(opc.header.scales, opc.header.offsets)
-        opc.las.points = laspy.ScaleAwarePointRecord(
-            np.concatenate([tmp.points.array, opc.points.array]),
+        opc.las.points = laspy.ScaleAwarePointRecord(np.concatenate([opc.points.array,
+                                                                     tmp.points.array]),
             opc.header.point_format,
             scales=opc.header.scales,
             offsets=opc.header.offsets,
