@@ -51,6 +51,8 @@ class DataSampler(DataSamplerABC):
     ) -> shapely.Point:
         # noinspection PyTypeChecker
         off = self.rand.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
-        off /= np.linalg.norm(off)
+        nrm = np.linalg.norm(off)
+        if nrm > 1:
+            off /= np.linalg.norm(off)
         off *= radius
         return shapely.Point(pt.x + off[0], pt.y + off[1])
