@@ -18,7 +18,6 @@ class PointCloud:
     def __init__(self, path: str | PathLike) -> None:
         with laspy.open(path) as f:
             self.las = f.read()
-
         self._index = None
 
     @property
@@ -96,11 +95,9 @@ class PointCloud:
         rasters = {
             scalar: raster.Raster(resol, bbox=_bbox, meta=meta) for scalar in scalars
         }
-
         # Interpolation
-
-        # Create a reference raster of the same size as the output images to enable
-        # efficient access to each cell.
+        # Creates a reference raster of the same size as the output images
+        # to enable efficient access to each cell.
         ref_ras = raster.Raster(resol, _bbox)
         neighbors, distances = self._index.query_radius(
             ref_ras.xy(), r=resol, return_distance=True
@@ -108,6 +105,7 @@ class PointCloud:
         for cell_id, cell_neighbors in enumerate(neighbors):
             if len(cell_neighbors) == 0:
                 continue
+
             attribs = {scalar: [] for scalar in scalars}
             for scalar in scalars:
                 attribs[scalar].append(self.points[cell_neighbors][scalar])
@@ -171,8 +169,8 @@ def merge(
         if crop is not None:
             tmp.crop(crop)
         tmp.las.change_scaling(opc.header.scales, opc.header.offsets)
-        opc.las.points = laspy.ScaleAwarePointRecord(np.concatenate([opc.points.array,
-                                                                     tmp.points.array]),
+        opc.las.points = laspy.ScaleAwarePointRecord(
+            np.concatenate([opc.points.array, tmp.points.array]),
             opc.header.point_format,
             scales=opc.header.scales,
             offsets=opc.header.offsets,

@@ -11,17 +11,17 @@ def main():
     obj_id = "9-284-556"
 
     # Download the corresponding 3DBAG data.
-    downloaders.BAG3DDataDownloader().download(obj_id)
+    downloaders.BAG3DDownloader().download(obj_id)
 
     # Parse the data.
-    parsers.BAG3DDataParser().parse(obj_id)
+    parsers.BAG3DParser().parse(obj_id)
 
     # Download the corresponding assets.
-    downloaders.AssetDataDownloader().download(obj_id)
+    downloaders.AssetDownloader().download(obj_id)
 
     # Parse the assets.
-    parsers.ImageDataParser().parse(obj_id)
-    parsers.LiDARDataParser().parse(obj_id)
+    parsers.ImageParser().parse(obj_id)
+    parsers.LiDARParser().parse(obj_id)
 
 
 if __name__ == "__main__":

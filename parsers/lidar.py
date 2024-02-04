@@ -1,60 +1,78 @@
 from __future__ import annotations
 
-import json
-import pathlib
-
 import rasterio
 from typing_extensions import override
 
 import config
 import utils
-from parsers.base import DataParser
+from parsers.base import AssetParser
 from parsers.utils import pcloud
+from utils.type import BoundingBoxLike
 
 
-class LiDARDataParser(DataParser):
+class LiDARParser(AssetParser):
     def __init__(self) -> None:
         super().__init__()
 
     @override
     def parse(self, obj_id: str) -> None:
-        self._update_fields(obj_id)
+        self._update(obj_id)
 
-        ipaths = [
-            f"{config.env('TEMP_DIR')}{ldr_id}" for ldr_id in self._data["lidar_ids"]
+        ldr_path = self._merge_assets(obj_id)
+
+        rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIFF')}"
+        slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIFF')}"
+        scalars = _get_scalar_ids(rfl_path, slp_path)
+        if not scalars:
+            return
+        rasters = pcloud.PointCloud(ldr_path).rasterize(
+            scalars, resol=0.25, bbox=_get_image_bbox(obj_id)
+        )
+
+        refl_field = config.var("REFLECTANCE_FIELD")
+        elev_field = config.var("ELEVATION_FIELD")
+        if refl_field in scalars:
+            rasters[refl_field].save(rfl_path)
+        if elev_field in scalars:
+            rasters[elev_field].slope().save(slp_path)
+
+    def _merge_assets(self, obj_id: str) -> str:
+        in_paths = [
+            f"{config.env('TEMP_DIR')}{ldr_id}"
+            for ldr_id in self._manifest["lidar_ids"]
         ]
-        opath = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
-        ref_img_path = f"{config.env('TEMP_DIR')}{obj_id}.nir{config.var('TIFF')}"
-        # NOTE: something about the remove duplicate thing
-        if not utils.file.exists(opath):
-            pcloud.merge(ipaths, opath, crop=self._surfs.total_bounds, rem_dpls=True)
-        f: rasterio.io.DatasetReader
-        with rasterio.open(ref_img_path) as f:
-            ref_meta = f.profile
-        left = ref_meta["transform"].c
-        top = ref_meta["transform"].f
+        out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
+        if not utils.file.exists(out_path):
+            pcloud.merge(
+                in_paths, out_path, crop=self._surfs.total_bounds, rem_dpls=True
+            )
+        return out_path
 
-        right = ref_meta["transform"].a * ref_meta["width"] + left
-        bottom = ref_meta["transform"].e * ref_meta["height"] + top
-        ref_bbox = [left, bottom, right, top]
-        rasters = pcloud.PointCloud(opath).rasterize(
-            ["z", "Reflectance"], resol=0.25, bbox=ref_bbox
-        )
-        slope_opath = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIFF')}"
-        refl_opath = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIFF')}"
-        rasters["z"].slope().save(slope_opath)
-        rasters["Reflectance"].save(refl_opath)
 
-    # FIXME: Write an asset data parser to avoid code duplication
-    @override
-    def _update_fields(self, obj_id: str) -> None:
-        path = (
-            f"{config.var('TEMP_DIR')}"
-            f"{obj_id}"
-            f"{config.var('ASSET_MANIFEST_EXTENSION')}"
-            f"{config.var('JSON')}"
-        )
-        with pathlib.Path(path).open() as f:
-            self._data = json.load(f)
+def _get_scalar_ids(rfl_path: str, slp_path: str) -> list[str]:
+    ids = []
+    for scalar, path in zip(
+        [config.var("REFLECTANCE_FIELD"), config.var("ELEVATION_FIELD")],
+        [rfl_path, slp_path],
+    ):
+        if not utils.file.exists(path):
+            ids.append(scalar)
+    return ids
 
-        self._surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
+
+def _get_image_bbox(obj_id: str) -> BoundingBoxLike:
+    img_path = (
+        f"{config.env('TEMP_DIR')}"
+        f"{obj_id}"
+        f"{config.var('NIR_EXTENSION')}"
+        f"{config.var('TIFF')}"
+    )
+    f: rasterio.io.DatasetReader
+    with rasterio.open(img_path) as f:
+        ref_meta = f.profile
+
+    xmin = ref_meta["transform"].c
+    ymax = ref_meta["transform"].f
+    xmax = ref_meta["transform"].a * ref_meta["width"] + xmin
+    ymin = ref_meta["transform"].e * ref_meta["height"] + ymax
+    return xmin, ymin, xmax, ymax
