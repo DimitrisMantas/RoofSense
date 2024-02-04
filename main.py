@@ -1,6 +1,5 @@
 import config
-import downloaders
-import parsers
+import preprocessing
 
 
 def main():
@@ -11,17 +10,17 @@ def main():
     obj_id = "9-284-556"
 
     # Download the corresponding 3DBAG data.
-    downloaders.BAG3DDownloader().download(obj_id)
+    preprocessing.downloaders.BAG3DDownloader().download(obj_id)
 
     # Parse the data.
-    parsers.BAG3DParser().parse(obj_id)
+    preprocessing.parsers.BAG3DParser().parse(obj_id)
 
     # Download the corresponding assets.
-    downloaders.AssetDownloader().download(obj_id)
+    preprocessing.downloaders.AssetDownloader().download(obj_id)
 
     # Parse the assets.
-    parsers.ImageParser().parse(obj_id)
-    parsers.LiDARParser().parse(obj_id)
+    preprocessing.parsers.ImageParser().parse(obj_id)
+    preprocessing.parsers.LiDARParser().parse(obj_id)
 
 
 if __name__ == "__main__":

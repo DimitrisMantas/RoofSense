@@ -5,8 +5,8 @@ from typing_extensions import override
 
 import config
 import utils
-from parsers.base import AssetParser
-from parsers.utils import pcloud
+from preprocessing.parsers.base import AssetParser
+from preprocessing.parsers.utils import pcloud
 from utils.type import BoundingBoxLike
 
 

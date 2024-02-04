@@ -10,7 +10,7 @@ from typing_extensions import override
 
 import config
 import utils.file
-from parsers.base import DataParser
+from preprocessing.parsers.base import DataParser
 
 
 class BAG3DParser(DataParser):

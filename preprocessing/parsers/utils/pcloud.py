@@ -10,7 +10,7 @@ import polars as pl
 import rasterio
 import sklearn.neighbors
 
-from parsers.utils import raster
+from preprocessing.parsers.utils import raster
 from utils.type import BoundingBoxLike
 
 

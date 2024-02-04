@@ -7,7 +7,7 @@ from typing_extensions import override
 
 import config
 import utils
-from downloaders.base import DataDownloader
+from preprocessing.downloaders.base import DataDownloader
 from utils.type import BoundingBoxLike
 
 
