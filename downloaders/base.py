@@ -1,19 +1,15 @@
-from abc import ABC, abstractmethod
-from typing import Optional
+from __future__ import annotations
 
-import geopandas as gpd
+from abc import ABC, abstractmethod
+
+from utils.type import BoundingBoxLike
 
 
 class DataDownloader(ABC):
-    def __init__(
-        self,
-        index: Optional[str] = None,
-    ) -> None:
-        if index is not None:
-            self._index = gpd.read_file(index)
-        else:
-            self._index = None
+    """
+    The interface all data downloaders must provide.
+    """
 
     @abstractmethod
-    def download(self, obj_id: str) -> None:
+    def download(self, obj_id: str | BoundingBoxLike) -> None:
         ...

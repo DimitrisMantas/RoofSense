@@ -1,3 +1,3 @@
 import downloaders.base
-from .asset import AssetDataDownloader
+from .asset import AssetDownloader
 from .bag3d import BAG3DDataDownloader
