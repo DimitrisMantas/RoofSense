@@ -168,7 +168,8 @@
       "description": "The reflectance field of the scene",
       "type": "image",
       "data": "$B5",
-      "cmap": "turbo"
+      "cmap": "turbo",
+      "vmax": 1
     },
     "SLP": {
       "description": "The slope field of the scene.",
