@@ -78,10 +78,9 @@ class RasterStackBuilder(DataMerger):
                     if band_id == 5:
                         # Convert the units of the reflectance raster from decibels
                         # to percentages.
-                        # NOTE: This ensures that the output raster contains only
-                        #       positive values,
+                        # NOTE: This ensures that the output band contains only positive
+                        #       values,
                         #       and thus zero-valued pixels correspond only to the
-                        #       background
-                        out.write(10 ** (tmp_data / 10), indexes=band_id)
-                    else:
-                        out.write(tmp_data, indexes=band_id)
+                        #       background.
+                        tmp_data = 10 ** (0.1 * tmp_data)
+                    out.write(tmp_data, indexes=band_id)
