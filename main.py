@@ -41,7 +41,7 @@ def gen_training_data(size: int = 10) -> None:
     preprocessing.merger.RasterStackBuilder().merge(obj_id)
 
     # Create the corresponding IRIS configuration file.
-    utils.iris.ConfigurationFile().create(obj_id)
+    utils.iris.IRISConfigurationFile().create(obj_id)
 
 
 if __name__ == "__main__":

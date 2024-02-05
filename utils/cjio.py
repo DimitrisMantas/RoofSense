@@ -20,8 +20,7 @@ def to_jsonl(
         if "features" in lines:
             for feat in lines["features"]:
                 f.write(f"{json.dumps(feat)}\n")
-        # NOTE - Reset the offset into the file to the beginning so that it will be
-        #        read in its entirety when the standard input is pointed to it.
+        # Reset the file pointer so that its contents can be reread.
         f.seek(0)
         with _stdin(f):
             lines = cjio.cityjson.read_stdin()

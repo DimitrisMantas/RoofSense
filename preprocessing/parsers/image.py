@@ -37,8 +37,9 @@ class ImageParser(AssetParser):
         rasterio.merge.merge(
             in_paths,
             bounds=self._surfs.total_bounds.tolist(),
-            # NOTE: Mapping the output image to an integer-coordinate grid ensures
-            #       that it will be aligned pixel-wise with its constituents.
+            # Map the output image to an integer-coordinate grid.
+            # NOTE: This ensures that the image will be aligned pixel-wise with its
+            #       constituents.
             target_aligned_pixels=True,
             dst_path=out_path,
             dst_kwds=raster.SingleBandProfile(),

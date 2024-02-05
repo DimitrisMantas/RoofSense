@@ -62,11 +62,11 @@ class PointCloud:
         # NOTE: The unique element filter provided by NumPy is inefficient.
         #       See https://github.com/numpy/numpy/issues/11136 for more information.
         #       In addition,
-        #       this approach does not disturb the internal record order
+        #       this approach does not disturb the spatial coherence of the point cloud
         #       and is multithreaded.
         pts = pl.DataFrame(pts, schema=["I", "X", "Y", "Z"])
-        # NOTE: The point records are sorted by their elevation to ensure that only
-        #       contextually irrelevant points will be discarded.
+        # Sort the point records by their elevation.
+        # NOTE: This ensures that only contextually irrelevant points will be discarded.
         pts = pts.sort("Z")
         self.las.points = self.las.points[
             pts.unique(subset=["X", "Y"], keep="last")["I"].to_numpy()
