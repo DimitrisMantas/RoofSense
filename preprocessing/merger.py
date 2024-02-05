@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 import rasterio.mask
 from typing_extensions import override
@@ -49,35 +50,38 @@ class RasterStackBuilder(DataMerger):
         out_meta = raster.DefaultProfile()
         # NOTE: The RGB image contains 3 bands.
         out_meta.update(count=len(in_paths) + 2)
-
         rgb: rasterio.io.DatasetReader
         with rasterio.open(in_paths[0]) as rgb:
             out_meta.update(width=rgb.width, height=rgb.height, transform=rgb.transform)
             rgb_data = rasterio.mask.mask(
                 rgb, self._surfs[config.var("DEFAULT_GM_FIELD_NAME")]
             )[0]
-
         out: rasterio.io.DatasetWriter
-        tmp: rasterio.io.DatasetReader
         with rasterio.open(out_path, "w", **out_meta) as out:
             out.write(rgb_data, indexes=[1, 2, 3])
             for band_id, path in enumerate(in_paths[1:], start=4):
+                tmp: rasterio.io.DatasetReader
                 with rasterio.open(path) as tmp:
                     tmp_data = rasterio.mask.mask(
                         tmp,
                         self._surfs[config.var("DEFAULT_GM_FIELD_NAME")],
                         # Mask the background with zeros instead of no-data values.
+                        # NOTE: The use of negative infinity installed of zero in the
+                        #       case of the reflectance raster ensures
+                        #       that it can be correctly handled in subsequent steps.
                         # NOTE: This parameter does not need to be specified when
                         #       masking BM5 imagery
                         #       because their no-dara value is null,
                         #       and thus rasterio automatically replaces it with zero.
-                        nodata=0,
+                        nodata=0 if band_id != 5 else -np.inf,
                         # Squeeze the output data array.
                         indexes=1,
                     )[0]
                     if band_id == 5:
                         # Convert the units of the reflectance raster from decibels
-                        # to percentages.
+                        # to the optical amplitude ratio between the actual and a
+                        # reference target.
+                        # See http://tinyurl.com/3b6jx2ax for more information.
                         # NOTE: This ensures that the output band contains only positive
                         #       values,
                         #       and thus zero-valued pixels correspond only to the
