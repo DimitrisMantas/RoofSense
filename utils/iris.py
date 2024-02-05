@@ -23,7 +23,7 @@ class IRISConfigurationFile:
         f: rasterio.io.DatasetReader
         g: rasterio.io.DatasetWriter
         with rasterio.open(img_path) as f:
-            # NOTE: IRIS expects image shapes in reverse NumPy order.
+            # NOTE: IRIS expects raster shapes in reverse NumPy order.
             img_shape = [f.width, f.height]
         out = copy.deepcopy(self._base)
         out["images"]["shape"] = img_shape

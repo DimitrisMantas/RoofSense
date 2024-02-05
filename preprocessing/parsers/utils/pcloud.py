@@ -66,7 +66,7 @@ class PointCloud:
         #       and is multithreaded.
         pts = pl.DataFrame(pts, schema=["I", "X", "Y", "Z"])
         # Sort the point records by their elevation.
-        # NOTE: This ensures that only contextually irrelevant points will be discarded.
+        # NOTE: This ensures that only contextually irrelevant points are discarded.
         pts = pts.sort("Z")
         self.las.points = self.las.points[
             pts.unique(subset=["X", "Y"], keep="last")["I"].to_numpy()

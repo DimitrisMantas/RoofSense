@@ -79,7 +79,7 @@ class Raster:
     def save(self, path: str | PathLike) -> None:
         num_bands = self._data.shape[0] if len(self._data.shape) == 3 else 1
         # TODO: Check whether this statement is true.
-        # NOTE: The output transform will be overriden if included in the image
+        # NOTE: The default output transform is overriden if included in the raster
         #       metadata.
         transform = rasterio.transform.from_origin(
             self._bbox[0], self._bbox[3], self._resol, self._resol
@@ -102,7 +102,7 @@ class DefaultProfile(rasterio.profiles.Profile):
         "nodata": np.nan,
         "dtype": np.float32,
         "crs": config.var("CRS"),
-        # NOTE: Tiled images can be efficiently split into patches by exploiting their
+        # NOTE: Tiled rasters can be efficiently split into patches by exploiting their
         #       internal data block mechanism.
         "tiled": True,
         "blockxsize": config.var("BLOCK_SIZE"),
@@ -113,7 +113,7 @@ class DefaultProfile(rasterio.profiles.Profile):
 class MultiBandProfile(rasterio.profiles.Profile):
     defaults = {
         "compress": config.var("COMPRESSION"),
-        # NOTE: The default photometric interpretation of the BM5 imagery is not
+        # NOTE: The default photometric interpretation of the BM5 images is not
         #       compatible with lossless compression.
         "photometric": config.var("MULTI_BAND_PHOTOMETRIC"),
     }
@@ -122,7 +122,7 @@ class MultiBandProfile(rasterio.profiles.Profile):
 class SingleBandProfile(rasterio.profiles.Profile):
     defaults = {
         "compress": config.var("COMPRESSION"),
-        # NOTE: The default photometric interpretation of the BM5 imagery is not
+        # NOTE: The default photometric interpretation of the BM5 images is not
         #       compatible with single-band rasters.
         "photometric": config.var("SINGLE_BAND_PHOTOMETRIC"),
     }
