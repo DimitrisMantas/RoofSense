@@ -118,9 +118,9 @@ class PointCloud:
             else:
                 weights = distances[cell_id] ** -2
                 for scalar in scalars:
-                    # NOTE: The output value cannot be computed using the corresponding
-                    #       method provided by NumPy
-                    #       because the attribute array contains ScaledArrayView
+                    # NOTE: The output value cannot be computed using the averaging
+                    #       methods provided by NumPy
+                    #       because the record attribute list contains ScaledArrayView
                     #       instances.
                     rasters[scalar][row, col] = np.sum(
                         attribs[scalar] * weights
