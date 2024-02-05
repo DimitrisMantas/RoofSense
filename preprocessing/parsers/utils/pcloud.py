@@ -91,7 +91,6 @@ class PointCloud:
         if isinstance(scalars, str):
             # NOTE: This indexing notations ensures consistent output.
             scalars = [scalars]
-
         rasters = {
             scalar: raster.Raster(resol, bbox=_bbox, meta=meta) for scalar in scalars
         }
@@ -105,11 +104,9 @@ class PointCloud:
         for cell_id, cell_neighbors in enumerate(neighbors):
             if len(cell_neighbors) == 0:
                 continue
-
             attribs = {scalar: [] for scalar in scalars}
             for scalar in scalars:
                 attribs[scalar].append(self.points[cell_neighbors][scalar])
-
             row, col = np.divmod(cell_id, ref_ras.width)
             if np.any(distances[cell_id] == 0):
                 # The cell center is a member of the point cloud.

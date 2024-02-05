@@ -1,112 +1,200 @@
 {
-  "name": "roofsense",
-  "port": 6060,
-  "host": "127.0.0.1",
+  "name": "RoofSense",
   "images": {
     "path": "imgs/{id}.tif"
   },
   "classes": [
     {
       "name": "Background",
-      "description": "",
+      "description": "The set of pixels representing image regions which do not correspond to building roofs (i.e., black pixel clusters).",
       "colour": [
         255,
         255,
         255,
-        0
-      ],
-      "user_colour": [
-        0,
-        255,
-        255,
-        70
+        85
+      ]
+    },
+    {
+      "name": "Other",
+      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes",
+      "colour": [
+        128,
+        128,
+        128,
+        85
+      ]
+    },
+    {
+      "name": "Asphalt Shingles",
+      "description": "The set of pixels which represent asphalt shingles.",
+      "colour": [
+        141,
+        211,
+        199,
+        85
       ]
     },
     {
       "name": "Bituminous Membranes",
-      "description": "",
+      "description": "The set of pixels which represent bituminous membranes",
       "colour": [
         255,
-        0,
-        0,
-        70
+        255,
+        179,
+        85
+      ]
+    },
+    {
+      "name": "Clay Tiles",
+      "description": "The set of pixels which represent clay tiles.",
+      "colour": [
+        190,
+        186,
+        218,
+        85
+      ]
+    },
+    {
+      "name": "Loose Gravel",
+      "description": "The set of pixels which represent loose gravel.",
+      "colour": [
+        251,
+        128,
+        114,
+        85
+      ]
+    },
+    {
+      "name": "Metal",
+      "description": "The set of pixels which represent metal.",
+      "colour": [
+        128,
+        117,
+        211,
+        85
       ]
     },
     {
       "name": "Solar Panels",
-      "description": "",
+      "description": "The set of pixels which represent solar and photovoltaic panels.",
       "colour": [
-        0,
-        255,
-        0,
-        70
+        253,
+        180,
+        98,
+        85
       ]
     },
     {
-      "name": "Concrete",
-      "description": "",
+      "name": "Vegetation",
+      "description": "The set of pixels which represents vegetation.",
       "colour": [
-        0,
-        0,
+        179,
+        222,
+        105,
+        85
+      ]
+    },
+    {
+      "name": "Class 8",
+      "description": "The set of pixels which",
+      "colour": [
+        252,
+        205,
+        229,
+        85
+      ]
+    },
+    {
+      "name": "Class 9",
+      "description": "The set of pixels which",
+      "colour": [
+        217,
+        217,
+        217,
+        85
+      ]
+    },
+    {
+      "name": "Class 10",
+      "description": "The set of pixels which",
+      "colour": [
+        188,
+        128,
+        189,
+        85
+      ]
+    },
+    {
+      "name": "Class 11",
+      "description": "The set of pixels which",
+      "colour": [
+        204,
+        235,
+        197,
+        85
+      ]
+    },
+    {
+      "name": "Class 12",
+      "description": "The set of pixels which",
+      "colour": [
         255,
-        70
+        237,
+        111,
+        85
       ]
     }
   ],
   "views": {
     "RGB": {
-      "description": "Normal RGB image.",
+      "description": "The true-color composite of the scene.",
       "type": "image",
       "data": [
         "$B1",
         "$B2",
         "$B3"
-      ],
-      "clip": "1"
+      ]
     },
-    "NIR": {
-      "description": "NIR",
+    "CIR": {
+      "description": "The false-color composite of the scene.",
       "type": "image",
-      "data": "$B4",
-      "cmap": "jet",
-      "clip": "1"
+      "data": [
+        "$B4",
+        "$B1",
+        "$B2"
+      ]
     },
-    "Slope": {
-      "description": "Reflectance",
+    "RFL": {
+      "description": "The reflectance field of the scene",
       "type": "image",
       "data": "$B5",
-      "cmap": "gray",
-      "clip": "1"
+      "cmap": "turbo"
     },
-    "Reflectance": {
-      "description": "Reflectance",
+    "SLP": {
+      "description": "The slope field of the scene.",
       "type": "image",
       "data": "$B6",
-      "cmap": "jet",
-      "clip": "1"
+      "cmap": "turbo"
     }
   },
   "view_groups": {
     "default": [
       "RGB",
-      "NIR"
+      "CIR"
     ],
     "lidar": [
-      "Slope",
-      "Reflectance"
+      "RFL",
+      "SLP"
     ]
   },
   "segmentation": {
     "path": "msks/{id}.tif",
     "mask_encoding": "integer",
-    "score": "f1",
     "mask_area": [
       0,
       0,
       4780,
       4794
-    ],
-    "unverified_threshold": 1,
-    "test_images": null
+    ]
   }
 }

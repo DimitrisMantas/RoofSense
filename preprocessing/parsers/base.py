@@ -17,10 +17,6 @@ class DataParser(ABC):
     def parse(self, obj_id: str) -> None:
         ...
 
-    @abstractmethod
-    def _update(self, obj_id: str) -> None:
-        ...
-
 
 class AssetParser(DataParser):
     def __init__(self) -> None:
@@ -41,5 +37,4 @@ class AssetParser(DataParser):
         )
         with pathlib.Path(manifest_path).open() as f:
             self._manifest = json.load(f)
-
         self._surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))

@@ -15,6 +15,8 @@ import rasterio.windows
 import config
 from utils.type import BoundingBoxLike
 
+# TODO: Find a way to not rely on the configuration file being initialised for this
+#       module to be imported.
 config.config()
 
 
@@ -26,13 +28,10 @@ class Raster:
         meta: Optional[rasterio.profiles.Profile] = None,
     ) -> None:
         self._resol = resol
-
         self._bbox = bbox
         self._lenx = math.ceil((self._bbox[2] - self._bbox[0]) / self._resol)
         self._leny = math.ceil((self._bbox[3] - self._bbox[1]) / self._resol)
-
         self._meta = meta if meta is not None else DefaultProfile()
-
         self._data = np.full((self._leny, self._lenx), self._meta["nodata"])
 
     # TODO: Add type hints to this method.
@@ -54,11 +53,9 @@ class Raster:
     def xy(self) -> np.ndarray[tuple[Any, Any], np.dtype[float]]:
         # Place the origin of the grid at its bottom left corner.
         rows, cols = np.mgrid[self.height - 1 : -1 : -1, 0 : self.width]  # noqa: E203
-
         # Transform the image to world coordinates.
         x = self._bbox[0] + self._resol * (cols + 0.5)
         y = self._bbox[1] + self._resol * (rows + 0.5)
-
         return np.column_stack([x.ravel(), y.ravel()])
 
     def slope(self, degrees: bool = True) -> Raster:
@@ -87,7 +84,6 @@ class Raster:
         transform = rasterio.transform.from_origin(
             self._bbox[0], self._bbox[3], self._resol, self._resol
         )
-
         f: rasterio.io.DatasetWriter
         with rasterio.open(
             path,
@@ -102,8 +98,8 @@ class Raster:
 
 
 class DefaultProfile(rasterio.profiles.Profile):
-    defaults = {  # TODO: Find the most suitable no-data value.
-        "nodata": np.nan,  # TODO: Find the most suitable data type.
+    defaults = {
+        "nodata": np.nan,
         "dtype": np.float32,
         "crs": config.var("CRS"),
         # NOTE: Tiled images can be efficiently split into patches by exploiting their
@@ -111,7 +107,6 @@ class DefaultProfile(rasterio.profiles.Profile):
         "tiled": True,
         "blockxsize": config.var("BLOCK_SIZE"),
         "blockysize": config.var("BLOCK_SIZE"),
-        "compress": config.var("COMPRESSION"),
     }
 
 

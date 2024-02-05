@@ -21,7 +21,6 @@ class BAG3DDownloader(DataDownloader):
             obj_tp = _ObjectType.BBOX
         else:
             obj_tp = _get_object_type(obj_id)
-
         tmp_dir = config.env("TEMP_DIR")
         if obj_tp == _ObjectType.BBOX:
             _download_bbox_data(obj_id, base_dir=tmp_dir)

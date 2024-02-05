@@ -1,10 +1,10 @@
-import os
 from typing import Optional
 
 import cjio.cityjson
 import cjio.cjio
 # noinspection PyDeprecation
 import cjio.models
+import geopandas as gpd
 import shapely
 from typing_extensions import override
 
@@ -16,7 +16,7 @@ from preprocessing.parsers.base import DataParser
 class BAG3DParser(DataParser):
     def __init__(self) -> None:
         super().__init__()
-        self._cjson: Optional[cjio.cityjson.CityJSON] = None
+        self._data: Optional[cjio.cityjson.CityJSON] = None
         self._surfs: Optional[dict[str, list[shapely.Polygon]]] = None
 
     @override
@@ -29,29 +29,28 @@ class BAG3DParser(DataParser):
         )
         if utils.file.exists(out_path):
             return
-
         self._update(obj_id)
-
         # noinspection PyDeprecation
         buildings: dict[str, cjio.models.CityObject]
-        buildings = self._cjson.get_cityobjects(type="building")
+        buildings = self._data.get_cityobjects(type="building")
         for building in buildings.values():
             self._parse_building_parts(building)
+        gpd.GeoDataFrame(self._surfs, crs=config.var("CRS")).to_file(out_path)
 
-        config.default_data_tabl(self._surfs).to_file(out_path)
-
-    @override
     def _update(self, obj_id: str) -> None:
         # noinspection PyDeprecation
-        self._cjson = cjio.cityjson.load(
+        self._data = cjio.cityjson.load(
             f"{config.env('TEMP_DIR')}{obj_id}{config.var('CITY_JSON')}"
         )
-        self._surfs = config.default_data_dict()
+        self._surfs = {
+            config.var("DEFAULT_ID_FIELD_NAME"): [],
+            config.var("DEFAULT_GM_FIELD_NAME"): [],
+        }
 
     # noinspection PyDeprecation
     def _parse_building_parts(self, building: cjio.models.CityObject) -> None:
         parts: dict[str, cjio.models.CityObject]
-        parts = self._cjson.get_cityobjects(id=building.children)
+        parts = self._data.get_cityobjects(id=building.children)
         for part in parts.values():
             self._parse_surfaces(building, part)
 
@@ -73,6 +72,5 @@ class BAG3DParser(DataParser):
         for surf in part_surfs:
             # Parse the exterior surface boundary.
             surf = shapely.force_2d(shapely.Polygon(surf[0]))
-
-            self._surfs[os.environ["DEFAULT_ID_FIELD_NAME"]].append(building.id)
-            self._surfs[os.environ["DEFAULT_GM_FIELD_NAME"]].append(surf)
+            self._surfs[config.var("DEFAULT_ID_FIELD_NAME")].append(building.id)
+            self._surfs[config.var("DEFAULT_GM_FIELD_NAME")].append(surf)

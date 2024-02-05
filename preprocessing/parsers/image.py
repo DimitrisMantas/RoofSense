@@ -17,50 +17,49 @@ class ImageParser(AssetParser):
     def parse(self, obj_id: str) -> None:
         self._update(obj_id)
 
-        cir_paths = [
-            f"{config.env('TEMP_DIR')}{'CIR'}_{img_id}"
-            for img_id in self._manifest["image_ids"]
-        ]
-        rgb_paths = [
-            f"{config.env('TEMP_DIR')}{'RGB'}_{img_id}"
-            for img_id in self._manifest["image_ids"]
-        ]
         # TODO: Parallelize this operation.
-        # TODO: Read the object ID from the asset manifest.
-        self._parse_cir_assets(obj_id, cir_paths)
-        self._parse_rgb_assets(obj_id, rgb_paths)
+        self._parse_cir_images(obj_id)
+        self._parse_rgb_images(obj_id)
 
-    def _parse_cir_assets(self, obj_id: str, paths: list[str]) -> None:
+    def _parse_cir_images(self, obj_id: str) -> None:
+        in_paths = [
+            f"{config.env('TEMP_DIR')}{'CIR'}_{img_id}"
+            for img_id in self._manifest[config.var("ASSET_MANIFEST_IMAGE_IDS")]
+        ]
         out_path = (
             f"{config.env('TEMP_DIR')}"
             f"{obj_id}"
-            f"{config.var('NIR_EXTENSION')}"
+            f"{config.var('NIR')}"
             f"{config.var('TIFF')}"
         )
         if utils.file.exists(out_path):
             return
-        # NOTE: Mapping the output image to an integer-coordinate grid ensures that it
-        #       will be aligned pixel-wise with its constituents.
         rasterio.merge.merge(
-            paths,
+            in_paths,
             bounds=self._surfs.total_bounds.tolist(),
+            # NOTE: Mapping the output image to an integer-coordinate grid ensures
+            #       that it will be aligned pixel-wise with its constituents.
             target_aligned_pixels=True,
             dst_path=out_path,
             dst_kwds=raster.SingleBandProfile(),
             indexes=[1],
         )
 
-    def _parse_rgb_assets(self, obj_id: str, paths: list[str]) -> None:
+    def _parse_rgb_images(self, obj_id: str) -> None:
+        in_paths = [
+            f"{config.env('TEMP_DIR')}{'RGB'}_{img_id}"
+            for img_id in self._manifest[config.var("ASSET_MANIFEST_IMAGE_IDS")]
+        ]
         out_path = (
             f"{config.env('TEMP_DIR')}"
             f"{obj_id}"
-            f"{config.var('RGB_EXTENSION')}"
+            f"{config.var('RGB')}"
             f"{config.var('TIFF')}"
         )
         if utils.file.exists(out_path):
             return
         rasterio.merge.merge(
-            paths,
+            in_paths,
             bounds=self._surfs.total_bounds.tolist(),
             target_aligned_pixels=True,
             dst_path=out_path,

@@ -22,7 +22,6 @@ class AssetDownloader(DataDownloader):
     @override
     def download(self, obj_id: str | BoundingBoxLike) -> None:
         img_ids, ldr_ids = self._get_asset_ids(obj_id)
-
         _write_asset_manifest(obj_id, img_ids, ldr_ids)
         # TODO: Parallelize this operation.
         _download_image_assets(img_ids)
@@ -37,9 +36,8 @@ class AssetDownloader(DataDownloader):
         surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
         ids = self._index.overlay(surfs)
         return (
-            # TODO: Read the asset ID field names from a relevant environment variable.
-            ids["image_id"].unique().tolist(),
-            ids["lidar_id"].unique().tolist(),
+            ids[config.var("ASSET_INDEX_IMAGE_IDS")].unique().tolist(),
+            ids[config.var("ASSET_INDEX_LIDAR_IDS")].unique().tolist(),
         )
 
 
@@ -53,11 +51,13 @@ def _write_asset_manifest(obj_id: str, img_ids: list[str], ldr_ids: list[str]) -
     )
     if utils.file.exists(out_path):
         return
-
-    # TODO: Read the asset manifest sceleton from a relevant environment variable.
     manifest = {
-        "image_ids": [f"{img_id}{config.var('TIFF')}" for img_id in img_ids],
-        "lidar_ids": [f"{ldr_id}{config.var('LAZ')}" for ldr_id in ldr_ids],
+        config.var("ASSET_MANIFEST_IMAGE_IDS"): [
+            f"{img_id}{config.var('TIFF')}" for img_id in img_ids
+        ],
+        config.var("ASSET_MANIFEST_LIDAR_IDS"): [
+            f"{ldr_id}{config.var('LAZ')}" for ldr_id in ldr_ids
+        ],
     }
     with pathlib.Path(out_path).open("w") as f:
         json.dump(manifest, f)

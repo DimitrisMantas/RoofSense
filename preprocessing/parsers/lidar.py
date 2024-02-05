@@ -19,16 +19,14 @@ class LiDARParser(AssetParser):
         self._update(obj_id)
 
         ldr_path = self._merge_assets(obj_id)
-
         rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIFF')}"
         slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIFF')}"
-        scalars = _get_scalar_ids(rfl_path, slp_path)
+        scalars = _get_scalars(rfl_path, slp_path)
         if not scalars:
             return
         rasters = pcloud.PointCloud(ldr_path).rasterize(
-            scalars, resol=0.25, bbox=_get_image_bbox(obj_id)
+            scalars, resol=float(config.var("RESOLUTION")), bbox=_get_bbox(obj_id)
         )
-
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
         if refl_field in scalars:
@@ -37,19 +35,24 @@ class LiDARParser(AssetParser):
             rasters[elev_field].slope().save(slp_path)
 
     def _merge_assets(self, obj_id: str) -> str:
-        in_paths = [
-            f"{config.env('TEMP_DIR')}{ldr_id}"
-            for ldr_id in self._manifest["lidar_ids"]
-        ]
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
         if not utils.file.exists(out_path):
+            in_paths = [
+                f"{config.env('TEMP_DIR')}{ldr_id}"
+                for ldr_id in self._manifest[config.var("ASSET_MANIFEST_LIDAR_IDS")]
+            ]
             pcloud.merge(
-                in_paths, out_path, crop=self._surfs.total_bounds, rem_dpls=True
+                in_paths,
+                out_path,
+                crop=self._surfs.total_bounds,
+                # NOTE: The AHN4 tiles served by GeoTiles have a 20 m overlap with
+                #       each other.
+                rem_dpls=True,
             )
         return out_path
 
 
-def _get_scalar_ids(rfl_path: str, slp_path: str) -> list[str]:
+def _get_scalars(rfl_path: str, slp_path: str) -> list[str]:
     ids = []
     for scalar, path in zip(
         [config.var("REFLECTANCE_FIELD"), config.var("ELEVATION_FIELD")],
@@ -60,17 +63,16 @@ def _get_scalar_ids(rfl_path: str, slp_path: str) -> list[str]:
     return ids
 
 
-def _get_image_bbox(obj_id: str) -> BoundingBoxLike:
+def _get_bbox(obj_id: str) -> BoundingBoxLike:
     img_path = (
         f"{config.env('TEMP_DIR')}"
         f"{obj_id}"
-        f"{config.var('NIR_EXTENSION')}"
+        f"{config.var('NIR')}"
         f"{config.var('TIFF')}"
     )
     f: rasterio.io.DatasetReader
     with rasterio.open(img_path) as f:
         ref_meta = f.profile
-
     xmin = ref_meta["transform"].c
     ymax = ref_meta["transform"].f
     xmax = ref_meta["transform"].a * ref_meta["width"] + xmin
