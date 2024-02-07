@@ -17,7 +17,7 @@ def write_cfg():
     )
     if utils.file.exists(out_path):
         return
-    img_shp = [config.var("BLOCK_SIZE"), config.var("BLOCK_SIZE")]
+    img_shp = [int(config.var("BLOCK_SIZE")), int(config.var("BLOCK_SIZE"))]
     cfg["images"]["shape"] = img_shp
     cfg["segmentation"]["mask_area"] = [0, 0, *img_shp]
     with pathlib.Path(out_path).open("w") as f:
