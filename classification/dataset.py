@@ -2,10 +2,13 @@
 # Licensed under the MIT License.
 
 """LandCover.ai dataset."""
+from __future__ import annotations
+
 import abc
 import glob
 import hashlib
 import os
+from collections.abc import Sequence, Iterable
 from functools import lru_cache
 from typing import Any, Callable, Optional, cast
 
@@ -25,8 +28,110 @@ from torchgeo.datasets.utils import (BoundingBox,
                                      working_dir, )
 
 
-class RoofSenseDataset(RasterDataset):
-    pass
+class TrainingDataset(RasterDataset):
+    all_bands = ("B1", "B2", "B3", "B4", "B5", "B6")
+    rgb_bands = ("B1", "B2", "B3")
+    classes = (
+        "Background",
+        "Other",
+        "Asphalt Shingles",
+        "Bituminous Membranes",
+        "Clay Tiles",
+        "Loose Gravel",
+        "Metal",
+        "Solar Panels",
+        "Vegetation",
+    )
+    cmap = {
+        0: (255, 255, 255, 85),
+        1: (128, 128, 128, 85),
+        2: (141, 211, 199, 85),
+        3: (255, 255, 179, 85),
+        4: (190, 186, 218, 85),
+        5: (251, 128, 114, 85),
+        6: (128, 117, 211, 85),
+        7: (253, 180, 100, 85),
+        8: (179, 222, 105, 85),
+    }
+
+    def __init__(
+        self,
+        paths: str | Iterable[str] = "data",
+        crs: Optional[CRS] = CRS.from_epsg(3857),
+        res: Optional[float] = None,
+        bands: Sequence[str] = all_bands,
+        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+        cache: bool = True,
+        download: bool = False,
+        checksum: bool = False,
+    ) -> None:
+        self.paths = paths
+        self.download = download
+        self.checksum = checksum
+        self._validate()
+        super().__init__(
+            paths, crs=crs, res=res, bands=bands, transforms=transforms, cache=cache
+        )
+
+    def _validate(self):
+        """Ensure that the dataset is valid."""
+        # 1. Check image and mask folder names.
+        # 2. Check image and mask counts.
+        # 3. Check image and mask names.
+        self._download()
+        self._extract()
+
+    def _download(self) -> None:
+        raise NotImplementedError
+
+    def _extract(self) -> None:
+        raise NotImplementedError
+
+    def __getitem__(self, query: int | str | BoundingBox) -> dict[str, Any]:
+        """
+        Fetch an image and its corresponding mask by dataset order,
+        file name, or spatial bounds.
+
+        # TODO: Complete the docstring of this method.
+        :param query: The query index. If it is an integer, ``n``, the ``n``-th image
+                      and mask are returned based on the lexicographical order of the
+                      file names in the dataset. If it is a string representing an image
+                      or mask file name, the corresponding pair is returned. If it is
+                      a coordinate interleaved axis-aligned bounding box, the...
+
+        :return: A dictionary containing the queried image and corresponding mask. If
+                 the query is a ``BoundingBox`` instance, its spatial extents are also
+                 returned.
+        """
+        if isinstance(query, int):
+            sample = self._getitem_int(query)
+        elif isinstance(query, str):
+            sample = self._getitem_str(query)
+        elif isinstance(query, BoundingBox):
+            sample = self._getitem_box(query)
+        else:
+            raise ValueError(f"Invalid query {query!r} of type {type(query)!r}.")
+        sample = {}
+        if self.transforms is not None:
+            sample = self.transforms(sample)
+        return sample
+
+    def _getitem_int(self, query: int) -> dict[str, Any]:
+        pass
+
+    def _getitem_str(self, query: str) -> dict[str, Any]:
+        pass
+
+    def _getitem_box(self, query: BoundingBox) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def plot(
+        self,
+        sample: dict[str, Tensor],
+        show_titles: bool = True,
+        suptitle: Optional[str] = None,
+    ) -> Figure:
+        pass
 
 
 class LandCoverAIBase(Dataset[dict[str, Any]], abc.ABC):
