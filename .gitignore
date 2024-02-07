@@ -14,3 +14,6 @@
 /tests/data/ahn34/
 /tests/data/ortho/
 /testbench/
+/classification/data/
+/classification/logs/
+/pretraining/

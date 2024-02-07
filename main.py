@@ -3,46 +3,43 @@ import preprocessing
 import utils.iris
 
 
-def gen_training_data(size: int = 10) -> None:
-    """
-    Generate training data of a particular size by repeatedly sampling random 3DBAG
-    tiles, and pass it off to the user for annotation.
+# noinspection PyUnusedLocal
+def generate_pretraining_data(size: int = 10) -> None:
+    # Initialize the program runtime.
+    config.config(pretraining=True)
 
-    This is the entry point of the program for inputs of the form:
-    >> roofsense train 10
-    or
-    >> roofsense train --sample-size=10
-    or
-    >> roofsense train --size=10
-    or
-    >> roofsense train -s=10
+    # Initialize the data downloaders.
+    bag3d_downloader = preprocessing.downloaders.BAG3DDownloader()
+    asset_downloader = preprocessing.downloaders.AssetDownloader()
 
-    :param size: The desired sample size.
-    """
-    config.config()
-    # Fake a sample size of one and get a random 3DBAG tile ID.
-    # NOTE:
-    obj_id = "NL.IMBAG.Pand.0363100012094841"
+    # Initialize the data parsers.
+    bag3d_parser = preprocessing.parsers.BAG3DParser()
+    image_parser = preprocessing.parsers.ImageParser()
+    lidar_parser = preprocessing.parsers.LiDARParser()
 
-    # Download the corresponding 3DBAG data.
-    preprocessing.downloaders.BAG3DDownloader().download(obj_id)
+    # Fake a random sample.
+    samples = ["9-284-556"]
+    for sample in samples:
+        # Download the corresponding 3DBAG data.
+        bag3d_downloader.download(sample)
+        # Parse the data.
+        bag3d_parser.parse(sample)
 
-    # Parse the data.
-    preprocessing.parsers.BAG3DParser().parse(obj_id)
+        # Download the corresponding assets.
+        asset_downloader.download(sample)
+        # Parse the data.
+        image_parser.parse(sample)
+        lidar_parser.parse(sample)
 
-    # Download the corresponding assets.
-    preprocessing.downloaders.AssetDownloader().download(obj_id)
+        # Create the raster stack.
+        preprocessing.merger.RasterStackBuilder().merge(sample)
 
-    # Parse the assets.
-    preprocessing.parsers.ImageParser().parse(obj_id)
-    preprocessing.parsers.LiDARParser().parse(obj_id)
-
-    # Create the raster stack.
-    preprocessing.merger.RasterStackBuilder().merge(obj_id)
+        # Prepare the stacks for annotation.
+        preprocessing.splitter.split(sample)
 
     # Create the corresponding IRIS configuration file.
-    utils.iris.IRISConfigurationFile().create(obj_id)
+    utils.iris.write_cfg()
 
 
 if __name__ == "__main__":
-    gen_training_data()
+    generate_pretraining_data()

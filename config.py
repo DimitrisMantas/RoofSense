@@ -11,7 +11,7 @@ import utils
 _PROJ_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def config() -> None:
+def config(pretraining: bool = False) -> None:
     dotenv.load_dotenv(os.path.join(_PROJ_DIR, "config.env"))
 
     # Enable GeoPandas speed-ups.
@@ -20,6 +20,8 @@ def config() -> None:
 
     utils.file.mkdirs(env("TEMP_DIR"))
     utils.file.mkdirs(env("LOG_DIR"))
+    if pretraining:
+        utils.file.mkdirs(f"{env('PRETRAINING_DATA_DIR')}imgs")
 
 
 def env(key: str) -> typing.Optional[str]:
