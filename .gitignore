@@ -1,19 +1,9 @@
-# Project Configuration
 /.idea/
 
-# Runtime-Generated Directories
-/data/temp/
+/temp/
 /logs/
+/iris/
+/pretraining/
 
-
-*.las
-*.laz
-*.tif
-*.tiff
-
-/tests/data/ahn34/
-/tests/data/ortho/
-/testbench/
 /classification/data/
 /classification/logs/
-/pretraining/
