@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from os import PathLike
+
 import config
 import preprocessing
 import utils.iris
@@ -5,6 +9,8 @@ import utils.iris
 
 # noinspection PyUnusedLocal
 def generate_pretraining_data(size: int = 10) -> None:
+    """Entry point for 'roofsense --sample <size>'."""
+
     # Initialize the program runtime.
     config.config(pretraining=True)
 
@@ -38,8 +44,14 @@ def generate_pretraining_data(size: int = 10) -> None:
         preprocessing.splitter.split(sample)
 
     # Create the corresponding IRIS configuration file.
-    utils.iris.write_cfg()
+    utils.iris.generate_config_f()
+
+
+def train(root: str | PathLike) -> None:
+    """Entry point for 'roofsense --train <root>'."""
+
+    utils.iris.georeference_masks(root)
 
 
 if __name__ == "__main__":
-    generate_pretraining_data()
+    train("pretraining")
