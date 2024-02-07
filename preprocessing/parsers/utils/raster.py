@@ -103,7 +103,7 @@ class DefaultProfile(rasterio.profiles.Profile):
         "dtype": np.float32,
         "crs": config.var("CRS"),
         # NOTE: Tiled rasters can be efficiently split into patches by exploiting their
-        #       internal data block mechanism.
+        #       internal data block structure.
         "tiled": True,
         "blockxsize": config.var("BLOCK_SIZE"),
         "blockysize": config.var("BLOCK_SIZE"),

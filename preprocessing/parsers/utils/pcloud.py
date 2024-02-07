@@ -89,7 +89,7 @@ class PointCloud:
 
         _bbox = bbox if bbox is not None else self.bbox
         if isinstance(scalars, str):
-            # NOTE: This indexing notations ensures consistent output.
+            # NOTE: This indexing notation ensures consistent output.
             scalars = [scalars]
         rasters = {
             scalar: raster.Raster(resol, bbox=_bbox, meta=meta) for scalar in scalars
