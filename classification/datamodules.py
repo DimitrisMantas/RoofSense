@@ -9,9 +9,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from torchgeo.datasets import random_bbox_assignment
 from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, BatchGeoSampler
-from torchgeo.samplers.utils import _to_tuple
 from torchgeo.transforms import AugmentationSequential
-from torchgeo.transforms.transforms import _RandomNCrop
 
 from classification.datasets import TrainingDataset
 
@@ -67,20 +65,25 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
         # Augmentations
         # Disable stage-agnostic augmentations.
 
+        # self.train_aug = AugmentationSequential(
+        #     # Normalize each band independently since they represent different stuff.
+        #     # MinMaxNormalize,
+        #     K.RandomRotation(p=0.5, degrees=90),
+        #     K.RandomVerticalFlip(p=0.5),
+        #     K.RandomHorizontalFlip(p=0.5),
+        #     # Mess with the color of only the RGB bands
+        #     # K.RandomSharpness(p=0.5),
+        #     # K.ColorJiggle(p=0.5, brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+        #     # This needs to be the last augmentation.
+        #     # NOTE: Figure out why
+        #     _RandomNCrop(_to_tuple(self.patch_size), self.batch_size),
+        #     data_keys=["image", "mask"],
+        # )
+
+        # Disable data augmentation.
         self.train_aug = AugmentationSequential(
-            # Normalize each band independently since they represent different stuff.
-            # MinMaxNormalize,
-            K.RandomRotation(p=0.5, degrees=90),
-            K.RandomVerticalFlip(p=0.5),
-            K.RandomHorizontalFlip(p=0.5),
-            # Mess with the color of only the RGB bands
-            # K.RandomSharpness(p=0.5),
-            # K.ColorJiggle(p=0.5, brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
-            # This needs to be the last augmentation.
-            # NOTE: Figure out why
-            _RandomNCrop(_to_tuple(self.patch_size), self.batch_size),
-            data_keys=["image", "mask"],
-        )  # self.train_aug=None
+            K.RandomVerticalFlip(p=0), data_keys=["image", "mask"]
+        )
 
     def setup(self, stage: str) -> None:
         """Set up datasets.
