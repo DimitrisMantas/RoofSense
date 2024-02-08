@@ -8,7 +8,7 @@ import utils.iris
 
 
 # noinspection PyUnusedLocal
-def generate_pretraining_data(size: int = 10) -> None:
+def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) -> None:
     """Entry point for 'roofsense --sample <size>'."""
 
     # Initialize the program runtime.
@@ -41,7 +41,7 @@ def generate_pretraining_data(size: int = 10) -> None:
         preprocessing.merger.RasterStackBuilder().merge(sample)
 
         # Prepare the stacks for annotation.
-        preprocessing.splitter.split(sample)
+        preprocessing.splitter.split(sample, background_cutoff)
 
     # Create the corresponding IRIS configuration file.
     utils.iris.generate_config_f()
@@ -54,4 +54,4 @@ def train(root: str | PathLike) -> None:
 
 
 if __name__ == "__main__":
-    train("pretraining")
+    generate_pretraining_data()

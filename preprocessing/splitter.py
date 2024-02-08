@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import pathlib
 
+import numpy as np
 import rasterio
 import rasterio.windows
 
 import config
 
 
-def split(obj_id: str) -> None:
+def split(obj_id: str, background_cutoff: float) -> None:
     stack = pathlib.Path(
         (
             f"{config.env('TEMP_DIR')}"
@@ -17,8 +18,6 @@ def split(obj_id: str) -> None:
             f"{config.var('TIF')}"
         )
     )
-
-    # for path in src_paths:
     src: rasterio.io.DatasetReader
     with rasterio.open(stack) as src:
         window: rasterio.windows.Window
@@ -29,6 +28,11 @@ def split(obj_id: str) -> None:
             if window.width != window.height:
                 continue
             out_data = src.read(window=window)
+
+            act_zeros = out_data.size - np.count_nonzero(out_data)
+            max_zeros = out_data.size * background_cutoff
+            if act_zeros > max_zeros:
+                continue
             out_meta = src.meta
             out_meta.update(
                 width=window.width,
