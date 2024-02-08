@@ -14,18 +14,27 @@ from matplotlib.figure import Figure
 from rasterio.crs import CRS
 from torch import Tensor
 from torchgeo.datasets.geo import RasterDataset
-from torchgeo.datasets.utils import (BoundingBox, )
+from torchgeo.datasets.utils import BoundingBox
 
 
 class TrainingDataset(RasterDataset):
-    # TODO: fix these constants
-    url = "https://landcover.ai.linuxpolska.com/download/landcover.ai.v1.zip"
-    filename = "landcover.ai.v1.zip"
-    md5 = "3268c89070e8734b4e91d531c0617e03"
+    # TODO: Populate these fields.
+    # The URL to the training dataset used in the RoofSense publication.
+    download_path = ""
+    # The file name of the corresponding archive.
+    download_name = ""
+    # The MD5 hash of the archive.
+    download_hash = ""
+
+    # The path pattern to the training images.
     filename_glob = os.path.join("imgs", "*.tif")
     filename_regex = ".*tif"
-    all_bands = ("B1", "B2", "B3", "B4", "B5", "B6")
-    rgb_bands = ("B1", "B2", "B3")
+
+    # The names of the bands present in the training images.
+    all_bands = ("Red", "Green", "Blue", "Near-infrared", "Reflectance", "Slope")
+    rgb_bands = ("Red", "Green", "Blue")
+
+    # The names of the classes present in the training masks.
     classes = (
         "Background",
         "Other",
@@ -37,6 +46,7 @@ class TrainingDataset(RasterDataset):
         "Solar Panels",
         "Vegetation",
     )
+    # The class-color map.
     cmap = {
         0: (255, 255, 255, 85),
         1: (128, 128, 128, 85),
@@ -51,13 +61,13 @@ class TrainingDataset(RasterDataset):
 
     def __init__(
         self,
-        paths: str | os.PathLike[str],
+        root: str | os.PathLike[str],
         transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
         cache: bool = True,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
-        self.paths = paths
+        self.root = root
         self.download = download
         self.checksum = checksum
 
@@ -68,7 +78,7 @@ class TrainingDataset(RasterDataset):
 
         self._verify()
 
-        super().__init__(paths, transforms=transforms, cache=cache)
+        super().__init__(root, transforms=transforms, cache=cache)
 
     def _verify(self):
         """Ensure that the dataset is valid."""
@@ -76,7 +86,7 @@ class TrainingDataset(RasterDataset):
             return
 
         # Check if the zip file has already been downloaded
-        pathname = os.path.join(self.paths, self.filename)
+        pathname = os.path.join(self.root, self.download_name)
         if os.path.exists(pathname):
             self._extract()
             return
@@ -84,7 +94,7 @@ class TrainingDataset(RasterDataset):
         # Check if the user requested to download the dataset
         if not self.download:
             raise RuntimeError(
-                f"Dataset not found in `root={self.paths}` and `download=False`, "
+                f"Dataset not found in `root={self.root}` and `download=False`, "
                 "either specify a different `root` directory or use `download=True` "
                 "to automatically download the dataset."
             )
@@ -96,8 +106,8 @@ class TrainingDataset(RasterDataset):
     def _verify_data(self) -> bool:
         """Verify if the images and masks are present."""
         # 1. Check image and mask folder names.
-        img_dir = pathlib.Path(self.paths).joinpath("imgs")
-        msk_dir = pathlib.Path(self.paths).joinpath("msks")
+        img_dir = pathlib.Path(self.root).joinpath("imgs")
+        msk_dir = pathlib.Path(self.root).joinpath("msks")
         if not img_dir.exists() or not msk_dir.exists():
             return False
         # 2. Check image and mask counts.
@@ -156,7 +166,10 @@ class TrainingDataset(RasterDataset):
             data and label at that index
         """
 
-        img_path = sorted(self.files)[index]
+        # TODO: This indexes the files in the dataset directory, not the ones that are
+        # actually in the dataset.
+        img_matches = self.index.intersection(self.index.bounds, objects=True)
+        img_path = [match.object for match in img_matches]
         msk_path = img_path.replace("imgs", "msks")
 
         sample = {
@@ -273,9 +286,3 @@ class TrainingDataset(RasterDataset):
             plt.suptitle(suptitle)
 
         return fig
-
-
-if __name__ == "__main__":
-    # config.config()
-    dataset = TrainingDataset(paths="../pretraining")
-    dataset.plot(dataset[3]).show()
