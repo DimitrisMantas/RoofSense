@@ -54,4 +54,4 @@ def train(root: str | PathLike) -> None:
 
 
 if __name__ == "__main__":
-    train("pretraining")
+    generate_pretraining_data()
