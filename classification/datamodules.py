@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Optional, Any, Dict
 
 import kornia.augmentation as K
@@ -35,7 +36,7 @@ class MinMaxNormalize(K.IntensityAugmentationBase2D):
 class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
     def __init__(
         self,
-        batch_size: int = 8,
+        batch_size: int = 1,
         patch_size: int | tuple[int, int] = 64,
         length: Optional[int] = None,
         num_workers: int = 0,
@@ -65,20 +66,21 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
         # Augmentations
         # Disable stage-agnostic augmentations.
 
-        # self.train_aug = AugmentationSequential(
-        #     # Normalize each band independently since they represent different stuff.
-        #     # MinMaxNormalize,
-        #     K.RandomRotation(p=0.5, degrees=90),
-        #     K.RandomVerticalFlip(p=0.5),
-        #     K.RandomHorizontalFlip(p=0.5),
-        #     # Mess with the color of only the RGB bands
-        #     # K.RandomSharpness(p=0.5),
-        #     # K.ColorJiggle(p=0.5, brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
-        #     # This needs to be the last augmentation.
-        #     # NOTE: Figure out why
-        #     _RandomNCrop(_to_tuple(self.patch_size), self.batch_size),
-        #     data_keys=["image", "mask"],
-        # )
+        self.train_aug = AugmentationSequential(
+            # Normalize each band independently since they represent different stuff.
+            # MinMaxNormalize,
+            # K.RandomRotation(p=0.5, degrees=90),
+            # K.RandomVerticalFlip(p=0.5),
+            # K.RandomHorizontalFlip(p=0.5),
+            # Mess with the color of only the RGB bands
+            # K.RandomSharpness(p=0.5),
+            # K.ColorJiggle(p=0.5, brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+            # This needs to be the last augmentation.
+            # # NOTE: Figure out why
+            # # NOTE: This does not need to be here if i have the randomgeosampler enabled.
+            # _RandomNCrop(_to_tuple(self.patch_size), self.batch_size),
+            data_keys=["image", "mask"],
+        )
 
         # Disable data augmentation.
         self.train_aug = AugmentationSequential(
@@ -101,12 +103,24 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
             self.train_dataset,
             self.val_dataset,
             self.test_dataset,
-        ) = random_bbox_assignment(dataset, [3, 1, 1], generator)
+        ) = random_bbox_assignment(dataset, [0.7, 0.15, 0.15], generator)
 
         if stage in ["fit"]:
-            self.train_batch_sampler = RandomBatchGeoSampler(
-                self.train_dataset, self.patch_size, self.batch_size, self.length
-            )
+            # TODO
+            if self.patch_size >= 512:
+                if self.patch_size > 512:
+                    warnings.warn(
+                        f"The requested patch size is larger than {512} px. Will perform online learning with individual tiles as samples."
+                    )
+                self.train_sampler = torchgeo.samplers.PreChippedGeoSampler(
+                    self.train_dataset,
+                    # TODO: Find out why the training data not shuffled by default.
+                    shuffle=True,
+                )
+            else:
+                self.train_batch_sampler = RandomBatchGeoSampler(
+                    self.train_dataset, self.patch_size, self.batch_size, self.length
+                )
         if stage in ["fit", "validate"]:
             self.val_sampler = GridGeoSampler(
                 self.val_dataset, self.patch_size, self.patch_size
@@ -154,6 +168,15 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
 
 
 if __name__ == "__main__":
-    datamodule = TrainingDataModule(root="../pretraining", patch_size=128)
+    datamodule = TrainingDataModule(root="../pretraining", patch_size=512)
     datamodule.setup("fit")
-    datamodule.train_dataset.plot(datamodule.test_dataset[0]).show()
+    print(len(datamodule.train_batch_sampler))
+    print(datamodule.train_batch_sampler.length)
+    for i, sample in enumerate(datamodule.train_batch_sampler):
+        tmp = datamodule.train_dataset[sample[0]]
+
+        # ignore empty masks
+        if not torch.any(tmp["mask"]):
+            continue
+
+        datamodule.plot(tmp).show()
