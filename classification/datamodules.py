@@ -93,14 +93,15 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
         """
         dataset = TrainingDataset(**self.kwargs)
 
+        # NOTE: This method produces the same splits per program execution!
+        #       This is because the underlying spatial index returns results in no
+        #       specific order.
         generator = torch.Generator().manual_seed(0)
         (
             self.train_dataset,
             self.val_dataset,
             self.test_dataset,
         ) = random_bbox_assignment(dataset, [3, 1, 1], generator)
-
-        # print(len(self.train_dataset),len(self.val_dataset),len(self.test_dataset))
 
         if stage in ["fit"]:
             self.train_batch_sampler = RandomBatchGeoSampler(
