@@ -169,7 +169,7 @@ class TrainingDataset(RasterDataset):
         # TODO: This indexes the files in the dataset directory, not the ones that are
         # actually in the dataset.
         img_matches = self.index.intersection(self.index.bounds, objects=True)
-        img_path = [match.object for match in img_matches]
+        img_path = [match.object for match in img_matches][index]
         msk_path = img_path.replace("imgs", "msks")
 
         sample = {
