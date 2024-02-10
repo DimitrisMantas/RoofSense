@@ -5,28 +5,8 @@
   },
   "classes": [
     {
-      "name": "Background",
-      "description": "The set of pixels representing image regions which do not correspond to building roofs (i.e., black pixel clusters).",
-      "colour": [
-        255,
-        255,
-        255,
-        85
-      ]
-    },
-    {
-      "name": "Other",
-      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes",
-      "colour": [
-        128,
-        128,
-        128,
-        85
-      ]
-    },
-    {
       "name": "Asphalt Shingles",
-      "description": "The set of pixels which represent asphalt shingles.",
+      "description": "The set of pixels representing asphalt shingles.",
       "colour": [
         141,
         211,
@@ -36,7 +16,7 @@
     },
     {
       "name": "Bituminous Membranes",
-      "description": "The set of pixels which represent bituminous membranes",
+      "description": "The set of pixels representing bituminous membranes",
       "colour": [
         255,
         255,
@@ -46,7 +26,7 @@
     },
     {
       "name": "Clay Tiles",
-      "description": "The set of pixels which represent clay tiles.",
+      "description": "The set of pixels representing clay tiles.",
       "colour": [
         190,
         186,
@@ -56,7 +36,7 @@
     },
     {
       "name": "Loose Gravel",
-      "description": "The set of pixels which represent loose gravel.",
+      "description": "The set of pixels representing loose gravel.",
       "colour": [
         251,
         128,
@@ -66,7 +46,7 @@
     },
     {
       "name": "Metal",
-      "description": "The set of pixels which represent metal.",
+      "description": "The set of pixels representing metal.",
       "colour": [
         128,
         117,
@@ -76,7 +56,7 @@
     },
     {
       "name": "Solar Panels",
-      "description": "The set of pixels which represent solar and photovoltaic panels.",
+      "description": "The set of pixels representing solar and photovoltaic panel installations (i.e., the panels, their brackets and underlying base structure).",
       "colour": [
         253,
         180,
@@ -86,7 +66,7 @@
     },
     {
       "name": "Vegetation",
-      "description": "The set of pixels which represents vegetation.",
+      "description": "The set of pixels representing vegetation.",
       "colour": [
         179,
         222,
@@ -95,59 +75,39 @@
       ]
     },
     {
-      "name": "Class 8",
-      "description": "The set of pixels which",
+      "name": "Other",
+      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes (e.g., chimneys, heating, ventilation and air conditioning systems, etc.)..",
       "colour": [
-        252,
-        205,
-        229,
-        85
-      ]
-    },
-    {
-      "name": "Class 9",
-      "description": "The set of pixels which",
-      "colour": [
-        217,
-        217,
-        217,
-        85
-      ]
-    },
-    {
-      "name": "Class 10",
-      "description": "The set of pixels which",
-      "colour": [
-        188,
         128,
-        189,
+        128,
+        128,
         85
       ]
     },
     {
-      "name": "Class 11",
-      "description": "The set of pixels which",
-      "colour": [
-        204,
-        235,
-        197,
-        85
-      ]
-    },
-    {
-      "name": "Class 12",
-      "description": "The set of pixels which",
+      "name": "__ignore__",
+      "description": "The set of pixels representing the background (i.e., areas which have been masked out of the training data).",
       "colour": [
         255,
-        237,
-        111,
+        255,
+        255,
+        85
+      ]
+    },
+    {
+      "name": "__invalid__",
+      "description": "The set of pixels representing ambiguous areas which clearly do not belong to a building roof (e.g., the buffer regions around the roof masks, mask regions containing background or other building parts due to data distortion or misalignment issues, etc.).",
+      "colour": [
+        128,
+        128,
+        128,
         85
       ]
     }
   ],
   "views": {
-    "RGB": {
-      "description": "The true-color composite of the scene.",
+    "True-color (R-G-B)": {
+      "description": "The true-color composite of the area.",
       "type": "image",
       "data": [
         "$B1",
@@ -155,8 +115,8 @@
         "$B3"
       ]
     },
-    "CIR": {
-      "description": "The false-color composite of the scene.",
+    "False-color (NIR-R-G)": {
+      "description": "The false-color composite of the area.",
       "type": "image",
       "data": [
         "$B4",
@@ -164,38 +124,36 @@
         "$B2"
       ]
     },
-    "RFL": {
-      "description": "The reflectance field of the scene",
+    "Reflectance": {
+      "description": "The reflectance field of the area.",
       "type": "image",
       "data": "$B5",
       "cmap": "turbo",
       "vmax": 1
     },
-    "SLP": {
-      "description": "The slope field of the scene.",
+    "Slope": {
+      "description": "The slope field of the digital surface model of the area.",
       "type": "image",
       "data": "$B6",
       "cmap": "turbo"
+    },
+    "Bing": {
+      "description": "Satellite imagery by Microsoft Bing.",
+      "type": "bingmap"
     }
   },
   "view_groups": {
     "default": [
-      "RGB",
-      "CIR"
+      "True-color (R-G-B)",
+      "False-color (NIR-R-G)"
     ],
     "lidar": [
-      "RFL",
-      "SLP"
+      "Reflectance",
+      "Slope"
     ]
   },
   "segmentation": {
     "path": "msks/{id}.tif",
-    "mask_encoding": "integer",
-    "mask_area": [
-      0,
-      0,
-      4780,
-      4794
-    ]
+    "mask_encoding": "integer"
   }
 }
