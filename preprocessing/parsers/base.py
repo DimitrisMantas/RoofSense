@@ -37,4 +37,4 @@ class AssetParser(DataParser):
         )
         with pathlib.Path(manifest_path).open() as f:
             self._manifest = json.load(f)
-        self._surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
+        self._surfs = utils.geom.read_surfaces(obj_id)

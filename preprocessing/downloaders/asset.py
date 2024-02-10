@@ -30,10 +30,7 @@ class AssetDownloader(DataDownloader):
     def _get_asset_ids(
         self, obj_id: str | BoundingBoxLike
     ) -> tuple[list[str], list[str]]:
-        # TODO: Check whether there is a significant performance improvement difference
-        #       between computing the intersection of the sheet index with individual
-        #       buffers compared to their spatial union.
-        surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
+        surfs = utils.geom.read_surfaces(obj_id)
         ids = self._index.overlay(surfs)
         return (
             ids[config.var("ASSET_INDEX_IMAGE_IDS")].unique().tolist(),
