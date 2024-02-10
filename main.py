@@ -25,7 +25,9 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) ->
 
     # Fake a random sample.
     samples = preprocessing.sampler.BAG3DSampler().sample(size)
-    for sample in samples:
+    for i, sample in enumerate(samples):
+        print(f"Generating training images for tile {i}/{size}: {sample}...")
+
         # Download the corresponding 3DBAG data.
         bag3d_downloader.download(sample)
         # Parse the data.
