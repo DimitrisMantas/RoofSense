@@ -59,7 +59,7 @@
       "description": "The set of pixels representing solar and photovoltaic panel installations (i.e., the panels, their brackets and underlying base structure).",
       "colour": [
         253,
-        180,
+        185,
         98,
         85
       ]
@@ -76,11 +76,11 @@
     },
     {
       "name": "Other",
-      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes (e.g., chimneys, heating, ventilation and air conditioning systems, etc.)..",
+      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes (e.g., chimneys, heating, ventilation and air conditioning systems, etc.).",
       "colour": [
-        128,
-        128,
-        128,
+        252,
+        205,
+        229,
         85
       ]
     },
@@ -91,17 +91,17 @@
         255,
         255,
         255,
-        85
+        255
       ]
     },
     {
       "name": "__invalid__",
       "description": "The set of pixels representing ambiguous areas which clearly do not belong to a building roof (e.g., the buffer regions around the roof masks, mask regions containing background or other building parts due to data distortion or misalignment issues, etc.).",
       "colour": [
-        128,
-        128,
-        128,
-        85
+        255,
+        255,
+        255,
+        170
       ]
     }
   ],
