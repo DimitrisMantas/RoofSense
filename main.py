@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from os import PathLike
 
 import config
@@ -8,8 +9,11 @@ import utils.iris
 
 
 # noinspection PyUnusedLocal
-def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) -> None:
-    """Entry point for 'roofsense --sample <size>'."""
+def generate_training_data(size: int = 10, background_cutoff: float = 0.5) -> None:
+    """
+    The entry point for:
+        roofsense --gen-training-data <size> --background-cutoff <pct>
+    """
 
     # Initialize the program runtime.
     config.config(pretraining=True)
@@ -25,13 +29,31 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) ->
 
     # Fake a random sample.
     samples = preprocessing.sampler.BAG3DSampler().sample(size)
-    for i, sample in enumerate(samples):
-        print(f"Generating training images for tile {i}/{size}: {sample}...")
+    for i, sample in enumerate(samples, start=1):
+        print(f"Generating training data for tile {i}/{size}: {sample}...")
 
         # Download the corresponding 3DBAG data.
         bag3d_downloader.download(sample)
         # Parse the data.
         bag3d_parser.parse(sample)
+
+        # Check if the spatial distribution of the buildings in the tile is erroneous
+        # (e.g., small disjoint building clusters ets.).
+        # NOTE: This ensures that only tiles with the minimal possible number of
+        # assets are processed in subsequent steps.
+        surfs = utils.geom.read_surfaces(sample)
+
+        surf_bbox = surfs.total_bounds
+        bbox_xlen = surf_bbox[2] - surf_bbox[0]
+        bbox_ylen = surf_bbox[3] - surf_bbox[1]
+        # TODO: Remove this check once the point cloud rasterisation process has been
+        #      optimised.
+        # NOTE: Erroneous tiles are defined as those whose axis-aligned bounding box
+        #       has at least one side
+        #       which is longer than the maximum side length of an AHN4 tile.
+        if bbox_xlen > 1250 or bbox_ylen > 1250:
+            warnings.warn("The tile is erroneous. Skipping...")
+            continue
 
         # Download the corresponding assets.
         asset_downloader.download(sample)
@@ -50,10 +72,13 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) ->
 
 
 def train(root: str | PathLike) -> None:
-    """Entry point for 'roofsense --train <root>'."""
+    """
+    The entry point for:
+        roofsense --train <cfg>
+    """
 
     utils.iris.georeference_masks(root)
 
 
 if __name__ == "__main__":
-    generate_pretraining_data()
+    generate_training_data()
