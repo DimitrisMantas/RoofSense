@@ -24,7 +24,7 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.5) ->
     lidar_parser = preprocessing.parsers.LiDARParser()
 
     # Fake a random sample.
-    samples = ["9-284-556"]
+    samples = preprocessing.sampler.BAG3DSampler().sample(size)
     for sample in samples:
         # Download the corresponding 3DBAG data.
         bag3d_downloader.download(sample)
