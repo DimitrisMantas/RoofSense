@@ -27,7 +27,7 @@ class RasterStackBuilder(DataMerger):
 
     @override
     def merge(self, obj_id: str) -> None:
-        self._surfs = utils.geom.buffer(utils.geom.read_surfaces(obj_id))
+        self._surfs = utils.geom.read_surfaces(obj_id)
 
         out_path = (
             f"{config.env('TEMP_DIR')}"
