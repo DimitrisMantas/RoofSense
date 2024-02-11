@@ -37,6 +37,8 @@ def postprocess_masks(root_dir: str | PathLike) -> None:
     2. Reannotate the area on the exterior of the buffered geometry using the __ignore__
        label.
     3. Pass the resulting mask through a median filter to eliminate noise.
+       # TODO: Figure out how to handle the edges so that the effect buffers from
+               neighboring buildings that intersect the image is minimized.
     """
     pass
 
