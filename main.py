@@ -46,7 +46,7 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
         preprocessing.splitter.split(sample, background_cutoff)
 
     # Create the corresponding IRIS configuration file.
-    utils.iris.generate_config_f()
+    utils.iris.generate_configuration_file()
 
 
 def train(root: str | PathLike) -> None:

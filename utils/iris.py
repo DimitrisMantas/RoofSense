@@ -10,24 +10,39 @@ import config
 import utils.file
 
 
-def generate_config_f():
+def generate_configuration_file() -> None:
     with pathlib.Path(config.var("IRIS_BASE_CFG")).open() as f:
         cfg = json.load(f)
-    out_path = (
+
+    cfg_path = (
         f"{config.env('PRETRAINING_DATA_DIR')}"
         f"{config.var('IRIS_CFG_NAME')}"
         f"{config.var('JSON')}"
     )
-    if utils.file.exists(out_path):
+    if utils.file.exists(cfg_path):
         return
+
     img_shp = [int(config.var("BLOCK_SIZE")), int(config.var("BLOCK_SIZE"))]
     cfg["images"]["shape"] = img_shp
     cfg["segmentation"]["mask_area"] = [0, 0, *img_shp]
-    with pathlib.Path(out_path).open("w") as f:
+
+    with pathlib.Path(cfg_path).open("w") as f:
         json.dump(cfg, f)
 
 
+def postprocess_masks(root_dir: str | PathLike) -> None:
+    """
+    1. Add a buffer around the buildings corresponding to the roof surfaces extracted
+       from the 3DBAG to avoid oversmoothing and label it as invalid.
+    2. Reannotate the area on the exterior of the buffered geometry using the __ignore__
+       label.
+    3. Pass the resulting mask through a median filter to eliminate noise.
+    """
+    pass
+
+
 def georeference_masks(root_dir: str | PathLike) -> None:
+    """Georeference the annotation masks."""
     img_paths = sorted(pathlib.Path(root_dir).joinpath("imgs").glob("*.tif"))
     msk_paths = sorted(pathlib.Path(root_dir).joinpath("msks").glob("*.tif"))
     for img_path, msk_path in zip(img_paths, msk_paths):
