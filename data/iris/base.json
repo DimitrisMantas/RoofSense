@@ -6,7 +6,7 @@
   "classes": [
     {
       "name": "Asphalt Shingles",
-      "description": "The set of pixels representing asphalt shingles.",
+      "description": "The set of pixels representing asphalt shingles. This material is common in pitched, dark-colored roofs with straight-line-like attributes both along and across their surface due to the overlap between adjacent roofing elements. See https://en.wikipedia.org/wiki/Asphalt_shingle for more information",
       "colour": [
         141,
         211,
@@ -16,7 +16,7 @@
     },
     {
       "name": "Bituminous Membranes",
-      "description": "The set of pixels representing bituminous membranes",
+      "description": "The set of pixels representing bituminous membranes. This material is common in small- to medium-sized, flat, dark-colored roofs. See https://en.wikipedia.org/wiki/Bituminous_waterproofing for more information.",
       "colour": [
         255,
         255,
@@ -26,7 +26,7 @@
     },
     {
       "name": "Clay Tiles",
-      "description": "The set of pixels representing clay tiles.",
+      "description": "The set of pixels representing clay tiles. This material is common in pitched, residential roofs and commonly appears yellow or yellowish brown in false-color imagery.",
       "colour": [
         190,
         186,
@@ -36,7 +36,7 @@
     },
     {
       "name": "Loose Gravel",
-      "description": "The set of pixels representing loose gravel.",
+      "description": "The set of pixels representing loose gravel. This material is common in medium- to large-sized, flat, gray-colored roofs.",
       "colour": [
         251,
         128,
@@ -46,7 +46,7 @@
     },
     {
       "name": "Metal",
-      "description": "The set of pixels representing metal.",
+      "description": "The set of pixels representing bare or colored metal of any type. This material is common in church bell and tower-like structures and can appear blue-green or golden-brown in true-color imagery, or exceedingly bright in reflectance maps due to its non-Lambertian behavior when polished.",
       "colour": [
         128,
         117,
@@ -76,7 +76,7 @@
     },
     {
       "name": "Other",
-      "description": "The set of pixels representing any roofing material which does not belong to one of the predefined classes (e.g., chimneys, heating, ventilation and air conditioning systems, etc.).",
+      "description": "The set of pixels representing any roofing material or roof superstructure which does not belong to one of the predefined classes (e.g., non-bituminous coatings, concrete or gravel tiles, glass, chimneys, heating, ventilation and air conditioning systems, etc.).",
       "colour": [
         252,
         205,
@@ -85,29 +85,29 @@
       ]
     },
     {
-      "name": "__ignore__",
-      "description": "The set of pixels representing the background (i.e., areas which have been masked out of the training data).",
-      "colour": [
-        255,
-        255,
-        255,
-        255
-      ]
-    },
-    {
-      "name": "__invalid__",
-      "description": "The set of pixels representing ambiguous areas which clearly do not belong to a building roof (e.g., the buffer regions around the roof masks, mask regions containing background or other building parts due to data distortion or misalignment issues, etc.).",
+      "name": "Invalid",
+      "description": "The set of pixels representing ambiguous areas which do not belong to roofs [e.g., the background (see below) and other building parts (e.g., facades) due to data distortion and relevant misalignment issues, etc.]. USE THIS CLASS TO LABEL THE BACKGROUND!",
       "colour": [
         255,
         255,
         255,
         170
       ]
+    },
+    {
+      "name": "__ignore__",
+      "description": "The set of pixels representing the background (i.e., regions which are on the exterior of the roof surfaces extracted from the 3DBAG and have thus been excluded from the training data). THIS CLASS IS INTERNAL AND SHOULD NOT BE USED!",
+      "colour": [
+        255,
+        255,
+        255,
+        0
+      ]
     }
   ],
   "views": {
     "True-color (R-G-B)": {
-      "description": "The true-color composite of the area.",
+      "description": "The true-color composite of the area corresponding to this patch.",
       "type": "image",
       "data": [
         "$B1",
@@ -116,7 +116,7 @@
       ]
     },
     "False-color (NIR-R-G)": {
-      "description": "The false-color composite of the area.",
+      "description": "The false-color composite of the area corresponding to this patch.",
       "type": "image",
       "data": [
         "$B4",
@@ -125,21 +125,17 @@
       ]
     },
     "Reflectance": {
-      "description": "The reflectance field of the area.",
+      "description": "The material reflectance field of the area corresponding to this patch.",
       "type": "image",
       "data": "$B5",
       "cmap": "turbo",
       "vmax": 1
     },
     "Slope": {
-      "description": "The slope field of the digital surface model of the area.",
+      "description": "The slope field of the digital surface model of the area corresponding to this patch.",
       "type": "image",
       "data": "$B6",
       "cmap": "turbo"
-    },
-    "Bing": {
-      "description": "Satellite imagery by Microsoft Bing.",
-      "type": "bingmap"
     }
   },
   "view_groups": {
@@ -147,7 +143,7 @@
       "True-color (R-G-B)",
       "False-color (NIR-R-G)"
     ],
-    "lidar": [
+    "LiDAR": [
       "Reflectance",
       "Slope"
     ]
