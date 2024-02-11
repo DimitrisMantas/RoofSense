@@ -86,22 +86,12 @@
     },
     {
       "name": "Invalid",
-      "description": "The set of pixels representing ambiguous areas which do not belong to roofs [e.g., the background (see below) and other building parts (e.g., facades) due to data distortion and relevant misalignment issues, etc.]. THIS CLASS SHOULD BE USED TO ANNOTATE THE BACKGROUND!",
+      "description": "The set of pixels representing ambiguous areas which do not belong to roofs [e.g., the background (i.e., regions which are on the exterior of the roof surfaces extracted from the 3DBAG and have thus been excluded from the training data) as well as irrelevant building parts (e.g., facades) due to data distortion and relevant misalignment issues, etc.].",
       "colour": [
         255,
         255,
         255,
-        170
-      ]
-    },
-    {
-      "name": "__ignore__",
-      "description": "The set of pixels representing the background (i.e., regions which are on the exterior of the roof surfaces extracted from the 3DBAG and have thus been excluded from the training data). THIS CLASS IS INTERNAL AND SHOULD NOT BE USED!",
-      "colour": [
-        255,
-        255,
-        255,
-        0
+        85
       ]
     }
   ],
