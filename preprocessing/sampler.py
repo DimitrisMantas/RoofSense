@@ -63,7 +63,11 @@ class BAG3DSampler(DataSampler):
     def _gen_random_point(self, seed: shapely.Point, radius: float = 15e3
     ) -> shapely.Point:
         # noinspection PyTypeChecker
-        off = self._rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
+        off = self._rng.multivariate_normal(mean=[0, 0],
+            # NOTE: The specified covariance along the x- and y-axes ensures that
+            #       approximately 99.7% of the sampled points are located within the
+            #       specified distance from their corresponding seed.
+            cov=[[1 / 9, 0], [0, 1 / 9]], )
         nrm = np.linalg.norm(off)
         if nrm > 1:
             off /= np.linalg.norm(off)
