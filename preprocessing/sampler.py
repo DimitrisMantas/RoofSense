@@ -45,11 +45,22 @@ class BAG3DSampler(DataSampler):
             for tile_id in tile_ids:
                 if tile_id in sample:
                     continue
+                # Discard tiles whose surface are is larger than 100 ha.
+                # NOTE: This limit is padded by 10% to account for any discrepancies in
+                #       the underlying sheet index.
+                # NOTE: This ensures that at most four AHN4 tiles are downloaded and
+                #       parsed per tile,
+                #       and thus a minimum level of service is maintained during the
+                #       preprocessing stage.
+                # NOTE: The selected tile IDs begin with 9 or 10.
+                if (self._index.loc[self._index[
+                                        config.var("DEFAULT_ID_FIELD_NAME")] == tile_id, config.var(
+                    "DEFAULT_GM_FIELD_NAME"),].area.iat[0] > 1.1e6):
+                    continue
                 sample.append(tile_id)
         return sample
 
-    def _gen_random_point(
-        self, seed: shapely.Point, radius: float = 10_000
+    def _gen_random_point(self, seed: shapely.Point, radius: float = 15e3
     ) -> shapely.Point:
         # noinspection PyTypeChecker
         off = self._rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]])
