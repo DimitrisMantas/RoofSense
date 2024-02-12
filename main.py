@@ -14,7 +14,7 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
         roofsense --gen-pretrain-data <size> --bg-cutoff <pct>
     """
     # Initialize the program runtime.
-    config.config(pretraining=True)
+    config.config(training=True)
 
     # Initialize the data downloaders.
     bag3d_downloader = preprocessing.downloaders.BAG3DDownloader()

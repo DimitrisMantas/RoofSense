@@ -14,8 +14,7 @@ def generate_configuration_file() -> None:
     with pathlib.Path(config.var("IRIS_BASE_CFG")).open() as f:
         cfg = json.load(f)
 
-    cfg_path = (
-        f"{config.env('PRETRAINING_DATA_DIR')}"
+    cfg_path = (f"{config.env('TRAINING_DATA_DIR')}"
         f"{config.var('IRIS_CFG_NAME')}"
         f"{config.var('JSON')}"
     )

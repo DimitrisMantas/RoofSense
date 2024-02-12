@@ -1,7 +1,7 @@
 {
   "name": "RoofSense",
   "images": {
-    "path": "imgs/{id}.tif"
+    "path": "original/imgs/{id}.tif"
   },
   "classes": [
     {
@@ -139,7 +139,7 @@
     ]
   },
   "segmentation": {
-    "path": "msks/{id}.tif",
+    "path": "original/msks/{id}.tif",
     "mask_encoding": "integer"
   }
 }
