@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import math
+import os
 from os import PathLike
 from typing import Optional, Any
 
@@ -99,20 +100,22 @@ class Raster:
 
 class DefaultProfile(rasterio.profiles.Profile):
     defaults = {
-        "nodata": np.nan,
         "dtype": np.float32,
+        "nodata": np.nan,
         "crs": config.var("CRS"),
         # NOTE: Tiled rasters can be efficiently split into patches by exploiting their
         #       internal data block structure.
         "tiled": True,
         "blockxsize": config.var("BLOCK_SIZE"),
         "blockysize": config.var("BLOCK_SIZE"),
+        "compress": config.var("COMPRESSION"),
+        "num_threads": os.cpu_count(),
     }
 
 
 class MultiBandProfile(rasterio.profiles.Profile):
     defaults = {
-        "compress": config.var("COMPRESSION"),
+        "compress": config.var("COMPRESSION"), "num_threads": os.cpu_count(),
         # NOTE: The default photometric interpretation of the BM5 images is not
         #       compatible with lossless compression.
         "photometric": config.var("MULTI_BAND_PHOTOMETRIC"),
@@ -121,7 +124,7 @@ class MultiBandProfile(rasterio.profiles.Profile):
 
 class SingleBandProfile(rasterio.profiles.Profile):
     defaults = {
-        "compress": config.var("COMPRESSION"),
+        "compress": config.var("COMPRESSION"), "num_threads": os.cpu_count(),
         # NOTE: The default photometric interpretation of the BM5 images is not
         #       compatible with single-band rasters.
         "photometric": config.var("SINGLE_BAND_PHOTOMETRIC"),
