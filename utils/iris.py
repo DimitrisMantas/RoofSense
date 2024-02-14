@@ -64,8 +64,7 @@ def buffer_buildings(msk_paths) -> None:
     for path in msk_paths:
         with rasterio.open(path) as f:
             out_meta = f.profile
-            out_data, _ = rasterio.mask.mask(f, shapes=surfs, nodata=9, indexes=1)
-            out_data = sp.signal.medfilt2d(out_data)
+            out_data, _ = rasterio.mask.mask(f, shapes=surfs, nodata=9, indexes=1)  # out_data = sp.signal.medfilt2d(out_data)
         with rasterio.open(path, "w", **out_meta) as f:
             f.write(out_data, indexes=1)
 
