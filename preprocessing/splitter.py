@@ -10,8 +10,6 @@ import rasterio.windows
 import config
 import utils.geom
 
-config.config()
-
 
 def split(obj_id: str, background_cutoff: float) -> None:
     # Dissolve the surfaces so that only their edges are buffered.
@@ -27,6 +25,7 @@ def split(obj_id: str, background_cutoff: float) -> None:
     )
     stack: rasterio.io.DatasetReader
     with rasterio.open(stack_path) as stack:
+        # TODO: Check whether masking the whole stack twice can be avoided.
         original_surf_mask, *_ = rasterio.mask.raster_geometry_mask(stack,
             shapes=surfs[config.var("DEFAULT_GM_FIELD_NAME")])
         buffered_surf_mask, *_ = rasterio.mask.raster_geometry_mask(stack,

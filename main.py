@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from os import PathLike
-
 import config
 import preprocessing
 import utils.iris
@@ -49,13 +47,13 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
     utils.iris.generate_configuration_file()
 
 
-def train(root: str | PathLike) -> None:
+def train() -> None:
     """
     Entry point for:
         roofsense --train
     """
-    utils.iris.georeference_masks(root)
+    utils.iris.postprocess_masks()
 
 
 if __name__ == "__main__":
-    generate_pretraining_data()
+    train()
