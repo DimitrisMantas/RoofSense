@@ -1,39 +1,23 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Any, Dict
+from typing import Optional, Any
 
 import kornia.augmentation as K
 import torch
 import torchgeo.datamodules
 from torch import Tensor
 from torch.utils.data import DataLoader
-from torchgeo.datasets import random_bbox_assignment
+from torchgeo.datamodules import GeoDataModule
+from torchgeo.datasets import random_grid_cell_assignment
 from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, BatchGeoSampler
 from torchgeo.transforms import AugmentationSequential
 
+from classification.augmentations import MinMaxNormalization
 from classification.datasets import TrainingDataset
 
 
-class MinMaxNormalize(K.IntensityAugmentationBase2D):
-    """Normalize channels to the range [0, 1] using min/max values."""
-
-    def __init__(self, mins: Tensor, maxs: Tensor) -> None:
-        super().__init__(p=1)
-        self.flags = {"mins": mins.view(1, -1, 1, 1), "maxs": maxs.view(1, -1, 1, 1)}
-
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: Dict[str, Tensor],
-        flags: Dict[str, int],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        # noinspection PyTypeChecker
-        return (input - flags["mins"]) / (flags["maxs"] - flags["mins"] + 1e-10)
-
-
-class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
+class TrainingDataModule(GeoDataModule):
     def __init__(
         self,
         batch_size: int = 1,
@@ -43,16 +27,6 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
         persistent_workers: bool = False,
         **kwargs: Any,
     ):
-        """Initialize a new L7IrishDataModule instance.
-
-        Args:
-            batch_size: Size of each mini-batch.
-            patch_size: Size of each patch, either ``size`` or ``(height, width)``.
-            length: Length of each training epoch.
-            num_workers: Number of workers for parallel data loading.
-            **kwargs: Additional keyword arguments passed to
-                :class:`~torchgeo.datasets.L7Irish`.
-        """
         super().__init__(
             TrainingDataset,
             batch_size=batch_size,
@@ -63,28 +37,21 @@ class TrainingDataModule(torchgeo.datamodules.GeoDataModule):
         )
         self.persistent_workers = persistent_workers
 
-        # Augmentations
-        # Disable stage-agnostic augmentations.
-
-        self.train_aug = AugmentationSequential(
-            # Normalize each band independently since they represent different stuff.
-            # MinMaxNormalize,
-            # K.RandomRotation(p=0.5, degrees=90),
-            # K.RandomVerticalFlip(p=0.5),
-            # K.RandomHorizontalFlip(p=0.5),
-            # Mess with the color of only the RGB bands
-            # K.RandomSharpness(p=0.5),
-            # K.ColorJiggle(p=0.5, brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
-            # This needs to be the last augmentation.
-            # # NOTE: Figure out why
-            # # NOTE: This does not need to be here if i have the randomgeosampler enabled.
-            # _RandomNCrop(_to_tuple(self.patch_size), self.batch_size),
-            data_keys=["image", "mask"],
+        # General Augmentations
+        self.aug = AugmentationSequential(
+            MinMaxNormalization(), data_keys=["image", "mask"]
         )
-
-        # Disable data augmentation.
-        self.train_aug = AugmentationSequential(
-            K.RandomVerticalFlip(p=0), data_keys=["image", "mask"]
+        # Training Augmentations
+        # NOTE: This field overwrites the predefined augmentations.
+        self.train_aug = AugmentationSequential(  # Normalization
+            MinMaxNormalization(),  # Geometric Augmentations
+            # Flips
+            K.RandomVerticalFlip(),
+            K.RandomHorizontalFlip(),  # Rotations
+            # TODO: Add rotational augmentations.
+            # Intensity Augmentations
+            # TODO: Add photometric augmentations.
+            data_keys=["image", "mask"],
         )
 
     def setup(self, stage: str) -> None:
