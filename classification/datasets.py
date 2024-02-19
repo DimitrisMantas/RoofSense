@@ -36,8 +36,6 @@ class TrainingDataset(RasterDataset):
 
     # The names of the classes present in the training masks.
     classes = (
-        "Background",
-        "Other",
         "Asphalt Shingles",
         "Bituminous Membranes",
         "Clay Tiles",
@@ -45,18 +43,22 @@ class TrainingDataset(RasterDataset):
         "Metal",
         "Solar Panels",
         "Vegetation",
+        "Other",
+        "Invalid",
+        "__ignore__"
     )
     # The class-color map.
     cmap = {
-        0: (255, 255, 255, 85),
-        1: (128, 128, 128, 85),
-        2: (141, 211, 199, 85),
-        3: (255, 255, 179, 85),
-        4: (190, 186, 218, 85),
-        5: (251, 128, 114, 85),
-        6: (128, 117, 211, 85),
-        7: (253, 180, 100, 85),
-        8: (179, 222, 105, 85),
+        0: (141, 211, 199, 85),
+        1: (255, 255, 179, 85),
+        2: (190, 186, 218, 85),
+        3: (251, 128, 114, 85),
+        4: (128, 117, 211, 85),
+        5: (253, 180, 100, 85),
+        6: (179, 222, 105, 85),
+        7: (252, 205, 229, 85),
+        8: (128, 128, 128, 85),
+        9: (255, 255, 255, 85),
     }
 
     def __init__(
