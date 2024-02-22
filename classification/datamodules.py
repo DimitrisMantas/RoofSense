@@ -132,18 +132,3 @@ class TrainingDataModule(GeoDataModule):
             collate_fn=self.collate_fn,
             persistent_workers=self.persistent_workers,
         )
-
-
-if __name__ == "__main__":
-    datamodule = TrainingDataModule(root="../pretraining", patch_size=512)
-    datamodule.setup("fit")
-    print(len(datamodule.train_batch_sampler))
-    print(datamodule.train_batch_sampler.length)
-    for i, sample in enumerate(datamodule.train_batch_sampler):
-        tmp = datamodule.train_dataset[sample[0]]
-
-        # ignore empty masks
-        if not torch.any(tmp["mask"]):
-            continue
-
-        datamodule.plot(tmp).show()
