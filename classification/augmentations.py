@@ -8,7 +8,6 @@ from torch import Tensor
 from typing_extensions import override
 
 
-# TODO: Find out why the mask is not normalised and whether it should be fixed.
 class MinMaxScaling(K.IntensityAugmentationBase2D):
     def __init__(self, mins: Tensor, maxs: Tensor) -> None:
         super().__init__(p=1,
@@ -30,3 +29,14 @@ class MinMaxScaling(K.IntensityAugmentationBase2D):
         mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
         maxs = torch.as_tensor(flags["maxs"], device=input.device, dtype=input.dtype)
         return (input - mins) / (maxs - mins + self.delta)
+
+    def apply_transform_mask(
+        self,
+        input:     Tensor,
+        params:    dict[str,
+                        Tensor],
+        flags:     dict[str,
+                        int],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        return input
