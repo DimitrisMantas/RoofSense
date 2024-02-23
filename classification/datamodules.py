@@ -13,11 +13,14 @@ from torchgeo.datasets import random_grid_cell_assignment
 from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, BatchGeoSampler
 from torchgeo.transforms import AugmentationSequential
 
-from classification.augmentations import MinMaxNormalization
+from classification.augmentations import MinMaxScaling
 from classification.datasets import TrainingDataset
 
 
 class TrainingDataModule(GeoDataModule):
+    mins = torch.tensor([0, 0, 0, 0, 0, 0])
+    maxs = torch.tensor([255, 255, 255, 255, 1, 90])
+
     def __init__(
         self,
         batch_size: int = 1,
@@ -39,12 +42,12 @@ class TrainingDataModule(GeoDataModule):
 
         # General Augmentations
         self.aug = AugmentationSequential(
-            MinMaxNormalization(), data_keys=["image", "mask"]
+            MinMaxScaling(self.mins, self.maxs), data_keys=["image", "mask"]
         )
         # Training Augmentations
         # NOTE: This field overwrites the predefined augmentations.
         self.train_aug = AugmentationSequential(  # Normalization
-            MinMaxNormalization(),  # Geometric Augmentations
+            MinMaxScaling(self.mins, self.maxs),  # Geometric Augmentations
             # Flips
             K.RandomVerticalFlip(),
             K.RandomHorizontalFlip(),  # Rotations

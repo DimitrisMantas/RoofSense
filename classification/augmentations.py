@@ -1,36 +1,32 @@
 from __future__ import annotations
 
-from typing import Optional, Any
+from typing import Optional
 
 import kornia.augmentation as K
+import torch
 from torch import Tensor
+from typing_extensions import override
 
 
 # TODO: Find out why the mask is not normalised and whether it should be fixed.
-class MinMaxNormalization(K.IntensityAugmentationBase2D):
-    def __init__(self) -> None:
-        # NOTE: This approach ensures that the input is always normalised.
-        super().__init__(p=1)
+class MinMaxScaling(K.IntensityAugmentationBase2D):
+    def __init__(self, mins: Tensor, maxs: Tensor) -> None:
+        super().__init__(p=1,
+                         same_on_batch=True)
+        self.flags = {"mins": mins.view(1, -1, 1, 1),
+                      "maxs": maxs.view(1, -1, 1, 1)}
+        self.delta = 1e-10
 
-    # noinspection PyShadowingBuiltins
+    @override
     def apply_transform(
         self,
-        input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, Any],
+        input:     Tensor,
+        params:    dict[str,
+                        Tensor],
+        flags:     dict[str,
+                        int],
         transform: Optional[Tensor] = None,
     ) -> Tensor:
-        # Compute the minimum cell values across the input width.
-        mins = input.min(-1).values
-        # Compute the minimum cell values across the input width.
-        mins = mins.min(-1).values
-        # NOTE: The corresponding values always appear first in the underlying array.
-        maxs = input.max(-1)[0].max(-1)[0]
-
-        # Reintroduce the reduced dimensions.
-        mins = mins[:, :, None, None]
-        maxs = maxs[:, :, None, None]
-        # Pad the denominator.
-        # NOTE: This approach ensures that division-by-zero errors when processing
-        #       constant-valued inputs are avoided.
-        return (input - mins) / (maxs - mins + 1e-12)
+        mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
+        maxs = torch.as_tensor(flags["maxs"], device=input.device, dtype=input.dtype)
+        return (input - mins) / (maxs - mins + self.delta)
