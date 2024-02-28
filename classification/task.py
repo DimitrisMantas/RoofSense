@@ -56,6 +56,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         max_warmup_epochs: int = 40,
         warmup_epoch_pct: float = 0.05,
         init_eta_factor: float = 0.1,
+        max_epochs: int = 1000,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -154,11 +155,10 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         #  parameters.
         optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
 
-        # TODO: Expose this parameter as an initializer argument.
-        max_epochs = 1000
+        max_epochs: int = self.hparams["num_epochs"]
         if self.trainer and self.trainer.max_epochs:
             max_epochs = self.trainer.max_epochs
-        warmup_epochs = max(
+        warmup_epochs = min(
             int(max_epochs * self.hparams["warmup_epoch_pct"]),
             self.hparams["max_warmup_epochs"],
         )
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     optimizer = AdamW(model.parameters(), lr=1e-3)
 
     # TODO: Expose this parameter as an initializer argument.
-    warmup_epochs = max(int(1000 * 0.05), 50)
+    warmup_epochs = min(int(1000 * 0.05), 50)
 
     scheduler = SequentialLR(
         optimizer,
