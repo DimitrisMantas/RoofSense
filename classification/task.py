@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from enum import StrEnum, auto, Flag, verify, UNIQUE
 from functools import reduce
 from operator import or_
@@ -47,16 +48,32 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
     def __init__(
         self,
         *args,
+        # The total number of warmup epochs, expressed as a percentage of the maximum
+        # number of training epochs specified by the trainer this task is associated
+        # with or `max_epochs`.
+        warmup_time: float = 0.05,
+        # The maximum number of warmup epochs.
+        max_warmup_epochs: int = 50,
+        # The total number of epochs constituting the period of the first cycle of the
+        # annealing phase.
         T_0: int = 50,
+        # The period ratio `Ti+1/Ti` of two consecutive cycles `i` of the annealing
+        # phase.
         T_mult: int = 2,
-        eta_min: float = 1e-6,
+        # The maximum number of training epochs.
+        # NOTE: This parameter is used to provide a fallback in case the trainer this
+        # task is used with cannot provide it.
+        max_epochs: int = 1000,
+        # The learning rate at the end of the warmup and each new cycle of the
+        # subsequent annealing phases.
+        lr: float = 1e-3,
+        # The learning rate at the start of the warmup phase.
+        init_lr: float = 1e-4,
+        # The minimum learning rate at the annealing phase.
+        min_lr: float = 1e-5,
         ignore_metrics: Optional[
             PerformanceMetric | dict[str, PerformanceMetric]
         ] = None,
-        max_warmup_epochs: int = 40,
-        warmup_epoch_pct: float = 0.05,
-        init_eta_factor: float = 0.1,
-        max_epochs: int = 1000,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -157,9 +174,12 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
 
         max_epochs: int = self.hparams["num_epochs"]
         if self.trainer and self.trainer.max_epochs:
+            warnings.warn(
+                "The trainer does not specify a maximum number of epochs", UserWarning
+            )
             max_epochs = self.trainer.max_epochs
         warmup_epochs = min(
-            int(max_epochs * self.hparams["warmup_epoch_pct"]),
+            int(max_epochs * self.hparams["warmup_time"]),
             self.hparams["max_warmup_epochs"],
         )
 
@@ -168,7 +188,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
             schedulers=[
                 LinearLR(
                     optimizer,
-                    start_factor=warmup_epochs * self.hparams["init_eta_factor"],
+                    start_factor=self.hparams["init_lr"] / self.hparams["lr"],
                     total_iters=warmup_epochs,
                 ),
                 # TODO: Check whether having a decaying restart learning rate is
@@ -177,7 +197,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
                     optimizer,
                     T_0=self.hparams["T_0"],
                     T_mult=self.hparams["T_mult"],
-                    eta_min=self.hparams["eta_min"],
+                    eta_min=self.hparams["min_lr"],
                 ),
             ],
             milestones=[warmup_epochs],
@@ -205,7 +225,7 @@ if __name__ == "__main__":
         schedulers=[
             LinearLR(
                 optimizer,
-                start_factor=0.1,
+                start_factor=1e-4 / 1e-3,
                 total_iters=warmup_epochs,
             ),
             # TODO: Check whether having a decaying restart learning rate is
@@ -226,3 +246,4 @@ if __name__ == "__main__":
 
     plt.plot(range(1000), lrs)
     plt.show()
+    print(lrs[0])
