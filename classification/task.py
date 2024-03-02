@@ -172,7 +172,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         #  parameters.
         optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
 
-        max_epochs: int = self.hparams["num_epochs"]
+        max_epochs: int = self.hparams["max_epochs"]
         if self.trainer and self.trainer.max_epochs:
             warnings.warn(
                 "The trainer does not specify a maximum number of epochs", UserWarning
