@@ -13,7 +13,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import (SequentialLR,
                                       CosineAnnealingWarmRestarts,
                                       LinearLR, )
-from torchgeo.models import FCN
 from torchmetrics import MetricCollection, Metric
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassF1Score,
@@ -49,7 +48,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         self,
         *args,
         # The total number of warmup epochs, expressed as a percentage of the maximum
-        # number of training epochs specified by the trainer this task is associated
+        # number of training epochs, as specified by the trainer this task is associated
         # with or `max_epochs`.
         warmup_time: float = 0.05,
         # The maximum number of warmup epochs.
@@ -207,43 +206,3 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
             "optimizer": optimizer,
             "lr_scheduler": {"scheduler": scheduler, "monitor": self.monitor},
         }
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    lrs = []
-
-    model = FCN(in_channels=6, classes=10)
-    optimizer = AdamW(model.parameters(), lr=1e-3)
-
-    # TODO: Expose this parameter as an initializer argument.
-    warmup_epochs = min(int(1000 * 0.05), 50)
-
-    scheduler = SequentialLR(
-        optimizer,
-        schedulers=[
-            LinearLR(
-                optimizer,
-                start_factor=1e-4 / 1e-3,
-                total_iters=warmup_epochs,
-            ),
-            # TODO: Check whether having a decaying restart learning rate is
-            #  possible.
-            CosineAnnealingWarmRestarts(
-                optimizer,
-                T_0=50,
-                T_mult=2,
-                eta_min=1e-6,
-            ),
-        ],
-        milestones=[warmup_epochs],
-    )
-    for epoch in range(1000):
-        optimizer.step()
-        scheduler.step()
-        lrs.append(scheduler.get_last_lr()[0])
-
-    plt.plot(range(1000), lrs)
-    plt.show()
-    print(lrs[0])

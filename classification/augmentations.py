@@ -10,20 +10,16 @@ from typing_extensions import override
 
 class MinMaxScaling(K.IntensityAugmentationBase2D):
     def __init__(self, mins: Tensor, maxs: Tensor) -> None:
-        super().__init__(p=1,
-                         same_on_batch=True)
-        self.flags = {"mins": mins.view(1, -1, 1, 1),
-                      "maxs": maxs.view(1, -1, 1, 1)}
+        super().__init__(p=1, same_on_batch=True)
+        self.flags = {"mins": mins.view(1, -1, 1, 1), "maxs": maxs.view(1, -1, 1, 1)}
         self.delta = 1e-10
 
     @override
     def apply_transform(
         self,
-        input:     Tensor,
-        params:    dict[str,
-                        Tensor],
-        flags:     dict[str,
-                        int],
+        input: Tensor,
+        params: dict[str, Tensor],
+        flags: dict[str, int],
         transform: Optional[Tensor] = None,
     ) -> Tensor:
         mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
@@ -32,11 +28,9 @@ class MinMaxScaling(K.IntensityAugmentationBase2D):
 
     def apply_transform_mask(
         self,
-        input:     Tensor,
-        params:    dict[str,
-                        Tensor],
-        flags:     dict[str,
-                        int],
+        input: Tensor,
+        params: dict[str, Tensor],
+        flags: dict[str, int],
         transform: Optional[Tensor] = None,
     ) -> Tensor:
         return input
