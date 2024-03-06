@@ -4,6 +4,7 @@ import copy
 from collections.abc import Sequence
 from typing import Generator, Any
 
+import numpy as np
 import torch
 from torch import default_generator
 from torch.utils.data import Dataset
@@ -27,7 +28,16 @@ def random_file_split(
     for split in splits:
         tmp = copy.deepcopy(dataset)
         # noinspection PyUnresolvedReferences
-        tmp._files = [split.dataset.files[i] for i in split.indices]
+        files = [split.dataset.files[i] for i in split.indices]
+        # NOTE: Use a NumPy array to store the file list of the dataset to avoid "memory
+        #       leaks"
+        #       when sampling it
+        #       using data loaders with a relatively large total number of worker
+        #       threads.
+        #
+        #       See https://tinyurl.com/439cb683 and https://tinyurl.com/yc63wxey for
+        #       more information.
+        tmp._files = np.asarray(files).astype(np.string_)
         datasets.append(tmp)
 
     return datasets
