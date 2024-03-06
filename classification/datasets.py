@@ -2,23 +2,243 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
+import sys
+import warnings
+from abc import ABC, abstractmethod
+from collections.abc import Iterable, Sequence
 from functools import lru_cache
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
+import rasterio
 import rasterio.io
+import rasterio.merge
 import torch
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
 from rasterio.crs import CRS
+from rasterio.vrt import WarpedVRT
 from torch import Tensor
-from torchgeo.datasets.geo import RasterDataset
-from torchgeo.datasets.utils import BoundingBox
+from torchgeo.datasets.geo import (GeoDataset,
+                                   UnionDataset,
+                                   IntersectionDataset,
+                                   RasterDataset, )
+from torchgeo.datasets.utils import BoundingBox, disambiguate_timestamp
 
 
-class TrainingDataset(RasterDataset):
-    # TODO: Populate these fields.
+class HybridDataset(GeoDataset, ABC):
+    # NOTE: The dataset is assumed to have no geospatial functionality until its
+    # spatial index has been populated.
+    # The coordinate reference system of the dataset, as specified by the first file
+    # read to populate its spatial index.
+    # This file is determined by the lexicographic order of the files in the dataset.
+    _crs: Optional[CRS] = None
+    # The spatial resolution of the dataset, as specified by the first file read to
+    # populate its spatial index.
+    # This file is determined by the lexicographic order of the files in the dataset.
+    _res: Optional[float] = None
+
+    def __init__(
+        self,
+        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+        use_index: bool = False,
+    ) -> None:
+        # Cache the file list of the dataset.
+        # NOTE: Caching the output of corresponding property directly using a
+        #       relevant function decorator does not allow for instances of this class
+        #       to be garbage collected.
+        # NOTE: Use a NumPy array to store the file list of the dataset to avoid "memory
+        #       leaks"
+        #       when sampling it
+        #       using data loaders with a relatively large total number of worker
+        #       threads.
+        #
+        #       See https://tinyurl.com/439cb683 and https://tinyurl.com/yc63wxey for
+        #       more information.
+        self._files: np.ndarray[tuple[Any,], np.dtype[np.string_]] = np.asarray(
+            super().files
+        ).astype(np.string_)
+        # NOTE: This avoids initializing any potential sibling classes in the case of
+        # multiple inheritance.
+        GeoDataset.__init__(self, transforms)
+        if use_index:
+            self.populate_index()
+
+    @property
+    def bounds(self) -> BoundingBox:
+        if len(self.index):
+            # NOTE: The corresponding parent method requires the spatial index of the
+            # dataset to be populated.
+            return GeoDataset.bounds.fget(self)
+        else:
+            msg = (
+                "Unable to query the spatial index of the dataset. Populate the "
+                "spatial index of the dataset to enable is geospatial functionality."
+            )
+            warnings.warn(msg, UserWarning)
+
+    @GeoDataset.crs.setter
+    def crs(self, crs: CRS) -> None:
+        if len(self.index):
+            # NOTE: The corresponding parent method requires the spatial index of the
+            # dataset to be populated.
+            GeoDataset.crs.fset(self, crs)
+        else:
+            msg = (
+                "Unable to mutate the CRS of the dataset. Populate the spatial index "
+                "of the dataset to enable its geospatial functionality."
+            )
+            warnings.warn(msg, UserWarning)
+
+    @property
+    def files(self) -> np.ndarray[tuple[Any,], np.dtype[np.string_]]:
+        return self._files
+
+    @abstractmethod
+    def populate_index(self) -> None:
+        ...
+
+    @abstractmethod
+    def _getitem_int(self, query: int) -> dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def _getitem_box(self, query: BoundingBox) -> dict[str, Any]:
+        ...
+
+    def __and__(self, other: GeoDataset) -> IntersectionDataset:
+        self.populate_index()
+        return IntersectionDataset(self, other)
+
+    def __getitem__(self, query: int | BoundingBox) -> dict[str, Any]:
+        if isinstance(query, int):
+            item = self._getitem_int(query)
+        elif isinstance(query, BoundingBox):
+            self.populate_index()
+            item = self._getitem_box(query)
+        else:
+            msg = f"Encountered invalid query {query!r} of type {type(query)!r}."
+            raise ValueError(msg)
+        return item
+
+    def __getstate__(
+        self,
+    ) -> tuple[dict[str, Any], list[tuple[Any, Any, Optional[Any]] | None]]:
+        if len(self.index):
+            # NOTE: The corresponding parent method requires the spatial index of the
+            # dataset to be populated.
+            state = super().__getstate__()
+        else:
+            state = self.__dict__, []
+        return state
+
+    def __len__(self) -> int:
+        return len(self.files)
+
+    def __or__(self, other: GeoDataset) -> UnionDataset:
+        self.populate_index()
+        return UnionDataset(self, other)
+
+    def __str__(self) -> str:
+        is_index_populated = int(bool(len(self.index)))
+        rpr = (
+            f"{self.__class__.__name__}"
+            f"\n\t"
+            f"Length: {len(self)}"
+            f"\n\t"
+            f"Geospatial Functionality: {['Disabled', 'Enabled'][is_index_populated]}"
+        )
+        return rpr
+
+
+class HybridRasterDataset(HybridDataset, RasterDataset, ABC):
+    def __init__(
+        self,
+        paths: str | Iterable[str],
+        bands: Optional[Sequence[str]] = None,
+        cache: bool = True,
+        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+        use_index: bool = False,
+    ) -> None:
+        self.paths = paths
+        self.bands = bands or self.all_bands
+        self.cache = cache
+        if not self.separate_files:
+            self.band_indexes = None
+            if self.bands:
+                if self.all_bands:
+                    self.band_indexes = [
+                        self.all_bands.index(i) + 1 for i in self.bands
+                    ]
+                else:
+                    msg = (
+                        "Unable to query the raster bands of the dataset.  Specify "
+                        "all channels of the dataset in addition to the ones to "
+                        "the ones to return."
+                    )
+                    raise ValueError(msg)
+        # NOTE: This avoids initializing any potential sibling classes in the case of
+        # multiple inheritance.
+        HybridDataset.__init__(self, transforms=transforms, use_index=use_index)
+
+    def populate_index(self) -> None:
+        if len(self.index):
+            return
+        else:
+            msg = (
+                "The spatial index of the dataset is being populated. This operation "
+                "may require a considerable amount of time to complete."
+            )
+            warnings.warn(msg, UserWarning)
+            self._populate_index()
+
+    # TODO: Review this method.
+    def _populate_index(self) -> None:
+        i = 0
+        filename_regex = re.compile(self.filename_regex, re.VERBOSE)
+        for filepath in self.files:
+            match = re.match(filename_regex, os.path.basename(filepath))
+            if match is not None:
+                try:
+                    with rasterio.open(filepath) as src:
+                        if len(self.cmap) == 0:
+                            try:
+                                self.cmap = src.colormap(1)
+                            except ValueError:
+                                pass
+                        if self._crs is None:
+                            crs = src.crs
+                        if self._res is None:
+                            res = src.res[0]
+                        with WarpedVRT(src, crs=crs) as vrt:
+                            minx, miny, maxx, maxy = vrt.bounds
+                except rasterio.errors.RasterioIOError:
+                    continue
+                else:
+                    mint: float = 0
+                    maxt: float = sys.maxsize
+                    if "date" in match.groupdict():
+                        date = match.group("date")
+                        mint, maxt = disambiguate_timestamp(date, self.date_format)
+                    coords = (minx, maxx, miny, maxy, mint, maxt)
+                    self.index.insert(i, coords, filepath)
+                    i += 1
+        if i == 0:
+            msg = (
+                f"No {self.__class__.__name__} data was found "
+                f"in `paths={self.paths!r}'`"
+            )
+            if self.bands:
+                msg += f" with `bands={self.bands}`"
+            raise FileNotFoundError(msg)
+        self._crs = cast(CRS, crs)
+        self._res = cast(float, res)
+
+
+# TODO: Review this class.
+class TrainingDataset(HybridRasterDataset):
     # The URL to the training dataset used in the RoofSense publication.
     download_path = ""
     # The file name of the corresponding archive.
@@ -64,10 +284,12 @@ class TrainingDataset(RasterDataset):
     def __init__(
         self,
         root: str | os.PathLike[str],
-        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
-        cache: bool = True,
         download: bool = False,
         checksum: bool = False,
+        bands: Optional[Sequence[str]] = None,
+        cache: bool = True,
+        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
+        use_index: bool = False,
     ) -> None:
         self.root = root
         self.download = download
@@ -79,8 +301,9 @@ class TrainingDataset(RasterDataset):
         self._lc_cmap = ListedColormap(lc_colors)
 
         self._verify()
-
-        super().__init__(root, transforms=transforms, cache=cache)
+        super().__init__(
+            root, bands=bands, cache=cache, transforms=transforms, use_index=use_index
+        )
 
     def _verify(self):
         """Ensure that the dataset is valid."""
@@ -132,43 +355,8 @@ class TrainingDataset(RasterDataset):
         # extract_archive(os.path.join(self.root, self.filename))
         pass
 
-    def __getitem__(self, query: int | str | BoundingBox) -> dict[str, Any]:
-        """
-        Fetch an image and its corresponding mask by dataset order,
-        file name, or spatial bounds.
-
-        # TODO: Complete the docstring of this method.
-        :param query: The query index. If it is an integer, ``n``, the ``n``-th image
-                      and mask are returned based on the lexicographical order of the
-                      file names in the dataset. If it is a string representing an image
-                      or mask file name, the corresponding pair is returned. If it is
-                      a coordinate interleaved axis-aligned bounding box, the...
-
-        :return: A dictionary containing the queried image and corresponding mask. If
-                 the query is a ``BoundingBox`` instance, its spatial extents are also
-                 returned.
-        """
-        if isinstance(query, int):
-            sample = self._getitem_int(query)
-        elif isinstance(query, str):
-            sample = self._getitem_str(query)
-        elif isinstance(query, BoundingBox):
-            sample = self._getitem_box(query)
-        else:
-            raise ValueError(f"Invalid query {query!r} of type {type(query)!r}.")
-        return sample
-
     def _getitem_int(self, index: int) -> dict[str, Tensor]:
-        """Return an index within the dataset.
-
-        Args:
-            index: index to return
-
-        Returns:
-            data and label at that index
-        """
-        img_matches = self.index.intersection(self.index.bounds, objects=True)
-        img_path = [match.object for match in img_matches][index]
+        img_path = str(self.files[index], encoding="utf-8")
         msk_path = img_path.replace("imgs", "msks")
 
         sample = {
@@ -183,23 +371,12 @@ class TrainingDataset(RasterDataset):
 
     @lru_cache
     def _load_image(self, path: str) -> Tensor:
-        """Load a single image.
-
-        Args:
-            path: unique ID of the image
-
-        Returns:
-            the image
-        """
         f: rasterio.io.DatasetReader
         with rasterio.open(path) as f:
-            # todo: what is the diff between torch.tensor and torch.from_numpy
-            return torch.tensor(f.read())
-
-    def _getitem_str(self, query: str) -> dict[str, Any]:
-        pass
+            return torch.as_tensor(f.read())
 
     def _getitem_box(self, query: BoundingBox) -> dict[str, CRS | BoundingBox | Tensor]:
+        self.populate_index()
         # Find the images intersecting the bounding box.
         # NOTE: The index is an rtree.RTree instance containing the spatial bounds and
         #       name of each image in the dataset as a single object.
@@ -210,7 +387,7 @@ class TrainingDataset(RasterDataset):
         )
         img_paths = [match.object for match in img_matches]
         if not img_paths:
-            raise IndexError(  # TODO: Rephrase this error message.
+            raise IndexError(
                 f"query: {query} not found in index with bounds: {self.bounds}"
             )
         img = self._merge_files(img_paths, query, self.band_indexes)
