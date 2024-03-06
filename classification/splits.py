@@ -21,6 +21,8 @@ def random_file_split(
         dataset, lengths=lengths, generator=generator
     )
 
+    # NOTE: While PyTorch DataLoaders can work with Subsets directly, Datasets are
+    # necessary due to their plotting functionality.
     datasets = []
     for split in splits:
         tmp = copy.deepcopy(dataset)
