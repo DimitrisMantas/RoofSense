@@ -251,21 +251,24 @@ class TrainingDataset(HybridRasterDataset):
     filename_regex = ".*tif"
 
     # The names of the bands present in the training images.
-    all_bands = ("Red", "Green", "Blue", "Near-infrared", "Reflectance", "Slope")
+    all_bands = (
+        "Red",
+        "Green",
+        "Blue",  # "Near-infrared", "Reflectance", "Slope"
+    )
     rgb_bands = ("Red", "Green", "Blue")
 
     # The names of the classes present in the training masks.
     classes = (
-        "Asphalt Shingles",
-        "Bituminous Membranes",
-        "Clay Tiles",
-        "Loose Gravel",
-        "Metal",
-        "Solar Panels",
-        "Vegetation",
-        "Other",
-        "Invalid",
-        "__ignore__"
+        "Building",
+        "Woodland",
+        "Water",
+        "Road",
+        "Background",  # "Solar Panels",
+        # "Vegetation",
+        # "Other",
+        # "Invalid",
+        # "__ignore__"
     )
     # The class-color map.
     cmap = {
@@ -273,12 +276,11 @@ class TrainingDataset(HybridRasterDataset):
         1: (255, 255, 179, 85),
         2: (190, 186, 218, 85),
         3: (251, 128, 114, 85),
-        4: (128, 117, 211, 85),
-        5: (253, 180, 100, 85),
-        6: (179, 222, 105, 85),
-        7: (252, 205, 229, 85),
-        8: (128, 128, 128, 85),
-        9: (255, 255, 255, 85),
+        4: (128, 117, 211, 85),  # 5: (253, 180, 100, 85),
+        # 6: (179, 222, 105, 85),
+        # 7: (252, 205, 229, 85),
+        # 8: (128, 128, 128, 85),
+        # 9: (255, 255, 255, 85),
     }
 
     def __init__(
@@ -424,7 +426,7 @@ class TrainingDataset(HybridRasterDataset):
                 rgb_indices.append(self.bands.index(band))
             else:
                 raise ValueError("Dataset doesn't contain some of the RGB bands")
-        image = sample["image"][rgb_indices].permute(1, 2, 0)
+        image = sample["image"].squeeze()[rgb_indices].permute(1, 2, 0)
 
         # Stretch to the full range
         image = (image - image.min()) / (image.max() - image.min())

@@ -21,8 +21,23 @@ from classification.datasets import TrainingDataset
 
 
 class TrainingDataModule(GeoDataModule):
-    mins = torch.tensor([0, 0, 0, 0, 0, 0])
-    maxs = torch.tensor([255, 255, 255, 255, 1, 90])
+    # The minimum cell value of each raster stack layer.
+    mins = torch.tensor(
+        [
+            0,
+            0,
+            0,  0, 0, 0
+        ]
+    )
+
+    # The maximum cell value of each raster stack layer.
+    maxs = torch.tensor(
+        [
+            255,
+            255,
+            255,  255, 1, 90
+        ]
+    )
 
     def __init__(
         self,
@@ -88,15 +103,14 @@ class TrainingDataModule(GeoDataModule):
 def setup(self, stage: str) -> None:
     dataset = TrainingDataset(**self.kwargs)
 
-        # NOTE: This method produces the same splits per program execution!
-        #       This is because the underlying spatial index returns results in no
-        #       specific order.
-        generator = torch.Generator().manual_seed(0)
-        (
-            self.train_dataset,
-            self.val_dataset,
-            self.test_dataset,
-        ) = random_bbox_assignment(dataset, [0.7, 0.15, 0.15], generator)
+    generator = torch.Generator().manual_seed(0)
+    (
+        self.train_dataset,
+        self.val_dataset,
+        self.test_dataset,
+    ) = splits.random_file_split(
+        dataset, lengths=[0.7, 0.15, 0.15], generator=generator
+    )
 
     if self.patch_size >= 512:
         # The dataset will be operated in non-geospatial mode, and thus no
