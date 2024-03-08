@@ -1,38 +1,47 @@
 import json
 import sys
 import tempfile
-import typing
+from types import TracebackType
+from typing import IO, Never, Optional, Type
 
 import cjio.cityjson
 import requests
 
 
-def to_jsonl(response: requests.Response, *args, **kwargs):
-    j = response.json()
+# noinspection PyUnusedLocal
+def to_jsonl(
+    response: requests.Response, *args: Never, **kwargs: Never
+) -> requests.Response:
+    lines = response.json()
     with tempfile.TemporaryFile("w+") as f:
-        f.write(f"{json.dumps(j['metadata'])}\n")
-        if "feature" in j:
-            f.write(f"{json.dumps(j['feature'])} \n")
-        if "features" in j:
-            for feat in j["features"]:
+        f.write(f"{json.dumps(lines['metadata'])}\n")
+        if "feature" in lines:
+            f.write(f"{json.dumps(lines['feature'])} \n")
+        if "features" in lines:
+            for feat in lines["features"]:
                 f.write(f"{json.dumps(feat)}\n")
-
-        # NOTE - Reset the offset into the file to the beginning so that it will be
-        #        read in its entirety when the standard input is pointed to it.
+        # Reset the file pointer so that its contents can be reread.
         f.seek(0)
-        with stdin(f):
-            j = cjio.cityjson.read_stdin()
-
-    response._content = json.dumps(j.j).encode()
+        with _stdin(f):
+            lines = cjio.cityjson.read_stdin()
+    response._content = json.dumps(lines.j).encode()
     return response
 
 
-class stdin:
-    def __init__(self, file: typing.TextIO) -> None:
-        self._file = file
+class _stdin:
+    def __init__(self, f: IO[str]) -> None:
+        self._f = f
 
     def __enter__(self) -> None:
-        sys.stdin = self._file
+        sys.stdin = self._f
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> bool:
         sys.stdin = sys.__stdin__
+        # NOTE: An IOError instance is raised when the response does not correspond
+        #       to the CityJSON Feature schema.
+        return isinstance(exc_value, IOError)

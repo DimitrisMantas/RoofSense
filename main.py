@@ -1,38 +1,59 @@
+from __future__ import annotations
+
 import config
-import downloaders
+import preprocessing
+import utils.iris
 
 
-def main():
-    # Configure the program runtime.
-    config.config()
+# noinspection PyUnusedLocal
+def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) -> None:
+    """
+    Entry point for:
+        roofsense --gen-pretrain-data <size> --bg-cutoff <pct>
+    """
+    # Initialize the program runtime.
+    config.config(training=True)
 
-    # Fetch a tile id.
+    # Initialize the data downloaders.
+    bag3d_downloader = preprocessing.downloaders.BAG3DDownloader()
+    asset_downloader = preprocessing.downloaders.AssetDownloader()
 
-    # NOTE - The program can operate on a building-by-building or tile-by-tile basis.
-    #        The default is the latter since the 3DBGAG tile identifiers are contained
-    #        in the corresponding index, and thus the classification process can
-    #        continue automatically.
-    obj_id = "9-284-556"
+    # Initialize the data parsers.
+    bag3d_parser = preprocessing.parsers.BAG3DParser()
+    image_parser = preprocessing.parsers.ImageParser()
+    lidar_parser = preprocessing.parsers.LiDARParser()
 
-    # Download the corresponding 3DBAG data.
-    downloaders.bag3d.download(obj_id)
+    # Fake a random sample.
+    samples = ["9-284-556"]
+    for sample in samples:
+        # Download the corresponding 3DBAG data.
+        bag3d_downloader.download(sample)
+        # Parse the data.
+        bag3d_parser.parse(sample)
 
-    # Parse the tile.
-    # FIXME: Do not parse previously processed tiles.
-    # FIXME: Move the 3DBAG data parser to `downloaders.utils`.
-    downloaders.bag3d.DataParser(obj_id).parse()
+        # Download the corresponding assets.
+        asset_downloader.download(sample)
+        # Parse the data.
+        image_parser.parse(sample)
+        lidar_parser.parse(sample)
 
-    # Download the corresponding AHN and BM data.
-    # NOTE - Load the index now so that it does not have to be reloaded when processing
-    #        a different tile.
-    # FIXME - Aggregate all index loaders and move them to a separate file inside  a
-    #         data module.
-    index1 = downloaders.ahn34.load_index()
-    downloaders.ahn34.download(obj_id, index1)
+        # Create the raster stack.
+        preprocessing.merger.RasterStackBuilder().merge(sample)
 
-    index2 = downloaders.ortho.load_index()
-    downloaders.ortho.download(obj_id, index2)
+        # Prepare the stacks for annotation.
+        preprocessing.splitter.split(sample, background_cutoff)
+
+    # Create the corresponding IRIS configuration file.
+    utils.iris.generate_configuration_file()
+
+
+def train() -> None:
+    """
+    Entry point for:
+        roofsense --train
+    """
+    utils.iris.postprocess_masks()
 
 
 if __name__ == "__main__":
-    main()
+    train()

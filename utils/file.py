@@ -15,7 +15,7 @@ import urllib3
 # TODO - Reformat, finalize function and variable names, and add documentation.
 
 _Timeout = Union[float, tuple[float, float], tuple[float, None]]
-_HookCallback = typing.Callable[[requests.Response, ...], typing.Any]
+_HookCallback = typing.Callable[[requests.Response], typing.Any]
 
 
 class FileDownloader(abc.ABC):

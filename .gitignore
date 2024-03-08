@@ -1,8 +1,9 @@
 /.idea/
-/data/temp/
-*.las
-*.laz
-*.tiff
+
+/temp/
 /logs/
-/tests/data/ahn34/
-/tests/data/ortho/
+/iris/
+/training/
+
+/classification/data/
+/classification/logs/

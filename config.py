@@ -11,19 +11,18 @@ import utils
 _PROJ_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def config() -> None:
+def config(training: bool = False) -> None:
     dotenv.load_dotenv(os.path.join(_PROJ_DIR, "config.env"))
 
     # Enable GeoPandas speed-ups.
     gpd.options.io_engine = "pyogrio"
     os.environ["PYOGRIO_USE_ARROW"] = "1"
 
-    utils.file.mkdirs(env("AHN34_INDEX_DIR"))
-    utils.file.mkdirs(env("BAG3D_INDEX_DIR"))
-    utils.file.mkdirs(env("ORTHO_INDEX_DIR"))
-
     utils.file.mkdirs(env("TEMP_DIR"))
     utils.file.mkdirs(env("LOG_DIR"))
+    if training:
+        utils.file.mkdirs(f"{env('ORIGINAL_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
+        utils.file.mkdirs(f"{env('BUFFERED_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
 
 
 def env(key: str) -> typing.Optional[str]:
@@ -39,4 +38,4 @@ def default_data_dict() -> dict:
 
 
 def default_data_tabl(data: dict) -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(data, crs=var("DEFAULT_CRS"))
+    return gpd.GeoDataFrame(data, crs=var("CRS"))

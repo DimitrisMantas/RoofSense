@@ -1,5 +1,0 @@
-cjio
-requests
-geopandas
-tqdm
-urllib3
