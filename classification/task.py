@@ -64,12 +64,15 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         # task is used with cannot provide it.
         max_epochs: int = 1000,
         # The learning rate at the end of the warmup and each new cycle of the
-        # subsequent annealing phases.
+        # subsequent annealing phases. This parameter is henceforth referred to
+        # as the "nominal learning rate".
         lr: float = 1e-3,
-        # The learning rate at the start of the warmup phase.
-        init_lr: float = 1e-4,
-        # The minimum learning rate at the annealing phase.
-        min_lr: float = 1e-5,
+        # The learning rate at the start of the warmup phase, expressed as a
+        # percentage of the nominal learning rate.
+        init_lr_pct: float = 0.1,
+        # The minimum learning rate at the annealing phase, expressed as a percentage
+        # of the nominal learning rate.
+        min_lr_pct: float = 0.01,
         ignore_metrics: Optional[
             PerformanceMetric | dict[str, PerformanceMetric]
         ] = None,
@@ -187,7 +190,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
             schedulers=[
                 LinearLR(
                     optimizer,
-                    start_factor=self.hparams["init_lr"] / self.hparams["lr"],
+                    start_factor=self.hparams["init_lr_pct"],
                     total_iters=warmup_epochs,
                 ),
                 # TODO: Check whether having a decaying restart learning rate is
@@ -196,7 +199,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
                     optimizer,
                     T_0=self.hparams["T_0"],
                     T_mult=self.hparams["T_mult"],
-                    eta_min=self.hparams["min_lr"],
+                    eta_min=self.hparams["lr"]*self.hparams["min_lr_pct"],
                 ),
             ],
             milestones=[warmup_epochs],
