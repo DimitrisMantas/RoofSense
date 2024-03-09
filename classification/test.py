@@ -1,33 +1,18 @@
-import lightning
 import torch
 from lightning import Trainer
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.callbacks import (EarlyStopping,
+                                         ModelCheckpoint,
+                                         GradientAccumulationScheduler,
+                                         LearningRateMonitor, )
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.profilers import AdvancedProfiler
 
 from classification.datamodules import TrainingDataModule
 from classification.task import TrainingTask
 
 if __name__ == "__main__":
-    # datamodule=LandCoverAIDataModule(root="data/LandCoverAI",batch_size=8,num_workers=8,persistent_workers=True,pin_memory=True)
-    datamodule = TrainingDataModule(
-        root="../training/test",
-        batch_size=64,
-        patch_size=64,
-        num_workers=8,
-        persistent_workers=True,
-        pin_memory=True,
-    )
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss", dirpath="logs/RoofSense", save_top_k=10, save_last=True
-    )
-    early_stopping_callback = EarlyStopping(
-        monitor="val_loss", min_delta=0.00, patience=50
-    )
+    torch.set_float32_matmul_precision("high")
+    torch.backends.cudnn.allow_tf32 = True
 
-    batch_size_callback = lightning.pytorch.callbacks.BatchSizeFinder()
-
-    logger = TensorBoardLogger(save_dir="logs/RoofSense")
     task = TrainingTask(
         model="fcn",
         backbone="resnet18",
@@ -38,25 +23,38 @@ if __name__ == "__main__":
         ignore_index=9,
     )
 
-    profiler = AdvancedProfiler(dirpath="logs/RoofSense/profiling")
-    # todo check stategies + callbacks + profiler
-    torch.set_float32_matmul_precision("high")
-    torch.backends.cudnn.allow_tf32 = True
+    datamodule = TrainingDataModule(
+        root="../training/test", batch_size=64, patch_size=64, num_workers=8
+    )
+
+    # todo check strategies + callbacks + profiler
     trainer = Trainer(
         callbacks=[
-            checkpoint_callback,
-            early_stopping_callback,
-            # lightning.pytorch.callbacks.BatchSizeFinder(),
-            # lightning.pytorch.callbacks.LearningRateFinder(),
-            # lightning.pytorch.callbacks.GradientAccumulationScheduler(scheduling={0: 5}),
-            lightning.pytorch.callbacks.LearningRateMonitor(),
+            ModelCheckpoint(
+                dirpath="logs/RoofSense",
+                filename="best",
+                monitor="val_loss",
+                save_last=True,
+            ),
+            EarlyStopping(monitor="val_loss", patience=500),
+            # LearningRateFinder(),
+            GradientAccumulationScheduler(scheduling={0: 2}),
+            LearningRateMonitor(),
+            # OnExceptionCheckpoint(
+            #     dirpath="logs/RoofSense",
+            #     # Overwrite the last checkpoint.
+            #     filename="last",
+            # ),
+            # lightning.pytorch.callbacks.SpikeDetection,
+            # lightning.pytorch.callbacks.StochasticWeightAveraging
+            # lightning.pytorch.callbacks.ModelPruning,
         ],
         log_every_n_steps=1,
-        logger=logger,
+        logger=TensorBoardLogger(save_dir="logs/RoofSense"),
         benchmark=True,
-        # profiler=profiler,
-        # max_epochs=5
+        # profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
         # detect_anomaly=True
         # fast_dev_run=True
     )
+
     trainer.fit(model=task, datamodule=datamodule)
