@@ -22,22 +22,10 @@ from classification.datasets import TrainingDataset
 
 class TrainingDataModule(GeoDataModule):
     # The minimum cell value of each raster stack layer.
-    mins = torch.tensor(
-        [
-            0,
-            0,
-            0,  0, 0, 0
-        ]
-    )
+    mins = torch.tensor([0, 0, 0, 0, 0, 0])
 
     # The maximum cell value of each raster stack layer.
-    maxs = torch.tensor(
-        [
-            255,
-            255,
-            255,  255, 1, 90
-        ]
-    )
+    maxs = torch.tensor([255, 255, 255, 255, 1, 90])
 
     def __init__(
         self,
@@ -179,5 +167,7 @@ class TrainingDataModule(GeoDataModule):
         batch.pop("crs", None)
         batch.pop("bbox", None)
 
-    batch = BaseDataModule.transfer_batch_to_device(self, batch, device, dataloader_idx)
-    return batch
+        batch = BaseDataModule.transfer_batch_to_device(
+            self, batch, device, dataloader_idx
+        )
+        return batch
