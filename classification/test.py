@@ -117,6 +117,7 @@ if __name__ == "__main__":
     profiler = AdvancedProfiler(dirpath="logs/LandCoverAI/profiling")
     # todo check stategies + callbacks + profiler
     torch.set_float32_matmul_precision("high")
+    torch.backends.cudnn.allow_tf32 = True
     trainer = Trainer(
         callbacks=[
             checkpoint_callback,
