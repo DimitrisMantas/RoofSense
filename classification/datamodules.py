@@ -99,87 +99,85 @@ class TrainingDataModule(GeoDataModule):
             data_keys=["image", "mask"],
         )
 
+    def setup(self, stage: str) -> None:
+        dataset = TrainingDataset(**self.kwargs)
+        dataset.populate_index()
 
-def setup(self, stage: str) -> None:
-    dataset = TrainingDataset(**self.kwargs)
-
-    generator = torch.Generator().manual_seed(0)
-    (
-        self.train_dataset,
-        self.val_dataset,
-        self.test_dataset,
-    ) = splits.random_file_split(
-        dataset, lengths=[0.7, 0.15, 0.15], generator=generator
-    )
-
-    if self.patch_size >= 512:
-        # The dataset will be operated in non-geospatial mode, and thus no
-        # sampler is necessary.
-        if self.patch_size > 512:
-            warnings.warn(
-                f"The requested patch size is larger than {512} px. Will "
-                f"perform online learning with individual tiles as samples."
-            )
-    else:
-        if stage == "fit":
-            # TODO: Check how many times the index is populated during training;
-            #  it should be once per split (i.e., three times).
-            self.train_dataset.populate_index()
-            self.train_batch_sampler = RandomBatchGeoSampler(
-                self.train_dataset, self.patch_size, self.batch_size, self.length
-            )
-        if stage in ["fit", "validate"]:
-            self.val_dataset.populate_index()
-            self.val_sampler = GridGeoSampler(
-                self.val_dataset, self.patch_size, self.patch_size
-            )
-        if stage == "test":
-            self.test_dataset.populate_index()
-            self.test_sampler = GridGeoSampler(
-                self.test_dataset, self.patch_size, self.patch_size
-            )
-
-
-def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:
-    dataset = self._valid_attribute(f"{split}_dataset", "dataset")
-    batch_size = self._valid_attribute(f"{split}_batch_size", "batch_size")
-
-    try:
-        sampler = self._valid_attribute(
-            f"{split}_batch_sampler", f"{split}_sampler", "batch_sampler", "sampler"
+        generator = torch.Generator().manual_seed(0)
+        (
+            self.train_dataset,
+            self.val_dataset,
+            self.test_dataset,
+        ) = splits.random_grid_split(
+            dataset, lengths=[0.7, 0.15, 0.15], size=8, generator=generator
         )
-        if isinstance(sampler, BatchGeoSampler):
-            batch_size = None
-            batch_sampler, sampler = sampler, None
+
+        if self.patch_size >= 512:
+            # The dataset will be operated in non-geospatial mode, and thus no
+            # sampler is necessary.
+            if self.patch_size > 512:
+                warnings.warn(
+                    f"The requested patch size is larger than {512} px. Will "
+                    f"perform online learning with individual tiles as samples."
+                )
         else:
-            batch_sampler = None
-        shuffle = None
-    except MisconfigurationException:
-        # The dataset will be operated in non-geospatial mode.
-        batch_sampler = sampler = None
-        shuffle = split == "train"
+            if stage == "fit":
+                # TODO: Check how many times the index is populated during training;
+                #  it should be once per split (i.e., three times).
+                self.train_dataset.populate_index()
+                self.train_batch_sampler = RandomBatchGeoSampler(
+                    self.train_dataset, self.patch_size, self.batch_size, self.length
+                )
+            if stage in ["fit", "validate"]:
+                self.val_dataset.populate_index()
+                self.val_sampler = GridGeoSampler(
+                    self.val_dataset, self.patch_size, self.patch_size
+                )
+            if stage == "test":
+                self.test_dataset.populate_index()
+                self.test_sampler = GridGeoSampler(
+                    self.test_dataset, self.patch_size, self.patch_size
+                )
 
-    dataloader = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        sampler=sampler,
-        batch_sampler=batch_sampler,
-        num_workers=self.num_workers,
-        collate_fn=self.collate_fn,
-        pin_memory=self.pin_memory,
-        persistent_workers=self.persistent_workers,
-    )
-    return dataloader
+    def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:
+        dataset = self._valid_attribute(f"{split}_dataset", "dataset")
+        batch_size = self._valid_attribute(f"{split}_batch_size", "batch_size")
 
+        try:
+            sampler = self._valid_attribute(
+                f"{split}_batch_sampler", f"{split}_sampler", "batch_sampler", "sampler"
+            )
+            if isinstance(sampler, BatchGeoSampler):
+                batch_size = 1
+                batch_sampler, sampler = sampler, None
+            else:
+                batch_sampler = None
+            shuffle = None
+        except MisconfigurationException:
+            # The dataset will be operated in non-geospatial mode.
+            batch_sampler = sampler = None
+            shuffle = split == "train"
 
-def transfer_batch_to_device(
-    self, batch: dict[str, Tensor], device: torch.device, dataloader_idx: int
-) -> dict[str, Tensor]:
-    # NOTE: Samples do not have these attributes when the corresponding dataset
-    # is operated in non-geospatial mode.
-    batch.pop("crs", None)
-    batch.pop("bbox", None)
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            sampler=sampler,
+            batch_sampler=batch_sampler,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+            pin_memory=self.pin_memory,
+            persistent_workers=self.persistent_workers,
+        )
+        return dataloader
+
+    def transfer_batch_to_device(
+        self, batch: dict[str, Tensor], device: torch.device, dataloader_idx: int
+    ) -> dict[str, Tensor]:
+        # NOTE: Samples do not have these attributes when the corresponding dataset
+        # is operated in non-geospatial mode.
+        batch.pop("crs", None)
+        batch.pop("bbox", None)
 
     batch = BaseDataModule.transfer_batch_to_device(self, batch, device, dataloader_idx)
     return batch
