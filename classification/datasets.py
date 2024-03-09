@@ -135,7 +135,11 @@ class HybridDataset(GeoDataset, ABC):
         return state
 
     def __len__(self) -> int:
-        return len(self.files)
+        if len(self.index):
+            len_ = len(self.index)
+        else:
+            len_ = len(self.files)
+        return len_
 
     def __or__(self, other: GeoDataset) -> UnionDataset:
         self.populate_index()
@@ -199,6 +203,7 @@ class HybridRasterDataset(HybridDataset, RasterDataset, ABC):
         i = 0
         filename_regex = re.compile(self.filename_regex, re.VERBOSE)
         for filepath in self.files:
+            filepath = str(filepath, encoding="utf-8")
             match = re.match(filename_regex, os.path.basename(filepath))
             if match is not None:
                 try:
@@ -358,6 +363,12 @@ class TrainingDataset(HybridRasterDataset):
         pass
 
     def _getitem_int(self, index: int) -> dict[str, Tensor]:
+        if len(self.index):
+            match = list(self.index.intersection(self.index.bounds, objects=True))[
+                index
+            ]
+            return self._getitem_box(BoundingBox(*match.bounds))
+
         img_path = str(self.files[index], encoding="utf-8")
         msk_path = img_path.replace("imgs", "msks")
 
