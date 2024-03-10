@@ -16,7 +16,10 @@ from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, BatchGeoSam
 from torchgeo.transforms import AugmentationSequential
 
 from classification import splits
-from classification.augmentations import MinMaxScaling
+from classification.augmentations import (MinMaxScaling,
+                                          RandomBrightness,
+                                          RandomGamma,
+                                          RandomSaturation, )
 from classification.datasets import TrainingDataset
 
 
@@ -76,14 +79,21 @@ class TrainingDataModule(GeoDataModule):
 
         # Training Augmentations
         # NOTE: This field overwrites the predefined augmentations.
-        self.train_aug = AugmentationSequential(  # Normalization
-            MinMaxScaling(self.mins, self.maxs),  # Geometric Augmentations
+        self.train_aug = AugmentationSequential(
+            # Normalization
+            MinMaxScaling(self.mins, self.maxs),
+            # Geometric Augmentations
             # Flips
             K.RandomVerticalFlip(),
-            K.RandomHorizontalFlip(),  # Rotations
+            K.RandomHorizontalFlip(),
+            # Rotations
             # TODO: Add rotational augmentations.
             # Intensity Augmentations
-            # TODO: Add photometric augmentations.
+            RandomBrightness(brightness=(0.5, 1.5), p=0.5),
+            # NOTE: https://kornia.readthedocs.io/en/latest/enhance.html#kornia.enhance.adjust_contrast
+            RandomGamma(gamma=(0.5, 1.5), p=0.5),
+            RandomSaturation(saturation=(0.5, 1.5), p=0.5),
+            # TODO: Check whether the image hue should be changed.
             data_keys=["image", "mask"],
         )
 
