@@ -69,7 +69,7 @@ class PointCloud:
         # NOTE: This ensures that only contextually irrelevant points are discarded.
         pts = pts.sort("Z")
         self.las.points = self.las.points[
-            pts.unique(subset=["X", "Y"], keep="last")["I"].to_numpy()
+            pts.unique(subset=["X", "Y"], keep="last")["I"].sort().to_numpy()
         ]
         return self
 
