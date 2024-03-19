@@ -1,68 +1,45 @@
 from __future__ import annotations
 
-import re
+import pathlib
 
+import geopandas as gpd
 import requests
-from typing_extensions import override
 
 import config
 import utils
-from preprocessing.downloaders.base import DataDownloader
-from utils.type import BoundingBoxLike
 
 
-class BAG3DDownloader(DataDownloader):
+class BAG3DDownloader:
     def __init__(self) -> None:
-        super().__init__()
+        self._index: gpd.GeoDataFrame = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
 
-    @override
-    def download(self, obj_id: str | BoundingBoxLike) -> None:
-        if utils.geom.is_bbox_like(obj_id):
-            obj_tp = _ObjectType.BBOX
-        else:
-            obj_tp = _get_object_type(obj_id)
-        tmp_dir = config.env("TEMP_DIR")
-        if obj_tp == _ObjectType.BBOX:
-            _download_bbox_data(obj_id, base_dir=tmp_dir)
-        elif obj_tp == _ObjectType.BUILDING:
-            _download_building_data(obj_id, base_dir=tmp_dir)
-        else:
-            _download_tile_data(obj_id, base_dir=tmp_dir)
+    def download(self, tile_id: str) -> None:
+        try:
+            url: str = self._index.loc[self._index.tid == tile_id].url.iat[0]
+        except IndexError:
+            msg = (
+                f"Failed to identify 3DBAG tile with ID: {tile_id!r}. Tile does not "
+                f"exist."
+            )
+            raise IndexError(msg)
+        dst_filepath = pathlib.Path(config.env("TEMP_DIR")) / pathlib.Path(url).name
 
-
-class _ObjectType:
-    BBOX, BUILDING, TILE = range(3)
-
-
-def _get_object_type(obj_id: str) -> _ObjectType:
-    if re.match(config.var("BUILDING_ID"), obj_id):
-        return _ObjectType.BUILDING
-    elif re.match(config.var("TILE_ID"), obj_id):
-        return _ObjectType.TILE
-    raise ValueError(f"Invalid object ID : {obj_id!r}")
+        with requests.Session() as session:
+            utils.file.BlockingFileDownloader(
+                url,
+                filename=dst_filepath,
+                session=session,
+            ).download()
 
 
-# noinspection PyUnusedLocal
-def _download_bbox_data(obj_id: BoundingBoxLike, base_dir: str) -> None:
-    raise NotImplementedError("Only 3DBAG buildings and tiles are currently supported.")
+if __name__ == "__main__":
+    config.config()
 
-
-def _download_building_data(obj_id: str, base_dir: str) -> None:
-    url = f"{config.var('BAG3D_API_BASE_URL')}{obj_id}"
-    out_path = f"{base_dir}{obj_id}{config.var('CITY_JSON')}"
-    with requests.Session() as s:
-        utils.file.BlockingFileDownloader(
-            url, out_path, session=s, callbacks=utils.cjio.to_jsonl
-        ).download()
-
-
-def _download_tile_data(obj_id: str, base_dir: str) -> None:
-    url = (
-        f"{config.var('BASE_TILE_ADDRESS')}"
-        f"{obj_id.replace('-', '/')}/"
-        f"{obj_id}"
-        f"{config.var('CITY_JSON')}"
-    )
-    out_path = f"{base_dir}{obj_id}{config.var('CITY_JSON')}"
-    with requests.Session() as s:
-        utils.file.BlockingFileDownloader(url, out_path, session=s).download()
+    downloader = BAG3DDownloader()
+    # Test with a valid tile ID.
+    downloader.download("9-284-556")
+    # Test with an invalid tile ID.
+    try:
+        downloader.download("")
+    except IndexError:
+        pass
