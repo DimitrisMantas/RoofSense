@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import config
 import preprocessing
-import utils.iris
 
 
 # noinspection PyUnusedLocal
@@ -43,16 +42,13 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
         # Prepare the stacks for annotation.
         preprocessing.splitter.split(sample, background_cutoff)
 
-    # Create the corresponding IRIS configuration file.
-    utils.iris.generate_configuration_file()
-
 
 def train() -> None:
     """
     Entry point for:
         roofsense --train
     """
-    utils.iris.postprocess_masks()
+    ...
 
 
 if __name__ == "__main__":
