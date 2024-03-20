@@ -35,6 +35,9 @@ class Raster:
         self._meta = meta if meta is not None else DefaultProfile()
         self._data = np.full((self._leny, self._lenx), self._meta["nodata"])
 
+    def __len__(self)->int:
+        return self._data.size
+
     # TODO: Add type hints to this method.
     def __getitem__(self, key):
         return self._data[key]
