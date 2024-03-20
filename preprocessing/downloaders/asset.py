@@ -8,17 +8,30 @@ from typing import Any, Optional
 import geopandas as gpd
 import numpy as np
 import requests
+from typing_extensions import override
 
 import config
 import utils
-from preprocessing.downloaders.base import DataDownloader
+from preprocessing.downloaders.base import Downloader
 
 
-class AssetDownloader(DataDownloader):
+class AssetDownloader(Downloader):
+    """Convenience class for downloading 3DBAG tile assets (i.e., from the
+    latest BM5, 8 cm RGB orthoimagery and AHN point cloud collections)."""
+
     def __init__(self) -> None:
+        """Initialize the downloader.
+
+        .. note::
+            This operation requires that the BM5 and AHN tile indices are present at
+            the locations specified by the ``IMAGE_TILE_INDEX`` and
+            ``LIDAR_TILE_INDEX`` configuration parameters, respectively.
+        """
         self._image_info_store = _InfoStore(config.env("IMAGE_SHEET_INDEX"))
         self._lidar_info_store = _InfoStore(config.env("LIDAR_SHEET_INDEX"))
 
+    # TODO: Document this method.
+    @override
     def download(self, tile_id: str) -> None:
         image_info = self._image_info_store.get_info(tile_id)
         lidar_info = self._lidar_info_store.get_info(tile_id)
@@ -35,6 +48,7 @@ class AssetDownloader(DataDownloader):
                 urls, filenames=dst_filepaths, session=session
             ).download()
 
+    # TODO: Document this method.
     def _gen_manifest(
         self,
         tile_id: str,
@@ -66,6 +80,7 @@ class AssetDownloader(DataDownloader):
 
 
 # TODO: Check whether this is an appropriate name given the purpose of this class.
+# TODO: Document this class.
 class _InfoStore:
     def __init__(self, index_path: str | bytes | PathLike) -> None:
         self._index: gpd.GeoDataFrame = gpd.read_file(index_path)
@@ -98,9 +113,3 @@ class _InfoStore:
             "url": info[1].tolist(),
         }
         return manifest
-
-
-if __name__ == "__main__":
-    config.config()
-
-    AssetDownloader().download("9-284-556")

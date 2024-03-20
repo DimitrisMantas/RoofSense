@@ -4,34 +4,36 @@ import os
 
 import geopandas as gpd
 import requests
+from typing_extensions import override
 
 import config
 import utils
-from preprocessing.downloaders.base import DataDownloader
+from preprocessing.downloaders.base import Downloader
 
 
-class BAG3DDownloader(DataDownloader):
-    """Convenience class to download 3DBAG data."""
+class BAG3DDownloader(Downloader):
+    """Convenience class for downloading 3DBAG data."""
 
     def __init__(self) -> None:
         """Initialize the downloader.
 
         .. note::
-            This operation requires the 3DBAG tile index to be present on disc,
-            at the location specified by the `BAG3D_TILE_INDEX` configuration parameter.
+            This operation requires that the 3DBAG tile index is present at the
+            location specified by the ``BAG3D_TILE_INDEX`` configuration parameter.
         """
         self._index: gpd.GeoDataFrame = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
 
+    @override
     def download(self, tile_id: str) -> None:
-        """Download a single 3DBAG tile to disk.
+        """Download a single 3DBAG tile.
 
         :param tile_id: The tile ID (e.g., 9-284-556).
 
         .. note::
             Tiles are downloaded in CityJSON format.
 
-            Tiles are saved on disk, in the directory specified by the `TEMP_DIR`
-            configuration parameter, and named using their ID (e.g.,
+            Tiles are saved in the directory specified by the
+            ``TEMP_DIR``configuration parameter, and named using their ID (e.g.,
             `9-284-556.city.json`).
         """
         try:
