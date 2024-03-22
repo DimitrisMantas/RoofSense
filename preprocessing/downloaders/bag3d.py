@@ -8,10 +8,10 @@ from typing_extensions import override
 
 import config
 import utils
-from preprocessing.downloaders.base import Downloader
+from preprocessing.downloaders._base import _Downloader
 
 
-class BAG3DDownloader(Downloader):
+class BAG3DDownloader(_Downloader):
     """Convenience class for downloading 3DBAG data."""
 
     def __init__(self) -> None:

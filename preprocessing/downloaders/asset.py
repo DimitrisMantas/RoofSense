@@ -12,10 +12,10 @@ from typing_extensions import override
 
 import config
 import utils
-from preprocessing.downloaders.base import Downloader
+from preprocessing.downloaders._base import _Downloader
 
 
-class AssetDownloader(Downloader):
+class AssetDownloader(_Downloader):
     """Convenience class for downloading 3DBAG tile assets (i.e., from the
     latest BM5, 8 cm RGB orthoimagery and AHN point cloud collections)."""
 

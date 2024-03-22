@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 
-class Downloader(ABC):
+class _Downloader(ABC):
     """Interface all downloaders must implement."""
 
     @abstractmethod
