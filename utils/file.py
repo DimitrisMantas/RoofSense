@@ -5,6 +5,7 @@ import concurrent.futures
 import logging
 import pathlib
 import typing
+from os import PathLike
 from typing import Union
 
 import requests
@@ -53,7 +54,7 @@ class FileDownloader(abc.ABC):
             return
 
         with self._session.get(
-            url, timeout=self._timeout, hooks=self._callbacks, stream=True
+            url, timeout=self._timeout, hooks=self._callbacks, stream=True,verify=False
         ) as response:
             self._handle(response)
 
@@ -105,7 +106,7 @@ class FileDownloader(abc.ABC):
 
 
 class BlockingFileDownloader(FileDownloader):
-    def __init__(self, url: str, filename: str, **kwargs) -> None:
+    def __init__(self, url: str, filename: str|bytes|PathLike, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self._url = url
@@ -119,7 +120,7 @@ class ThreadedFileDownloader(FileDownloader):
     def __init__(
         self,
         urls: typing.Collection[str],
-        filenames: typing.Collection[str],
+        filenames: typing.Collection[str|bytes|PathLike],
         max_conns: int | None = None,
         **kwargs,
     ) -> None:
