@@ -228,7 +228,7 @@ class HybridRasterDataset(HybridDataset, RasterDataset, ABC):
                         date = match.group("date")
                         mint, maxt = disambiguate_timestamp(date, self.date_format)
                     coords = (minx, maxx, miny, maxy, mint, maxt)
-                    self.index._insert(i)
+                    self.index.insert(i, coords, filepath)
                     i += 1
         if i == 0:
             msg = (
