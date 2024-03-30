@@ -33,14 +33,14 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
         # Download the corresponding assets.
         asset_downloader.download(sample)
         # Parse the data.
-        image_parser.parse(sample)
-        lidar_parser.parse(sample)
+        # image_parser.parse(sample)
+        # lidar_parser.parse(sample)
 
         # Create the raster stack.
-        preprocessing.merger.RasterStackBuilder().merge(sample)
+        # preprocessing.merger.RasterStackBuilder().merge(sample)
 
         # Prepare the stacks for annotation.
-        preprocessing.splitter.split(sample, background_cutoff)
+        # preprocessing.splitter.split(sample, background_cutoff)
 
 
 def train() -> None:
@@ -52,4 +52,4 @@ def train() -> None:
 
 
 if __name__ == "__main__":
-    train()
+    generate_pretraining_data()

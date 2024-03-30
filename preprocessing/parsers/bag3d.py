@@ -6,7 +6,7 @@ import cjio.cjio
 import cjio.models
 import geopandas as gpd
 import shapely
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils.file

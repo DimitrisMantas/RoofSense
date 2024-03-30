@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import geopandas as gpd
 import numpy as np
 import shapely
-from typing_extensions import override
+from overrides import override
 
 import config
 

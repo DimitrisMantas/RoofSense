@@ -4,7 +4,7 @@ import copy
 import math
 import os
 from os import PathLike
-from typing import Optional, Any
+from typing import Optional
 
 import numpy as np
 import rasterio
@@ -26,7 +26,9 @@ class Raster:
         self,
         resol: float,
         bbox: BoundingBoxLike,
-        meta: Optional[rasterio.profiles.Profile] = None,
+        meta: Optional[
+            rasterio.profiles.Profile
+        ] = None,
     ) -> None:
         self._resol = resol
         self._bbox = bbox
@@ -54,13 +56,7 @@ class Raster:
     def height(self) -> int:
         return self._leny
 
-    def xy(self) -> np.ndarray[tuple[Any, Any], np.dtype[float]]:
-        # Place the origin of the grid at its bottom left corner.
-        rows, cols = np.mgrid[self.height - 1 : -1 : -1, 0 : self.width]  # noqa: E203
-        # Transform the image to world coordinates.
-        x = self._bbox[0] + self._resol * (cols + 0.5)
-        y = self._bbox[1] + self._resol * (rows + 0.5)
-        return np.column_stack([x.ravel(), y.ravel()])
+
 
     def slope(self, degrees: bool = True) -> Raster:
         r = copy.deepcopy(self)

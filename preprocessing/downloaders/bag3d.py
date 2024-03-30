@@ -4,7 +4,7 @@ import os
 
 import geopandas as gpd
 import requests
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils

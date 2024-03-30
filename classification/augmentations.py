@@ -4,8 +4,8 @@ from typing import Optional, Dict, Any, Tuple
 
 import kornia.augmentation as K
 import torch
+from overrides import override
 from torch import Tensor
-from typing_extensions import override
 
 
 class MinMaxScaling(K.IntensityAugmentationBase2D):

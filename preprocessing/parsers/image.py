@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import rasterio.merge
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils

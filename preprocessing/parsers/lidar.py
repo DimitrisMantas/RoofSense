@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import rasterio
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils
@@ -24,9 +24,10 @@ class LiDARParser(AssetParser):
         scalars = _get_scalars(rfl_path, slp_path)
         if not scalars:
             return
-        rasters = pcloud.PointCloud(ldr_path).rasterize(
-            scalars, resol=float(config.var("RESOLUTION")), bbox=_get_bbox(obj_id)
-        )
+        rasters = pcloud.PointCloud(ldr_path).rasterize(scalars,
+                                                        res=float(config.var(
+                                                            "RESOLUTION")),
+                                                        bbox=_get_bbox(obj_id))
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
         if refl_field in scalars:

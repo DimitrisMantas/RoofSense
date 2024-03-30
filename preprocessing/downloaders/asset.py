@@ -8,7 +8,7 @@ from typing import Any, Optional
 import geopandas as gpd
 import numpy as np
 import requests
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils
@@ -91,14 +91,17 @@ class _InfoStore:
         np.ndarray[tuple[Any,], np.dtype[np.object_]],
         np.ndarray[tuple[Any,], np.dtype[np.object_]],
     ]:
+        # TODO: Move this note to the ``AssetDownloader.download()`` docstring.
         # NOTE: This operation implicitly requires that the roof surfaces have
-        # already been parsed.
+        #       already been parsed.
         surfs = utils.geom.read_surfaces(tile_id)
 
         hits = self._index.overlay(surfs)
-        # NOTE: The matches initially contain duplicate values because each surface
-        # is individually intersected with the index.
-        # This approach is actually faster than first dissolving the surfaces.
+        # NOTE: The result of the index-surface intersection operation initially
+        #       includes duplicate tiles
+        #       because each surface is intersected with the index individually.
+        #       However, this approach is actually faster than dissolving the surfaces
+        #       first.
         return hits.tid.unique(), hits.url.unique()
 
     @staticmethod

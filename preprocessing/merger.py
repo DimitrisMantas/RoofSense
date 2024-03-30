@@ -4,7 +4,7 @@ from typing import Optional
 import geopandas as gpd
 import rasterio
 import rasterio.mask
-from typing_extensions import override
+from overrides import override
 
 import config
 import utils.file
