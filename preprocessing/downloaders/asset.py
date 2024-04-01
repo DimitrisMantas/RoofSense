@@ -16,8 +16,8 @@ from preprocessing.downloaders._base import _Downloader
 
 
 class AssetDownloader(_Downloader):
-    """Convenience class for downloading 3DBAG tile assets (i.e., from the
-    latest BM5, 8 cm RGB orthoimagery and AHN point cloud collections)."""
+    """Convenience class for downloading 3DBAG tile assets from the latest BM5,
+    8 cm RGB orthoimagery, and AHN point cloud collections."""
 
     def __init__(self) -> None:
         """Initialize the downloader.
@@ -30,14 +30,31 @@ class AssetDownloader(_Downloader):
         self._image_info_store = _InfoStore(config.env("IMAGE_SHEET_INDEX"))
         self._lidar_info_store = _InfoStore(config.env("LIDAR_SHEET_INDEX"))
 
-    # TODO: Document this method.
+    # TODO: Document the asset manifest.
     @override
     def download(self, tile_id: str) -> None:
-        image_info = self._image_info_store.get_info(tile_id)
-        lidar_info = self._lidar_info_store.get_info(tile_id)
+        """Download the assets of a single 3DBAG tile.
 
-        manifest = self._gen_manifest(tile_id, image_info, lidar_info)
+        :param tile_id: The tile ID (e.g., ``"9-284-556"``).
 
+        .. note::
+            BM5 and AHN tiles are downloaded in the `GeoTIFF
+            <https://en.wikipedia.org/wiki/GeoTIFF>`_ and `LASzip
+            <https://rapidlasso.de/laszip/>`_ file format, respectively.
+
+            Tile assets are saved in the directory specified by the ``TEMP_DIR``
+            configuration parameter, and named using their ID (e.g.,
+            ``2023_084000_446000_RGB_hrl.tif`` and ``37EN1_15.LAZ`` for BM5 and AHN4
+            tiles, respectively).
+        """
+        # Generate the asset manifest.
+        manifest = self._gen_manifest(
+            tile_id,
+            self._image_info_store.get_info(tile_id),
+            self._lidar_info_store.get_info(tile_id),
+        )
+
+        # Download the assets.
         urls = manifest["image"]["url"] + manifest["lidar"]["url"]
         dst_filepaths = [
             os.path.join(config.env("TEMP_DIR"), os.path.basename(url)) for url in urls
@@ -111,8 +128,7 @@ class _InfoStore:
             np.ndarray[tuple[Any,], np.dtype[np.object_]],
         ],
     ) -> dict[str, list[str]]:
-        manifest = {
+        return {
             "tid": info[0].tolist(),
             "url": info[1].tolist(),
         }
-        return manifest

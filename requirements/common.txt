@@ -16,5 +16,5 @@ torchgeo~=0.5.1
 torchmetrics~=1.2.1
 torch~=2.1.1+cu118
 tqdm~=4.66.1
-typing_extensions~=4.9.0
 urllib3~=2.1.0
+overrides~=7.4.0

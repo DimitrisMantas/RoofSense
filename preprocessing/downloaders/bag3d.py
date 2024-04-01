@@ -12,7 +12,7 @@ from preprocessing.downloaders._base import _Downloader
 
 
 class BAG3DDownloader(_Downloader):
-    """Convenience class for downloading 3DBAG data."""
+    """Convenience class for downloading 3DBAG tiles."""
 
     def __init__(self) -> None:
         """Initialize the downloader.
@@ -27,14 +27,15 @@ class BAG3DDownloader(_Downloader):
     def download(self, tile_id: str) -> None:
         """Download a single 3DBAG tile.
 
-        :param tile_id: The tile ID (e.g., 9-284-556).
+        :param tile_id: The tile ID (e.g., ``"9-284-556"``).
 
         .. note::
-            Tiles are downloaded in CityJSON format.
+            Tiles are downloaded in the `CityJSON <https://www.cityjson.org/>`_ file
+            format.
 
-            Tiles are saved in the directory specified by the
-            ``TEMP_DIR``configuration parameter, and named using their ID (e.g.,
-            `9-284-556.city.json`).
+            Tiles are saved in the directory specified by the ``TEMP_DIR``
+            configuration parameter, and named using their ID (e.g.,
+            ``9-284-556.city.json``).
         """
         try:
             url: str = self._index.loc[self._index.tid == tile_id].url.iat[0]
@@ -44,6 +45,8 @@ class BAG3DDownloader(_Downloader):
                 f"exist."
             )
             raise IndexError(msg)
+        # TODO: Think of a better way to compile paths from individual user-defined
+        #  parameters.
         dst_filepath = os.path.join(config.env("TEMP_DIR"), tile_id + ".city.json")
 
         with requests.Session() as session:
