@@ -3,12 +3,11 @@ from __future__ import annotations
 import json
 import os.path
 from os import PathLike
-from typing import Any, Optional
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
 import requests
-from overrides import override
 
 import config
 import utils
@@ -31,7 +30,6 @@ class AssetDownloader(_Downloader):
         self._lidar_info_store = _InfoStore(config.env("LIDAR_SHEET_INDEX"))
 
     # TODO: Document the asset manifest.
-    @override
     def download(self, tile_id: str) -> None:
         """Download the assets of a single 3DBAG tile.
 
@@ -70,14 +68,14 @@ class AssetDownloader(_Downloader):
         self,
         tile_id: str,
         image_info: tuple[
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
         ],
         lidar_info: tuple[
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
         ],
-    ) -> Optional[dict[str, dict[str, list[str]]]]:
+    ) -> dict[str, dict[str, list[str]]] | None:
         # TODO: Think of a better way to compile paths from individual user-defined
         #  parameters.
         dst_filepath = os.path.join(config.env("TEMP_DIR"), tile_id + ".info.json")
@@ -105,8 +103,8 @@ class _InfoStore:
     def get_info(
         self, tile_id: str
     ) -> tuple[
-        np.ndarray[tuple[Any,], np.dtype[np.object_]],
-        np.ndarray[tuple[Any,], np.dtype[np.object_]],
+        np.ndarray[tuple[Any], np.dtype[np.object_]],
+        np.ndarray[tuple[Any], np.dtype[np.object_]],
     ]:
         # TODO: Move this note to the ``AssetDownloader.download()`` docstring.
         # NOTE: This operation implicitly requires that the roof surfaces have
@@ -124,8 +122,8 @@ class _InfoStore:
     @staticmethod
     def gen_manifest(
         info: tuple[
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
-            np.ndarray[tuple[Any,], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
+            np.ndarray[tuple[Any], np.dtype[np.object_]],
         ],
     ) -> dict[str, list[str]]:
         return {
