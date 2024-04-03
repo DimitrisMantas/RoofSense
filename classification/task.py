@@ -199,7 +199,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
                     optimizer,
                     T_0=self.hparams["T_0"],
                     T_mult=self.hparams["T_mult"],
-                    eta_min=self.hparams["lr"]*self.hparams["min_lr_pct"],
+                    eta_min=self.hparams["lr"] * self.hparams["min_lr_pct"],
                 ),
             ],
             milestones=[warmup_epochs],

@@ -37,24 +37,24 @@ if __name__ == "__main__":
                 save_last=True,
             ),
             EarlyStopping(monitor="val_loss", patience=500),
-            # LearningRateFinder(),
+            # TODO: LearningRateFinder(),
             GradientAccumulationScheduler(scheduling={0: 2}),
             LearningRateMonitor(),
-            # OnExceptionCheckpoint(
+            # TODO: OnExceptionCheckpoint(
             #     dirpath="logs/RoofSense",
             #     # Overwrite the last checkpoint.
             #     filename="last",
             # ),
-            # lightning.pytorch.callbacks.SpikeDetection,
-            # lightning.pytorch.callbacks.StochasticWeightAveraging
-            # lightning.pytorch.callbacks.ModelPruning,
+            # TODO: lightning.pytorch.callbacks.SpikeDetection,
+            # TODO: lightning.pytorch.callbacks.StochasticWeightAveraging
+            # TODO: lightning.pytorch.callbacks.ModelPruning,
         ],
         log_every_n_steps=1,
         logger=TensorBoardLogger(save_dir="logs/RoofSense"),
         benchmark=True,
-        # profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
+        # TODO: profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
         # detect_anomaly=True
-        # fast_dev_run=True
+        fast_dev_run=True,
     )
 
     trainer.fit(model=task, datamodule=datamodule)
