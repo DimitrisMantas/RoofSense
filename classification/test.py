@@ -54,7 +54,7 @@ if __name__ == "__main__":
         benchmark=True,
         # TODO: profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
         # detect_anomaly=True
-        fast_dev_run=True,
+        # fast_dev_run=True
     )
 
     trainer.fit(model=task, datamodule=datamodule)
