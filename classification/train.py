@@ -14,7 +14,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.allow_tf32 = True
 
     task = TrainingTask(
-        model="fcn",
+        model="unet",
         backbone="resnet18",
         weights=True,
         in_channels=6,

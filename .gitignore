@@ -2,8 +2,9 @@
 
 /temp/
 /logs/
-/iris/
-/training/
+
+/annotation/
 
 /classification/data/
 /classification/logs/
+
