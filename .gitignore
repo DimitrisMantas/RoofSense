@@ -8,3 +8,9 @@
 /classification/data/
 /classification/logs/
 
+/training/
+
+/preprocessing/parsers/utils/*.las
+/preprocessing/parsers/utils/*.laz
+/preprocessing/parsers/utils/*.npy
+/preprocessing/parsers/utils/*.tif
