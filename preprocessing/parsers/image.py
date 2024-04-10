@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os.path
+
 import rasterio.merge
 from overrides import override
 
@@ -17,20 +19,15 @@ class ImageParser(AssetParser):
     def parse(self, obj_id: str) -> None:
         self._update(obj_id)
 
-        # TODO: Parallelize this operation.
-        self._parse_cir_images(obj_id)
-        self._parse_rgb_images(obj_id)
-
-    def _parse_cir_images(self, obj_id: str) -> None:
         in_paths = [
-            f"{config.env('TEMP_DIR')}{'CIR'}_{img_id}"
-            for img_id in self._manifest[config.var("ASSET_MANIFEST_IMAGE_IDS")]
+            os.path.join(config.env('TEMP_DIR'),f"{img_id}.tif")
+            for img_id in self._manifest["image"]["tid"]
         ]
         out_path = (
             f"{config.env('TEMP_DIR')}"
             f"{obj_id}"
-            f"{config.var('NIR')}"
-            f"{config.var('TIFF')}"
+            f"{config.var('RGB')}"
+            f"{config.var('TIF')}"
         )
         if utils.file.exists(out_path):
             return
@@ -40,28 +37,6 @@ class ImageParser(AssetParser):
             # Map the output image to an integer-coordinate grid.
             # NOTE: This ensures that the image is aligned pixel-wise with its
             #       constituents.
-            target_aligned_pixels=True,
-            dst_path=out_path,
-            dst_kwds=raster.SingleBandProfile(),
-            indexes=[1],
-        )
-
-    def _parse_rgb_images(self, obj_id: str) -> None:
-        in_paths = [
-            f"{config.env('TEMP_DIR')}{'RGB'}_{img_id}"
-            for img_id in self._manifest[config.var("ASSET_MANIFEST_IMAGE_IDS")]
-        ]
-        out_path = (
-            f"{config.env('TEMP_DIR')}"
-            f"{obj_id}"
-            f"{config.var('RGB')}"
-            f"{config.var('TIFF')}"
-        )
-        if utils.file.exists(out_path):
-            return
-        rasterio.merge.merge(
-            in_paths,
-            bounds=self._surfs.total_bounds.tolist(),
             target_aligned_pixels=True,
             dst_path=out_path,
             dst_kwds=raster.MultiBandProfile(),
