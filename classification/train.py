@@ -21,7 +21,7 @@ if __name__ == "__main__":
         model="unet",
         backbone="resnet18",
         weights=True,
-        in_channels=6,
+        in_channels=3,
         num_classes=10,
         loss="ce",
         class_weights=torch.tensor(np.load("../annotation/data/tmp/9-284-556.wght.npy")),
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     )
 
     datamodule = TrainingDataModule(
-        root="../training/test", batch_size=64, patch_size=64, num_workers=8
+        root="../annotation/data", batch_size=64, patch_size=64, num_workers=8
     )
 
     # todo check strategies + callbacks + profiler
