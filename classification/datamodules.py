@@ -22,10 +22,10 @@ from classification.datasets import TrainingDataset
 
 class TrainingDataModule(GeoDataModule):
     # The minimum cell value of each raster stack layer.
-    mins = torch.tensor([0, 0, 0, 0, 0, 0])
+    mins = torch.tensor([0, 0, 0])
 
     # The maximum cell value of each raster stack layer.
-    maxs = torch.tensor([255, 255, 255, 255, 1, 90])
+    maxs = torch.tensor([255, 255, 255])
 
     def __init__(
         self,
