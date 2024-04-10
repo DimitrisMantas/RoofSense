@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import rasterio
 from overrides import override
 
@@ -19,15 +21,14 @@ class LiDARParser(AssetParser):
         self._update(obj_id)
 
         ldr_path = self._merge_assets(obj_id)
-        rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIFF')}"
-        slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIFF')}"
+        rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIF')}"
+        slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIF')}"
         scalars = _get_scalars(rfl_path, slp_path)
         if not scalars:
             return
-        rasters = pcloud.PointCloud(ldr_path).rasterize(scalars,
-                                                        res=float(config.var(
-                                                            "RESOLUTION")),
-                                                        bbox=_get_bbox(obj_id))
+        rasters={
+            scalar:pcloud.PointCloud(ldr_path).rasterize(scalar,res=float(config.var("RESOLUTION")),bbox=_get_bbox(obj_id)) for scalar in scalars
+        }
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
         if refl_field in scalars:
@@ -38,10 +39,8 @@ class LiDARParser(AssetParser):
     def _merge_assets(self, obj_id: str) -> str:
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
         if not utils.file.exists(out_path):
-            in_paths = [
-                f"{config.env('TEMP_DIR')}{ldr_id}"
-                for ldr_id in self._manifest[config.var("ASSET_MANIFEST_LIDAR_IDS")]
-            ]
+            in_paths = [os.path.join(config.env('TEMP_DIR'), f"{ldr_id}.LAZ") for ldr_id
+                in self._manifest["lidar"]["tid"]]
             pcloud.merge(
                 in_paths,
                 out_path,
@@ -68,8 +67,8 @@ def _get_bbox(obj_id: str) -> BoundingBoxLike:
     img_path = (
         f"{config.env('TEMP_DIR')}"
         f"{obj_id}"
-        f"{config.var('NIR')}"
-        f"{config.var('TIFF')}"
+        f"{config.var('RGB')}"
+        f"{config.var('TIF')}"
     )
     f: rasterio.io.DatasetReader
     with rasterio.open(img_path) as f:
