@@ -11,6 +11,7 @@ import numpy as np
 import polars as pl
 import rasterio
 import scipy as sp
+import tqdm
 
 from preprocessing.parsers.utils import raster
 from utils.type import BoundingBoxLike
@@ -42,17 +43,21 @@ class PointCloud:
         # Initialize the index.
         self._index = Index(self) if init_index else None
 
+    @property
+    def data(self):
+        return self._data
+
     # TODO: Document this method.
     def __getattr__(self, item):
-        return self._data.item
+        return getattr(self.data, item)
 
     # TODO: Document this method.
     def __getitem__(self, item):
-        return self._data[item]
+        return self.data[item]
 
     def __len__(self) -> int:
         """Get the number of points in the point cloud."""
-        return len(self._data)
+        return len(self.data)
 
     @property
     def bbox(self) -> BoundingBoxLike:
@@ -77,7 +82,7 @@ class PointCloud:
         .. note::
             See :class:`laspy.LasHeader` for more information.
         """
-        return self._data.header
+        return self.data.header
 
     @property
     def points(self) -> laspy.PackedPointRecord:
@@ -86,7 +91,7 @@ class PointCloud:
         .. note::
         See :class:`laspy.PackedPointRecord` for more information.
         """
-        return self._data.points
+        return self.data.points
 
     def crop(self, bbox: BoundingBoxLike) -> Self:
         """Crop the point cloud.
@@ -168,6 +173,9 @@ class PointCloud:
 
         :return: The resulting raster.
         """
+        # Compute the scaled dimension.
+        attr = self[dim].scaled_array()
+
         # Disambiguate the input.
         bbox = bbox if bbox is not None else self.bbox
 
@@ -176,7 +184,46 @@ class PointCloud:
         if self.index is None:
             self._index = Index(self)
 
-        raise NotImplementedError
+        # Initialize the output raster.
+        ras = raster.Raster(res, bbox=bbox, meta=meta)
+        cells = ras.xy()
+
+        # Query the index.
+        neighbors, distances = self.index.query(tuple(map(tuple, cells)), r=res)
+
+        # TODO: Add multithreading.
+        # Interpolate the attribute value at the raster cells.
+        ras_data = np.full_like(neighbors, fill_value=np.nan, dtype=np.float32)
+        for i, (neighbor, distance) in tqdm.tqdm(
+            enumerate(zip(neighbors, distances)),
+            desc="Rasterization",
+            total=len(neighbors),
+            unit="cells",
+        ):
+            if not neighbor:
+                # The cell is empty.
+                continue
+            if np.any(distance == 0):
+                # The cell is a member of the point cloud; read the corresponding
+                # attribute value.
+                ras_data[i] = attr[neighbor[np.argsort(distance)[0]]]
+            else:
+                # IDW
+                ras_data[i] = np.average(attr[neighbor], weights=distance**-2)
+
+        # Reshape the raster data into a two-dimensional array.
+        ras_data = ras_data.reshape([ras.height, ras.width])
+
+        # Fill the empty cells.
+        # TODO: Detect the no-data value automatically.
+        ras_data = rasterio.fill.fillnodata(
+            ras_data, mask=np.logical_not(np.isnan(ras_data))
+        )
+
+        # Overwrite the raster data.
+        ras._data = ras_data
+
+        return ras
 
     def remove_duplicates(self) -> Self:
         # Gather the point records.
@@ -216,7 +263,7 @@ class PointCloud:
         :param filepath: The path to the output file.
         """
         with laspy.open(filepath, mode="w", header=self.header) as dst:
-            dst.write_points(self._data.points)
+            dst.write_points(self.data.points)
 
 
 class Index:
@@ -229,9 +276,6 @@ class Index:
 
     def __len__(self) -> int:
         return self._struct.n
-
-    def interpolate(self):
-        raise NotImplementedError
 
     def normals(self):
         raise NotImplementedError
@@ -254,7 +298,8 @@ class Index:
             neighbors, distances = self._query_radius(r=r, **common_args, **kwargs)
         else:
             raise ValueError(
-                f"Could not disambiguate query type. Found non-null values for both {k!r} and {r!r}."
+                f"Could not disambiguate query type. Found non-null values for both "
+                f"{k!r} and {r!r}."
             )
 
         return neighbors, distances

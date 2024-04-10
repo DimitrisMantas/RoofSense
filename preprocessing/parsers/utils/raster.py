@@ -47,7 +47,12 @@ class Raster:
     # TODO: Add type hints to this method.
     def __setitem__(self, key, val):
         self._data[key] = val
-
+    @property
+    def bbox(self):
+        return self._bbox
+    @property
+    def res(self):
+        return self._resol
     @property
     def width(self) -> int:
         return self._lenx
@@ -56,7 +61,13 @@ class Raster:
     def height(self) -> int:
         return self._leny
 
+    def xy(self):
+        rows, cols = np.mgrid[0 : self.height, 0 : self.width]
 
+        cells_x = self.bbox[0] + (cols + 0.5) * self.res
+        cells_y = self.bbox[3] - (rows + 0.5) * self.res
+
+        return np.vstack([cells_x.ravel(), cells_y.ravel()]).transpose()
 
     def slope(self, degrees: bool = True) -> Raster:
         r = copy.deepcopy(self)
