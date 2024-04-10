@@ -4,6 +4,7 @@
 /logs/
 
 /annotation/
+!/annotation/*.ipynb
 
 /classification/data/
 /classification/logs/
