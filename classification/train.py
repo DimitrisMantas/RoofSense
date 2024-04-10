@@ -1,3 +1,4 @@
+import lightning.pytorch
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import (EarlyStopping,
@@ -13,6 +14,8 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     torch.backends.cudnn.allow_tf32 = True
 
+    lightning.pytorch.seed_everything(42,workers=True)
+
     task = TrainingTask(
         model="unet",
         backbone="resnet18",
@@ -20,7 +23,7 @@ if __name__ == "__main__":
         in_channels=6,
         num_classes=10,
         loss="jaccard",
-        ignore_index=9,
+        ignore_index=0,
     )
 
     datamodule = TrainingDataModule(
