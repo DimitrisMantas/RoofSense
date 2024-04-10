@@ -26,12 +26,19 @@ class LiDARParser(AssetParser):
         scalars = _get_scalars(rfl_path, slp_path)
         if not scalars:
             return
-        rasters={
-            scalar:pcloud.PointCloud(ldr_path).rasterize(scalar,res=float(config.var("RESOLUTION")),bbox=_get_bbox(obj_id)) for scalar in scalars
+        pc = pcloud.PointCloud(ldr_path)
+        # TODO: optimize the resolution factor
+        res = _get_res(obj_id) * 3
+        box = _get_bbox(obj_id)
+        # TODO: Finalize each raster before generating the next one to save on memory.
+        rasters = {
+            scalar: pc.rasterize(scalar, res=res, bbox=box) for scalar in scalars
         }
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
+        # TODO: Assert that the rasters contain no no-data values.
         if refl_field in scalars:
+            # TODO: Clip erroneous reflectance values.
             rasters[refl_field].save(rfl_path)
         if elev_field in scalars:
             rasters[elev_field].slope().save(slp_path)
@@ -39,8 +46,10 @@ class LiDARParser(AssetParser):
     def _merge_assets(self, obj_id: str) -> str:
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
         if not utils.file.exists(out_path):
-            in_paths = [os.path.join(config.env('TEMP_DIR'), f"{ldr_id}.LAZ") for ldr_id
-                in self._manifest["lidar"]["tid"]]
+            in_paths = [
+                os.path.join(config.env("TEMP_DIR"), f"{ldr_id}.LAZ")
+                for ldr_id in self._manifest["lidar"]["tid"]
+            ]
             pcloud.merge(
                 in_paths,
                 out_path,
@@ -78,3 +87,15 @@ def _get_bbox(obj_id: str) -> BoundingBoxLike:
     xmax = ref_meta["transform"].a * ref_meta["width"] + xmin
     ymin = ref_meta["transform"].e * ref_meta["height"] + ymax
     return xmin, ymin, xmax, ymax
+
+
+def _get_res(obj_id: str) -> float:
+    img_path = (
+        f"{config.env('TEMP_DIR')}"
+        f"{obj_id}"
+        f"{config.var('RGB')}"
+        f"{config.var('TIF')}"
+    )
+    f: rasterio.io.DatasetReader
+    with rasterio.open(img_path) as f:
+        return f.transform.a
