@@ -33,8 +33,8 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.6) ->
         # Download the corresponding assets.
         asset_downloader.download(sample)
         # Parse the data.
-        # image_parser.parse(sample)
-        # lidar_parser.parse(sample)
+        image_parser.parse(sample)
+        lidar_parser.parse(sample)
 
         # Create the raster stack.
         # preprocessing.merger.RasterStackBuilder().merge(sample)
