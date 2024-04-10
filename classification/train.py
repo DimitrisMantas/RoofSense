@@ -1,4 +1,5 @@
 import lightning.pytorch
+import numpy as np
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import (EarlyStopping,
@@ -22,7 +23,8 @@ if __name__ == "__main__":
         weights=True,
         in_channels=6,
         num_classes=10,
-        loss="jaccard",
+        loss="ce",
+        class_weights=torch.tensor(np.load("../annotation/data/tmp/9-284-556.wght.npy")),
         ignore_index=0,
     )
 
