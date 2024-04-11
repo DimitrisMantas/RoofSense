@@ -38,7 +38,11 @@ class LiDARParser(AssetParser):
         elev_field = config.var("ELEVATION_FIELD")
         # TODO: Assert that the rasters contain no no-data values.
         if refl_field in scalars:
-            # TODO: Clip erroneous reflectance values.
+            # Convert the unit from dB to the underlying ratio.
+            rasters[refl_field]._data=10 ** (0.1 * rasters[refl_field]._data)
+            # Clip erroneous values corresponding to non-Lambertian surfaces.
+            rasters[refl_field]._data =rasters[refl_field]._data.clip(max=1)
+
             rasters[refl_field].save(rfl_path)
         if elev_field in scalars:
             rasters[elev_field].slope().save(slp_path)

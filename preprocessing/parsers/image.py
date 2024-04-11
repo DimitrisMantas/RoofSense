@@ -20,7 +20,7 @@ class ImageParser(AssetParser):
         self._update(obj_id)
 
         in_paths = [
-            os.path.join(config.env('TEMP_DIR'),f"{img_id}.tif")
+            os.path.join(config.env("TEMP_DIR"), f"{img_id}.tif")
             for img_id in self._manifest["image"]["tid"]
         ]
         out_path = (

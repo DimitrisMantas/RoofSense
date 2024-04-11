@@ -2,12 +2,13 @@ from abc import abstractmethod
 from typing import Optional
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 import rasterio.mask
+import rasterio.warp
 from overrides import override
 
 import config
-import utils.file
 from preprocessing.parsers.utils import raster
 
 
@@ -16,8 +17,7 @@ class DataMerger:
         self._surfs: Optional[gpd.GeoDataFrame] = None
 
     @abstractmethod
-    def merge(self, obj_id: str) -> None:
-        ...
+    def merge(self, obj_id: str) -> None: ...
 
 
 class RasterStackBuilder(DataMerger):
@@ -26,26 +26,25 @@ class RasterStackBuilder(DataMerger):
 
     @override
     def merge(self, obj_id: str) -> None:
-        self._surfs = utils.geom.read_surfaces(obj_id)
-
         out_path = (
             f"{config.env('TEMP_DIR')}"
             f"{obj_id}"
             f"{config.var('RASTER_STACK')}"
-            # NOTE: IRIS does not support .TIFF files.
             f"{config.var('TIF')}"
         )
-        if utils.file.exists(out_path):
-            return
+
+        # if utils.file.exists(out_path):
+        #     return
+
         in_paths = [
-            f"{config.env('TEMP_DIR')}{obj_id}{img_tp}{config.var('TIFF')}"
+            f"{config.env('TEMP_DIR')}{obj_id}{img_tp}{config.var('TIF')}"
             for img_tp in [
                 config.var("RGB"),
-                config.var("NIR"),
                 config.var("REFLECTANCE"),
                 config.var("SLOPE"),
             ]
         ]
+
         out_meta = raster.DefaultProfile()
         # NOTE: The RGB image contains 3 bands.
         out_meta.update(count=len(in_paths) + 2)
@@ -53,12 +52,14 @@ class RasterStackBuilder(DataMerger):
         rgb: rasterio.io.DatasetReader
         with rasterio.open(in_paths[0]) as rgb:
             out_meta.update(width=rgb.width, height=rgb.height, transform=rgb.transform)
-            rgb_data = rgb.read()
+
+            out_data = np.full((5, rgb.height, rgb.width), fill_value=np.nan)
+            out_data[:3, ...] = rgb.read()
 
         stack: rasterio.io.DatasetWriter
         with rasterio.open(out_path, mode="w", **out_meta) as stack:
-            stack.write(rgb_data, indexes=[1, 2, 3])
-            for band_id, path in enumerate(in_paths[1:], start=4):
+
+            for band_id, path in enumerate(in_paths[1:], start=3):
                 tmp: rasterio.io.DatasetReader
                 with rasterio.open(path) as tmp:
                     # Convert the units of the reflectance raster from decibels
@@ -69,7 +70,16 @@ class RasterStackBuilder(DataMerger):
                     #       values,
                     #       and thus zero-valued pixels correspond only to the
                     #       background.
-                    tmp_data = tmp.read(indexes=1)
-                    if band_id == 5:
-                        tmp_data = 10 ** (0.1 * tmp_data)
-                    stack.write(tmp_data, indexes=band_id)
+                    tmp_data = tmp.read(
+                        indexes=1,
+                        out_shape=(out_meta["height"], out_meta["width"]),
+                        # NOTE: Lanczos interpolation is not appropriate because it can extrapolate the data.
+                        # https://gis.stackexchange.com/questions/10931/what-is-lanczos-resampling-useful-for-in-a-spatial-context
+                        resampling=rasterio.enums.Resampling.gauss,
+                    )
+
+                    # if band_id == 3:
+                    #     tmp_data = 10 ** (0.1 * tmp_data)
+                    # stack.write(tmp_data, indexes=band_id)
+                    out_data[band_id, ...] = tmp_data
+            stack.write(out_data)
