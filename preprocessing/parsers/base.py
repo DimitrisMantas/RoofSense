@@ -3,13 +3,11 @@ from __future__ import annotations
 import json
 import pathlib
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import geopandas as gpd
 
 import config
 import utils
-from utils.type import AssetManifest
 
 
 class DataParser(ABC):
@@ -21,8 +19,8 @@ class DataParser(ABC):
 class AssetParser(DataParser):
     def __init__(self) -> None:
         super().__init__()
-        self._manifest: Optional[AssetManifest] = None
-        self._surfs: Optional[gpd.GeoDataFrame] = None
+        self._manifest:  dict[str, dict[str, list[str]]] | None=None
+        self._surfs: gpd.GeoDataFrame|None = None
 
     @abstractmethod
     def parse(self, obj_id: str) -> None:

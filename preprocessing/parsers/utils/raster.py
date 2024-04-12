@@ -35,21 +35,22 @@ class Raster:
         self._lenx = math.ceil((self._bbox[2] - self._bbox[0]) / self._resol)
         self._leny = math.ceil((self._bbox[3] - self._bbox[1]) / self._resol)
         self._meta = meta if meta is not None else DefaultProfile()
-        self._data = np.full((self._leny, self._lenx), self._meta["nodata"])
+        self.data = np.full((self._leny, self._lenx), self._meta["nodata"],dtype=self._meta["dtype"])
 
     def __len__(self)->int:
-        return self._data.size
+        return self.data.size
 
     # TODO: Add type hints to this method.
     def __getitem__(self, key):
-        return self._data[key]
+        return self.data[key]
 
     # TODO: Add type hints to this method.
     def __setitem__(self, key, val):
-        self._data[key] = val
+        self.data[key] = val
     @property
     def bbox(self):
         return self._bbox
+
     @property
     def res(self):
         return self._resol
@@ -71,24 +72,24 @@ class Raster:
 
     def slope(self, degrees: bool = True) -> Raster:
         r = copy.deepcopy(self)
-        r._data = np.arctan(np.hypot(*np.gradient(self._data, self._resol)))
+        r.data = np.arctan(np.hypot(*np.gradient(self.data, self._resol)))
         if degrees:
-            r._data = np.degrees(r._data)
+            r.data = np.degrees(r.data)
         return r
 
     def fill(self, radius: float = 100, smoothing_iters: int = 0) -> None:
         # TODO: Check whether there is a more general-purpose method of computing the
         #       no-data mask.
-        mask = np.logical_not(np.ma.getmaskarray(np.ma.masked_invalid(self._data)))
-        self._data = rasterio.fill.fillnodata(
-            self._data,
+        mask = np.logical_not(np.ma.getmaskarray(np.ma.masked_invalid(self.data)))
+        self.data = rasterio.fill.fillnodata(
+            self.data,
             mask,
             max_search_distance=radius,
             smoothing_iterations=smoothing_iters,
         )
 
     def save(self, path: str | PathLike) -> None:
-        num_bands = self._data.shape[0] if len(self._data.shape) == 3 else 1
+        num_bands = self.data.shape[0] if len(self.data.shape) == 3 else 1
         # TODO: Check whether this statement is true.
         # NOTE: The default output transform is overriden if included in the raster
         #       metadata.
@@ -105,7 +106,7 @@ class Raster:
             transform=transform,
             **self._meta,
         ) as f:
-            f.write(self._data, indexes=1 if num_bands == 1 else None)
+            f.write(self.data, indexes=1 if num_bands == 1 else None)
 
 
 class DefaultProfile(rasterio.profiles.Profile):

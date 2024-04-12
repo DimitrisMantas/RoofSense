@@ -77,6 +77,7 @@ def split(obj_id: str, background_cutoff: float) -> None:
                     **patch_meta) as original_patch:
                 original_patch.write(original_patch_data)
 
+            # Move this block to a seperate module
             rgb_data = rasterio.plot.reshape_as_image(original_patch_data[:3,...])
             rgb_data = cv2.cvtColor(rgb_data, cv2.COLOR_BGR2RGB)
             rgb_patch_path = pathlib.Path(

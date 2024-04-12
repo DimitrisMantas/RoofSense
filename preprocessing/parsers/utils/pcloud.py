@@ -221,7 +221,7 @@ class PointCloud:
         )
 
         # Overwrite the raster data.
-        ras._data = ras_data
+        ras.data = ras_data
 
         return ras
 

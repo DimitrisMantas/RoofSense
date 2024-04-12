@@ -3,7 +3,7 @@ from __future__ import annotations
 import os.path
 
 import rasterio.merge
-from overrides import override
+from typing_extensions import override
 
 import config
 import utils
@@ -20,17 +20,20 @@ class ImageParser(AssetParser):
         self._update(obj_id)
 
         in_paths = [
-            os.path.join(config.env("TEMP_DIR"), f"{img_id}.tif")
+            os.path.join(config.env("TEMP_DIR"), img_id+".tif")
             for img_id in self._manifest["image"]["tid"]
         ]
+
         out_path = (
             f"{config.env('TEMP_DIR')}"
             f"{obj_id}"
             f"{config.var('RGB')}"
             f"{config.var('TIF')}"
         )
+
         if utils.file.exists(out_path):
             return
+
         rasterio.merge.merge(
             in_paths,
             bounds=self._surfs.total_bounds.tolist(),

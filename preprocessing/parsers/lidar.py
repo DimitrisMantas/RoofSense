@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 
+import numpy as np
 import rasterio
-from overrides import override
+from typing_extensions import override
 
 import config
 import utils
@@ -30,22 +31,27 @@ class LiDARParser(AssetParser):
         # TODO: optimize the resolution factor
         res = _get_res(obj_id) * 3
         box = _get_bbox(obj_id)
-        # TODO: Finalize each raster before generating the next one to save on memory.
-        rasters = {
-            scalar: pc.rasterize(scalar, res=res, bbox=box) for scalar in scalars
-        }
+
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
-        # TODO: Assert that the rasters contain no no-data values.
-        if refl_field in scalars:
-            # Convert the unit from dB to the underlying ratio.
-            rasters[refl_field]._data=10 ** (0.1 * rasters[refl_field]._data)
-            # Clip erroneous values corresponding to non-Lambertian surfaces.
-            rasters[refl_field]._data =rasters[refl_field]._data.clip(max=1)
 
-            rasters[refl_field].save(rfl_path)
+        if refl_field in scalars:
+            rfl=pc.rasterize(refl_field, res=res, bbox=box)
+
+            # Convert the unit from dB to the underlying ratio.
+            rfl.data=10 ** (0.1 * rfl.data)
+            # Clip erroneous values corresponding to non-Lambertian surfaces.
+            rfl.data=rfl.data.clip(max=1)
+
+            assert np.count_nonzero(np.isnan(rfl.data))==0
+
+            rfl.save(rfl_path)
         if elev_field in scalars:
-            rasters[elev_field].slope().save(slp_path)
+            elev=pc.rasterize(refl_field, res=res, bbox=box).slope()
+
+            assert np.count_nonzero(np.isnan(elev.data)) == 0
+
+            elev.save(slp_path)
 
     def _merge_assets(self, obj_id: str) -> str:
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"

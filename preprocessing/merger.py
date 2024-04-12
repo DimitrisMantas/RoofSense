@@ -75,7 +75,7 @@ class RasterStackBuilder(DataMerger):
                         out_shape=(out_meta["height"], out_meta["width"]),
                         # NOTE: Lanczos interpolation is not appropriate because it can extrapolate the data.
                         # https://gis.stackexchange.com/questions/10931/what-is-lanczos-resampling-useful-for-in-a-spatial-context
-                        resampling=rasterio.enums.Resampling.gauss,
+                        resampling=rasterio.enums.Resampling.bilinear,
                     )
 
                     # if band_id == 3:
