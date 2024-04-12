@@ -47,7 +47,7 @@ class LiDARParser(AssetParser):
 
             rfl.save(rfl_path)
         if elev_field in scalars:
-            elev=pc.rasterize(refl_field, res=res, bbox=box).slope()
+            elev=pc.rasterize(elev_field, res=res, bbox=box).slope()
 
             assert np.count_nonzero(np.isnan(elev.data)) == 0
 
