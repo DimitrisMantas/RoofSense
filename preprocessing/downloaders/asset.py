@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import os.path
-from os import PathLike
+import os
 from typing import Any
 
 import geopandas as gpd
 import numpy as np
 import requests
+from typing_extensions import override
 
 import config
 import utils
@@ -30,6 +30,7 @@ class AssetDownloader(_Downloader):
         self._lidar_info_store = _InfoStore(config.env("LIDAR_SHEET_INDEX"))
 
     # TODO: Document the asset manifest.
+    @override
     def download(self, tile_id: str) -> None:
         """Download the assets of a single 3DBAG tile.
 
@@ -81,13 +82,16 @@ class AssetDownloader(_Downloader):
         dst_filepath = os.path.join(config.env("TEMP_DIR"), tile_id + ".info.json")
 
         if os.path.isfile(dst_filepath):
+            # Load the manifest.
             with open(dst_filepath) as src:
                 manifest = json.load(src)
         else:
+            # Generate the manifest.
             manifest = {
                 "image": self._image_info_store.gen_manifest(image_info),
                 "lidar": self._lidar_info_store.gen_manifest(lidar_info),
             }
+
             with open(dst_filepath, mode="w") as dst:
                 json.dump(manifest, dst)
 
@@ -97,7 +101,7 @@ class AssetDownloader(_Downloader):
 # TODO: Check whether this is an appropriate name given the purpose of this class.
 # TODO: Document this class.
 class _InfoStore:
-    def __init__(self, index_path: str | bytes | PathLike) -> None:
+    def __init__(self, index_path: str | bytes | os.PathLike) -> None:
         self._index: gpd.GeoDataFrame = gpd.read_file(index_path)
 
     def get_info(

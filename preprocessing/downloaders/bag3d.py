@@ -4,6 +4,7 @@ import os
 
 import geopandas as gpd
 import requests
+from typing_extensions import override
 
 import config
 import utils
@@ -22,6 +23,7 @@ class BAG3DDownloader(_Downloader):
         """
         self._index: gpd.GeoDataFrame = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
 
+    @override
     def download(self, tile_id: str) -> None:
         """Download a single 3DBAG tile.
 
