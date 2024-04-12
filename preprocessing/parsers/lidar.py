@@ -43,7 +43,7 @@ class LiDARParser(AssetParser):
             # Clip erroneous values corresponding to non-Lambertian surfaces.
             rfl.data=rfl.data.clip(max=1)
 
-            assert np.count_nonzero(np.isnan(rfl.data))==0
+            assert np.count_nonzero(np.isnan(rfl.data))==0,obj_id+str(np.count_nonzero(np.isnan(rfl.data)))
 
             rfl.save(rfl_path)
         if elev_field in scalars:
