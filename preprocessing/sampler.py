@@ -13,8 +13,7 @@ class DataSampler(ABC):
         self._rng = np.random.default_rng(int(config.var("SEED")))
 
     @abstractmethod
-    def sample(self, size: int):
-        ...
+    def sample(self, size: int): ...
 
 
 class BAG3DSampler(DataSampler):
@@ -24,7 +23,7 @@ class BAG3DSampler(DataSampler):
         self._seeds = gpd.read_file(config.env("CITIES"))
 
     @override
-    def sample(self, size: int = 10):
+    def sample(self, size: int) -> list[str]:
         sample = []
         while len(sample) < size:
             seed_pt = self._seeds.sample(random_state=self._rng)[
@@ -41,7 +40,7 @@ class BAG3DSampler(DataSampler):
             )
             # NOTE: The point can be positioned on the interface of two or more
             #       adjacent tiles.
-            tile_ids = self._index.overlay(tile_pt, keep_geom_type=False)["id_1"]
+            tile_ids = self._index.overlay(tile_pt, keep_geom_type=False)["tid"]
             for tile_id in tile_ids:
                 if tile_id in sample:
                     continue
@@ -53,21 +52,28 @@ class BAG3DSampler(DataSampler):
                 #       and thus a minimum level of service is maintained during the
                 #       preprocessing stage.
                 # NOTE: The selected tile IDs begin with 9 or 10.
-                if (self._index.loc[self._index[
-                                        config.var("DEFAULT_ID_FIELD_NAME")] == tile_id, config.var(
-                    "DEFAULT_GM_FIELD_NAME"),].area.iat[0] > 1.1e6):
+                if (
+                    self._index.loc[
+                        self._index["tid"] == tile_id,
+                        config.var("DEFAULT_GM_FIELD_NAME"),
+                    ].area.iat[0]
+                    > 1.1e6
+                ):
                     continue
                 sample.append(tile_id)
         return sample
 
-    def _gen_random_point(self, seed: shapely.Point, radius: float = 15e3
+    def _gen_random_point(
+        self, seed: shapely.Point, radius: float = 15e3
     ) -> shapely.Point:
         # noinspection PyTypeChecker
-        off = self._rng.multivariate_normal(mean=[0, 0],
+        off = self._rng.multivariate_normal(
+            mean=[0, 0],
             # NOTE: The specified covariance along the x- and y-axes ensures that
             #       approximately 99.7% of the sampled points are located within the
             #       specified distance from their corresponding seed.
-            cov=[[1 / 9, 0], [0, 1 / 9]], )
+            cov=[[1 / 9, 0], [0, 1 / 9]],
+        )
         nrm = np.linalg.norm(off)
         if nrm > 1:
             off /= np.linalg.norm(off)
