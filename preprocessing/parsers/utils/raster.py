@@ -50,6 +50,9 @@ class Raster:
     @property
     def bbox(self):
         return self._bbox
+    @property
+    def meta(self):
+        return self._meta
 
     @property
     def res(self):

@@ -142,6 +142,7 @@ class PointCloud:
         self,
         dim: str,
         res: float,
+        p:float=2,
         bbox: Optional[BoundingBoxLike] = None,
         meta: Optional[rasterio.profiles.Profile] = None,
     ) -> raster.Raster:
@@ -193,7 +194,7 @@ class PointCloud:
 
         # TODO: Add multithreading.
         # Interpolate the attribute value at the raster cells.
-        ras_data = np.full_like(neighbors, fill_value=np.nan, dtype=np.float32)
+        ras_data = np.full_like(neighbors, fill_value=ras.meta["nodata"], dtype=ras.meta["dtype"])
         for i, (neighbor, distance) in tqdm.tqdm(
             enumerate(zip(neighbors, distances)),
             desc="Rasterization",
@@ -209,15 +210,15 @@ class PointCloud:
                 ras_data[i] = attr[neighbor[np.argsort(distance)[0]]]
             else:
                 # IDW
-                ras_data[i] = np.average(attr[neighbor], weights=distance**-2)
+                ras_data[i] = np.average(attr[neighbor], weights=distance**-p)
 
         # Reshape the raster data into a two-dimensional array.
         ras_data = ras_data.reshape([ras.height, ras.width])
 
         # Fill the empty cells.
         # TODO: Detect the no-data value automatically.
-        ras_data = rasterio.fill.fillnodata(
-            ras_data, mask=np.logical_not(np.isnan(ras_data))
+        ras_data = ras.fill(
+            ras_data
         )
 
         # Overwrite the raster data.
