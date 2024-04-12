@@ -215,14 +215,11 @@ class PointCloud:
         # Reshape the raster data into a two-dimensional array.
         ras_data = ras_data.reshape([ras.height, ras.width])
 
-        # Fill the empty cells.
-        # TODO: Detect the no-data value automatically.
-        ras_data = ras.fill(
-            ras_data
-        )
-
         # Overwrite the raster data.
         ras.data = ras_data
+
+        # Fill the empty cells.
+        ras.fill()
 
         return ras
 
