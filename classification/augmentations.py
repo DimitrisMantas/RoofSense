@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import kornia.augmentation as K
 import torch
+from overrides import override
 from torch import Tensor
-from typing_extensions import override
 
 
 class MinMaxScaling(K.IntensityAugmentationBase2D):
@@ -14,23 +14,15 @@ class MinMaxScaling(K.IntensityAugmentationBase2D):
         self.flags = {"mins": mins.view(1, -1, 1, 1), "maxs": maxs.view(1, -1, 1, 1)}
         self.delta = 1e-10
 
+    # noinspection PyShadowingBuiltins
     @override
     def apply_transform(
         self,
         input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, int],
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
         transform: Optional[Tensor] = None,
     ) -> Tensor:
         mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
         maxs = torch.as_tensor(flags["maxs"], device=input.device, dtype=input.dtype)
         return (input - mins) / (maxs - mins + self.delta)
-
-    def apply_transform_mask(
-        self,
-        input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, int],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        return input

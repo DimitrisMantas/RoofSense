@@ -135,7 +135,11 @@ class HybridDataset(GeoDataset, ABC):
         return state
 
     def __len__(self) -> int:
-        return len(self.files)
+        if len(self.index):
+            len_ = len(self.index)
+        else:
+            len_ = len(self.files)
+        return len_
 
     def __or__(self, other: GeoDataset) -> UnionDataset:
         self.populate_index()
@@ -199,6 +203,7 @@ class HybridRasterDataset(HybridDataset, RasterDataset, ABC):
         i = 0
         filename_regex = re.compile(self.filename_regex, re.VERBOSE)
         for filepath in self.files:
+            filepath = str(filepath, encoding="utf-8")
             match = re.match(filename_regex, os.path.basename(filepath))
             if match is not None:
                 try:
@@ -250,37 +255,39 @@ class TrainingDataset(HybridRasterDataset):
     filename_glob = os.path.join("imgs", "*.tif")
     filename_regex = ".*tif"
 
-    # The names of the bands present in the training images.
-    all_bands = (
-        "Red",
-        "Green",
-        "Blue",  # "Near-infrared", "Reflectance", "Slope"
-    )
+    # The band names.
+    all_bands = ("Red", "Green", "Blue")
     rgb_bands = ("Red", "Green", "Blue")
 
-    # The names of the classes present in the training masks.
+    # The class names.
     classes = (
-        "Building",
-        "Woodland",
-        "Water",
-        "Road",
-        "Background",  # "Solar Panels",
-        # "Vegetation",
-        # "Other",
-        # "Invalid",
-        # "__ignore__"
+        "__ignore__",
+        "Asphalt Shingles",
+        "Bituminous Membranes",
+        "Clay Tiles",
+        "Invalid",
+        "Loose Gravel",
+        "Metal",
+        "Other",
+        "Solar Panels",
+        "Vegetation",
     )
-    # The class-color map.
+
+    # The class color map.
+    # NOTE: This is the colorblind-friendly version of the default Tableau ten-class
+    #       map.
+    #       See https://shorturl.at/lqFQ4 for more information.
     cmap = {
-        0: (141, 211, 199, 85),
-        1: (255, 255, 179, 85),
-        2: (190, 186, 218, 85),
-        3: (251, 128, 114, 85),
-        4: (128, 117, 211, 85),  # 5: (253, 180, 100, 85),
-        # 6: (179, 222, 105, 85),
-        # 7: (252, 205, 229, 85),
-        # 8: (128, 128, 128, 85),
-        # 9: (255, 255, 255, 85),
+        0: (148, 148, 148, 100),  # Gray
+        1: (  1, 115, 178, 100),  # Blue
+        2: (222, 143,   5, 100),  # Orange
+        3: (  2, 158, 115, 100),  # Green
+        4: (213,  94,   0, 100),  # Red
+        5: (204, 120, 188, 100),  # Purple
+        6: (202, 145,  97, 100),  # Brown
+        7: (251, 175, 228, 100),  # Pink
+        8: (236, 225,  51, 100),  # Yellow
+        9: ( 86, 180, 233, 100),  # Cyan
     }
 
     def __init__(
@@ -297,10 +304,8 @@ class TrainingDataset(HybridRasterDataset):
         self.download = download
         self.checksum = checksum
 
-        lc_colors = np.zeros((max(self.cmap.keys()) + 1, 4))
-        lc_colors[list(self.cmap.keys())] = list(self.cmap.values())
-        lc_colors = lc_colors[:, :3] / 255
-        self._lc_cmap = ListedColormap(lc_colors)
+        self._lc_clrs = np.asarray(list(self.cmap.values())) / 255
+        self._lc_cmap = ListedColormap(self._lc_clrs)
 
         self._verify()
         super().__init__(
@@ -358,6 +363,12 @@ class TrainingDataset(HybridRasterDataset):
         pass
 
     def _getitem_int(self, index: int) -> dict[str, Tensor]:
+        if len(self.index):
+            match = list(self.index.intersection(self.index.bounds, objects=True))[
+                index
+            ]
+            return self._getitem_box(BoundingBox(*match.bounds))
+
         img_path = str(self.files[index], encoding="utf-8")
         msk_path = img_path.replace("imgs", "msks")
 

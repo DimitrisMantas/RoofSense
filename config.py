@@ -1,5 +1,4 @@
 import os
-import typing
 
 import dotenv
 import geopandas as gpd
@@ -22,14 +21,14 @@ def config(training: bool = False) -> None:
     utils.file.mkdirs(env("LOG_DIR"))
     if training:
         utils.file.mkdirs(f"{env('ORIGINAL_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
-        utils.file.mkdirs(f"{env('BUFFERED_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
+        utils.file.mkdirs(f"{env('ORIGINAL_DATA_DIR')}{var('TRAINING_CHIP_DIRNAME')}")
 
 
-def env(key: str) -> typing.Optional[str]:
-    return _PROJ_DIR + "/" + os.environ[key]
+def env(key: str) -> str:
+    return os.path.join(_PROJ_DIR , os.environ[key])
 
 
-def var(key: str) -> typing.Optional[str]:
+def var(key: str) -> str:
     return os.environ[key]
 
 
