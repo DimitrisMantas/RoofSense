@@ -10,7 +10,7 @@ from overrides import override
 
 import config
 import utils.file
-from preprocessing.parsers.base import DataParser
+from common.parsers.base import DataParser
 
 
 class BAG3DParser(DataParser):

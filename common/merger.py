@@ -9,7 +9,7 @@ import rasterio.warp
 from overrides import override
 
 import config
-from preprocessing.parsers.utils import raster
+from utils import raster
 
 
 class DataMerger:

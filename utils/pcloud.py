@@ -13,7 +13,7 @@ import rasterio
 import scipy as sp
 import tqdm
 
-from preprocessing.parsers.utils import raster
+from utils import raster
 from utils.type import BoundingBoxLike
 
 

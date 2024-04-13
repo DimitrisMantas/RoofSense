@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 
 import numpy as np
 import rasterio
@@ -8,8 +9,8 @@ from typing_extensions import override
 
 import config
 import utils
-from preprocessing.parsers.base import AssetParser
-from preprocessing.parsers.utils import pcloud
+from common.parsers.base import AssetParser
+from utils import pcloud
 from utils.type import BoundingBoxLike
 
 
@@ -36,20 +37,30 @@ class LiDARParser(AssetParser):
         elev_field = config.var("ELEVATION_FIELD")
 
         if refl_field in scalars:
-            rfl=pc.rasterize(refl_field, res=res, bbox=box)
+            rfl = pc.rasterize(refl_field, res=res, bbox=box)
+
+            while num_nodata := np.count_nonzero(np.isnan(rfl.data)) != 0:
+                # Fill until the raster is valid.
+                msg = f"Detected {num_nodata} no-data cells while processing {refl_field.lower()} raster. Filling until valid..."
+                warnings.warn(msg, EncodingWarning)
+
+                rfl.fill()
 
             # Convert the unit from dB to the underlying ratio.
-            rfl.data=10 ** (0.1 * rfl.data)
+            rfl.data = 10 ** (0.1 * rfl.data)
             # Clip erroneous values corresponding to non-Lambertian surfaces.
-            rfl.data=rfl.data.clip(max=1)
-
-            assert np.count_nonzero(np.isnan(rfl.data))==0,obj_id+str(np.count_nonzero(np.isnan(rfl.data)))
+            rfl.data = rfl.data.clip(max=1)
 
             rfl.save(rfl_path)
         if elev_field in scalars:
-            elev=pc.rasterize(elev_field, res=res, bbox=box).slope()
+            elev = pc.rasterize(elev_field, res=res, bbox=box).slope()
 
-            assert np.count_nonzero(np.isnan(elev.data)) == 0
+            while num_nodata := np.count_nonzero(np.isnan(elev.data)) != 0:
+                # Fill until the raster is valid.
+                msg = f"Detected {num_nodata} no-data cells while processing {refl_field.lower()} raster. Filling until valid..."
+                warnings.warn(msg, EncodingWarning)
+
+                elev.fill()
 
             elev.save(slp_path)
 

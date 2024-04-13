@@ -81,8 +81,8 @@ def split(obj_id: str, background_cutoff: float) -> None:
             rgb_data = rasterio.plot.reshape_as_image(original_patch_data[:3,...])
             rgb_data = cv2.cvtColor(rgb_data, cv2.COLOR_BGR2RGB)
             rgb_patch_path = pathlib.Path(
-                f"{config.env('BUFFERED_DATA_DIR')}"
-                                               f"{config.var('TRAINING_IMAG_DIRNAME')}").joinpath(
+                f"{config.env('ORIGINAL_DATA_DIR')}"
+                                               f"{config.var('TRAINING_CHIP_DIRNAME')}").joinpath(
                 f"{stack_path.stem.replace(config.var('RASTER_STACK'), '')}"
                 f"{config.var('SEPARATOR')}"
                 f"{row}"

@@ -21,7 +21,7 @@ def config(training: bool = False) -> None:
     utils.file.mkdirs(env("LOG_DIR"))
     if training:
         utils.file.mkdirs(f"{env('ORIGINAL_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
-        utils.file.mkdirs(f"{env('BUFFERED_DATA_DIR')}{var('TRAINING_IMAG_DIRNAME')}")
+        utils.file.mkdirs(f"{env('ORIGINAL_DATA_DIR')}{var('TRAINING_CHIP_DIRNAME')}")
 
 
 def env(key: str) -> str:

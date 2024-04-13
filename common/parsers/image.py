@@ -7,8 +7,8 @@ from typing_extensions import override
 
 import config
 import utils
-from preprocessing.parsers.base import AssetParser
-from preprocessing.parsers.utils import raster
+from common.parsers.base import AssetParser
+from utils import raster
 
 
 class ImageParser(AssetParser):
