@@ -129,17 +129,5 @@ class DefaultProfile(rasterio.profiles.Profile):
 
 class MultiBandProfile(rasterio.profiles.Profile):
     defaults = {
-        "compress": config.var("COMPRESSION"), "num_threads": os.cpu_count(),
-        # NOTE: The default photometric interpretation of the BM5 images is not
-        #       compatible with lossless compression.
-        "photometric": config.var("MULTI_BAND_PHOTOMETRIC"),
-    }
-
-
-class SingleBandProfile(rasterio.profiles.Profile):
-    defaults = {
-        "compress": config.var("COMPRESSION"), "num_threads": os.cpu_count(),
-        # NOTE: The default photometric interpretation of the BM5 images is not
-        #       compatible with single-band rasters.
-        "photometric": config.var("SINGLE_BAND_PHOTOMETRIC"),
+        "num_threads": os.cpu_count()
     }
