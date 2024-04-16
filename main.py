@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import common
 import config
-import inference
+import training
 
 
 def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.7) -> None:
@@ -40,7 +40,7 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.7) ->
         common.merger.RasterStackBuilder().merge(sample)
 
         # Prepare the stacks for annotation.
-        inference.splitter.split(sample, background_cutoff)
+        training.splitter.split(sample, background_cutoff)
 
 
 def train() -> None:
