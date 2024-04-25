@@ -15,17 +15,17 @@ from torchgeo.datamodules import (GeoDataModule,
 from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, BatchGeoSampler
 from torchgeo.transforms import AugmentationSequential
 
-from classification import splits
-from classification.augmentations import MinMaxScaling
-from classification.datasets import TrainingDataset
+from inference import splits
+from inference.augmentations import MinMaxScaling
+from inference.datasets import TrainingDataset
 
 
 class TrainingDataModule(GeoDataModule):
     # The minimum cell value of each raster stack layer.
-    mins = torch.tensor([0, 0, 0])
+    mins = torch.tensor([0, 0, 0,0,0])
 
     # The maximum cell value of each raster stack layer.
-    maxs = torch.tensor([255, 255, 255])
+    maxs = torch.tensor([255, 255, 255,1,90])
 
     def __init__(
         self,
@@ -94,8 +94,8 @@ class TrainingDataModule(GeoDataModule):
             self.train_dataset,
             self.val_dataset,
             self.test_dataset,
-        ) = splits.random_grid_split(
-            dataset, lengths=[0.7, 0.15, 0.15], size=8, generator=generator
+        ) = splits.random_file_split(
+            dataset, lengths=[0.7, 0.15, 0.15], generator=generator
         )
 
         if self.patch_size >= 512:

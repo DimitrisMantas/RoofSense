@@ -66,7 +66,7 @@ class TrainingTask(torchgeo.trainers.SemanticSegmentationTask):
         # The learning rate at the end of the warmup and each new cycle of the
         # subsequent annealing phases. This parameter is henceforth referred to
         # as the "nominal learning rate".
-        lr: float = 1e-3,
+        lr: float = 1e-4,
         # The learning rate at the start of the warmup phase, expressed as a
         # percentage of the nominal learning rate.
         init_lr_pct: float = 0.1,

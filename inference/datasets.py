@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
@@ -256,39 +257,14 @@ class TrainingDataset(HybridRasterDataset):
     filename_regex = ".*tif"
 
     # The band names.
-    all_bands = ("Red", "Green", "Blue")
+    all_bands = ("Red", "Green", "Blue","Reflectance","Slope")
     rgb_bands = ("Red", "Green", "Blue")
 
     # The class names.
-    classes = (
-        "__ignore__",
-        "Asphalt Shingles",
-        "Bituminous Membranes",
-        "Clay Tiles",
-        "Invalid",
-        "Loose Gravel",
-        "Metal",
-        "Other",
-        "Solar Panels",
-        "Vegetation",
-    )
+    classes = []
 
     # The class color map.
-    # NOTE: This is the colorblind-friendly version of the default Tableau ten-class
-    #       map.
-    #       See https://shorturl.at/lqFQ4 for more information.
-    cmap = {
-        0: (148, 148, 148, 100),  # Gray
-        1: (  1, 115, 178, 100),  # Blue
-        2: (222, 143,   5, 100),  # Orange
-        3: (  2, 158, 115, 100),  # Green
-        4: (213,  94,   0, 100),  # Red
-        5: (204, 120, 188, 100),  # Purple
-        6: (202, 145,  97, 100),  # Brown
-        7: (251, 175, 228, 100),  # Pink
-        8: (236, 225,  51, 100),  # Yellow
-        9: ( 86, 180, 233, 100),  # Cyan
-    }
+    cmap = {}
 
     def __init__(
         self,
@@ -300,6 +276,13 @@ class TrainingDataset(HybridRasterDataset):
         transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
         use_index: bool = False,
     ) -> None:
+        with open(f"{root}/names.json") as f:
+            names=json.load(f)
+            self.classes=list(names.values())
+        with open(f"{root}/colors.json") as f:
+            self.cmap=json.load(f)
+
+
         self.root = root
         self.download = download
         self.checksum = checksum
