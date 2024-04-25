@@ -7,7 +7,6 @@ from os import PathLike
 from typing import Optional
 
 import numpy as np
-import rasterio
 import rasterio.fill
 import rasterio.mask
 import rasterio.merge
@@ -26,18 +25,18 @@ class Raster:
         self,
         resol: float,
         bbox: BoundingBoxLike,
-        meta: Optional[
-            rasterio.profiles.Profile
-        ] = None,
+        meta: Optional[rasterio.profiles.Profile] = None,
     ) -> None:
         self._resol = resol
         self._bbox = bbox
         self._lenx = math.ceil((self._bbox[2] - self._bbox[0]) / self._resol)
         self._leny = math.ceil((self._bbox[3] - self._bbox[1]) / self._resol)
         self._meta = meta if meta is not None else DefaultProfile()
-        self.data = np.full((self._leny, self._lenx), self._meta["nodata"],dtype=self._meta["dtype"])
+        self.data = np.full(
+            (self._leny, self._lenx), self._meta["nodata"], dtype=self._meta["dtype"]
+        )
 
-    def __len__(self)->int:
+    def __len__(self) -> int:
         return self.data.size
 
     # TODO: Add type hints to this method.
@@ -47,9 +46,11 @@ class Raster:
     # TODO: Add type hints to this method.
     def __setitem__(self, key, val):
         self.data[key] = val
+
     @property
     def bbox(self):
         return self._bbox
+
     @property
     def meta(self):
         return self._meta
@@ -57,6 +58,7 @@ class Raster:
     @property
     def res(self):
         return self._resol
+
     @property
     def width(self) -> int:
         return self._lenx
@@ -128,6 +130,4 @@ class DefaultProfile(rasterio.profiles.Profile):
 
 
 class MultiBandProfile(rasterio.profiles.Profile):
-    defaults = {
-        "num_threads": os.cpu_count()
-    }
+    defaults = {"num_threads": os.cpu_count()}
