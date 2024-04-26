@@ -87,7 +87,7 @@ class TrainingDataModule(GeoDataModule):
 
     def setup(self, stage: str) -> None:
         dataset = TrainingDataset(**self.kwargs)
-        dataset.populate_index()
+        # dataset.populate_index()
 
         generator = torch.Generator().manual_seed(0)
         (
