@@ -277,11 +277,10 @@ class TrainingDataset(HybridRasterDataset):
         use_index: bool = False,
     ) -> None:
         with open(f"{root}/names.json") as f:
-            names=json.load(f)
-            self.classes=list(names.values())
+            names = json.load(f)
+            self.classes = list(names.values())
         with open(f"{root}/colors.json") as f:
-            self.cmap=json.load(f)
-
+            self.cmap = json.load(f)
 
         self.root = root
         self.download = download
