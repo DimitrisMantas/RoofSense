@@ -4,12 +4,13 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import (EarlyStopping,
                                          ModelCheckpoint,
-                                         LearningRateMonitor,
-                                         GradientAccumulationScheduler, )
+                                         LearningRateMonitor, )
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from inference.datamodules import TrainingDataModule
-from inference.task import TrainingTask, PerformanceMetricAverage, PerformanceMetric
+from training.datamodule import TrainingDataModule
+from training.task import TrainingTask
+
+# from training.task import TrainingTask, PerformanceMetricAverage, PerformanceMetric
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
@@ -26,11 +27,12 @@ if __name__ == "__main__":
         loss="ce",
         class_weights=torch.tensor(np.load("../dataset/temp/weights.npy"),dtype=torch.float32),
         ignore_index=0,
-        ignore_metrics={PerformanceMetricAverage.WEIGHTED: PerformanceMetric.ALL},
+        # ignore_metrics={PerformanceMetricAverage.WEIGHTED: PerformanceMetric.ALL},
     )
 
     datamodule = TrainingDataModule(
-        root="../dataset/temp", batch_size=1, patch_size=512, num_workers=8
+        # TODO: Try a batch size of 12.
+        root="../dataset/temp", batch_size=16, num_workers=8
     )
 
     # todo check strategies + callbacks + profiler
@@ -38,14 +40,14 @@ if __name__ == "__main__":
         # accelerator="cpu",
         callbacks=[
             ModelCheckpoint(
-                dirpath="../logs/RoofSense",
+                dirpath="../logs/test",
                 filename="best",
                 monitor="val_loss",
                 save_last=True,
             ),
             EarlyStopping(monitor="val_loss", patience=500),
             # TODO: LearningRateFinder(),
-            GradientAccumulationScheduler(scheduling={0: 3}),
+            # GradientAccumulationScheduler(scheduling={0: 3}),
             LearningRateMonitor(),  # TODO: OnExceptionCheckpoint(
             #     dirpath="logs/RoofSense",
             #     # Overwrite the last checkpoint.
@@ -56,7 +58,7 @@ if __name__ == "__main__":
             # TODO: lightning.pytorch.callbacks.ModelPruning,
         ],
         log_every_n_steps=1,
-        logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
+        logger=TensorBoardLogger(save_dir="../logs/test"),
         benchmark=True,
         # TODO: profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
         # detect_anomaly=True
