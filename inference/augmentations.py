@@ -26,3 +26,39 @@ class MinMaxScaling(K.IntensityAugmentationBase2D):
         mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
         maxs = torch.as_tensor(flags["maxs"], device=input.device, dtype=input.dtype)
         return (input - mins) / (maxs - mins + self.delta)
+
+
+class RandomSharpness(K.RandomSharpness):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
+
+
+class ColorJiggle(K.ColorJiggle):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
