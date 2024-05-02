@@ -1,103 +1,159 @@
+from __future__ import annotations
+
 import glob
 import json
 import os.path
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Sequence
+from enum import auto, verify, UNIQUE, CONTINUOUS, IntEnum
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 import torch
+from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
-from torch import Tensor
+from torch import Tensor, classproperty
 from torchgeo.datasets import NonGeoDataset
 from typing_extensions import override
 
 
-# TODO: Add an option to load only certain image bands.
+@verify(CONTINUOUS, UNIQUE)
+class Band(IntEnum):
+    RED = auto()
+    GRN = auto()
+    BLU = auto()
+    RFL = auto()
+    SLP = auto()
+
+    @classproperty
+    def ALL(cls) -> list[Band]:
+        return list(cls)
+
+    @classproperty
+    def RGB(cls) -> list[Band]:
+        return list(cls)[:3]
+
+
+# TODO: Plot single bands.
 
 
 class TrainingDataset(NonGeoDataset):
-    all_bands = ["Red", "Green", "Blue", "Reflectance", "Slope"]
-    rgb_bands = ["Red", "Green", "Blue"]
-
     classes_filename = "classes.json"
-    colors_filename = "classes.json"
+    colors_filename = "colors.json"
 
     classes: list[str] | None = None
     colors: ListedColormap | None = None
 
-    valid_splits = ["train", "val", "test"]
-
     def __init__(
         self,
         root: str,
-        split: str,
-        transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
         checksum: bool = False,
+        bands: Band | list[Band] = Band.ALL,
+        transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
     ) -> None:
         # TODO: Initialize class fields lazily.
         self.root = root
-        self.split = split
-        self.transforms = transforms
         self.download = download
         self.checksum = checksum
 
+        self.bands = bands if isinstance(bands, list) else [bands]
+        # Verify the band list.
+        self.has_plt = len(self.bands) == 1 or len(self.bands) >= 3
+        self.has_rgb = False
+        if len(self.bands) >= 3:
+            for i, band in enumerate(Band.RGB):
+                if band != self.bands[i]:
+                    warnings.warn(
+                        f"Failed to locate RGB bands in specified band list: {self.bands!r}. One or more bands missing or out of order.",
+                        RuntimeWarning,
+                    )
+                    break
+            self.has_rgb = True
+
+        self.transforms = transforms
+
         # Verify the dataset.
+        self.img_paths: list[str] | None = None
+        self.msk_paths: list[str] | None = None
         if not self._verify():
             # TODO: Check whether the dataset is present on disk but not yet
             #  extracted and finally whether it should be downloaded.
             raise RuntimeError("Failed to verify dataset integrity.")
 
-        # Validate the split.
-        if split not in self.valid_splits:
-            raise RuntimeError(
-                f"Failed to verify data split: {split!r}. Allowed values are: {self.valid_splits!r}"
-            )
-
         # Add the missing metadata.
         # TODO: Refactor this block into a separate function.
         try:
             with open(os.path.join(self.root, self.classes_filename)) as classes:
-                self.classes = json.load(classes)
+                self.classes = list(json.load(classes).values())
         except FileNotFoundError:
-            raise RuntimeWarning(
-                f"Failed to locate class names: {self.classes_filename!r} in dataset root folder: {self.root!r}. The file does not exist."
+            warnings.warn(
+                f"Failed to locate class names: {self.classes_filename!r} in dataset root folder: {self.root!r}. The file does not exist.",
+                RuntimeWarning,
             )
 
         try:
             with open(os.path.join(self.root, self.colors_filename)) as colors:
-                self.colors = ListedColormap(np.array(json.load(colors))[:, 3] / 255)
+                self.colors = ListedColormap(
+                    np.array(list(json.load(colors).values())) / 255
+                )
         except FileNotFoundError:
-            raise RuntimeWarning(
-                f"Failed to locate class names: {self.classes_filename!r} in dataset root folder: {self.root!r}. The file does not exist."
+            warnings.warn(
+                f"Failed to locate class names: {self.classes_filename!r} in dataset root folder: {self.root!r}. The file does not exist.",
+                RuntimeWarning,
             )
 
     @override
     def __getitem__(self, index: int) -> dict[str, Any]:
-        return {
-            "image": self._load(
-                self.img_paths[index]
-            ).float(),
-            "mask": self._load(
-                self.msk_paths[index]
-            ).long(),
+        sample = {  # "name":torch.as_tensor(
+            #     [ord(c) for c in os.path.basename(self.img_paths[index]).split(".", maxsplit=1)[0]],
+            #     dtype=torch.int64
+            # ),
+            "image": self._load_image(self.img_paths[index]),
+            "mask": self._load_mask(self.msk_paths[index]),
         }
+
+        if self.transforms is not None:
+            sample = self.transforms(sample)
+
+        return sample
 
     @override
     def __len__(self) -> int:
         return len(self.img_paths)
 
     def plot(self, sample: dict[str, Tensor]) -> Figure:
+        if not self.has_plt:
+            raise NotImplementedError
+            warnings.warn(  # TODO: Inform the user that images will not be plotted.
+                "",
+                RuntimeWarning,
+            )
+
         # Extract the image and corresponding mask from the sample.
-        image: np.ndarray[tuple[Any, Any, Any], np.dtype[np.uint8]] = (
-            sample["image"].numpy().astype(np.uint8).squeeze()
-        )
+        image: np.ndarray[
+            tuple[Any, Any, Any], np.dtype[np.uint8] | np.dtype[np.float32]
+        ] = sample["image"].numpy().squeeze()
         # BxHxW -> HxWxB
         image = np.moveaxis(image, source=0, destination=-1)
+
+        if self.has_rgb:
+            if np.amax(image) > 1:
+                dtype = np.uint8
+            else:
+                dtype = np.float32
+            slice = 3
+        elif len(self.bands) == 1:
+            dtype = np.float32
+            slice = 1
+        else:
+            # TODO: Do not plot the image.
+            raise NotImplementedError
+        image = image.astype(dtype)[..., :slice]
 
         mask: np.ndarray[tuple[Any, Any], np.dtype[np.uint8]] = (
             sample["mask"].numpy().astype(np.uint8).squeeze()
@@ -113,48 +169,71 @@ class TrainingDataset(NonGeoDataset):
             ].numpy()
 
         fig: Figure
-        axs: np.ndarray[tuple[Literal[2, 3]], np.dtype[np.object_]]
+        # axs: np.ndarray[tuple[Literal[2, 3]], np.dtype[np.object_]]
+        axs: Sequence[Axes]
         fig, axs = plt.subplots(
-            1, ncols=num_cols, figsize=(num_cols * 4, 5), layout="constrained"
+            1,
+            ncols=num_cols,  # figsize=(num_cols * 4, 5),
+            layout="constrained",
         )
 
         # Plot the sample.
-        axs[0].imshow(image)
+        axs[0].imshow(
+            image, cmap=None if self.has_rgb else "turbo", interpolation="bilinear"
+        )
         axs[0].axis("off")
-        axs[0].set_title("Image")
+        axs[0].set_title(
+            f"Training Image\n({'RGB' if self.has_rgb else self.bands[0].name})"
+        )
 
         mask_opts = {
             "cmap": self.colors,
-            "vmin": 0,
-            "vmax": self.colors.N,
-            "interpolation": "none",
+            "vmin": 0 - 0.5,
+            "vmax": (len(self.classes) - 1) + 0.5,
+            "interpolation": "nearest",
         }
 
-        axs[1].imshow(mask, **mask_opts)
+        temp = axs[1].imshow(mask, **mask_opts)
         axs[1].axis("off")
-        axs[0].set_title("User Mask")
+        axs[1].set_title("Training Mask")
 
         if has_pred:
-            axs[0].imshow(pred, **mask_opts)
-            axs[0].axis("off")
-            axs[0].set_title("Model Mask")
+            axs[2].imshow(pred, **mask_opts)
+            axs[2].axis("off")
+            axs[2].set_title("Prediction Mask")
+
+        plt.colorbar(
+            temp,
+            ax=axs[2] if has_pred else axs[1],
+            ticks=np.arange(0, len(self.classes)+1),
+        )
+
+        # fig.suptitle(f"Chip {''.join([chr(o) for o in sample['name']])}")
 
         return fig
 
     @lru_cache
-    def _load(self, filename: str) -> Tensor:
-        f: rasterio.io.DatasetReader
-        with rasterio.open(filename) as f:
-            return torch.as_tensor(f.read())
+    def _load_image(self, filename: str) -> Tensor:
+        src: rasterio.io.DatasetReader
+        with rasterio.open(filename) as src:
+            return torch.as_tensor(src.read(self.bands), dtype=torch.float32)
+
+    @lru_cache
+    def _load_mask(self, filename: str) -> Tensor:
+        src: rasterio.io.DatasetReader
+        with rasterio.open(filename) as src:
+            return torch.as_tensor(src.read(), dtype=torch.int64)
 
     def _verify(self) -> bool:
-        self.img_dir = os.path.join(self.root, "imgs")
-        self.msk_dir = os.path.join(self.root, "msks")
-        if not os.path.exists(self.img_dir) or not os.path.exists(self.msk_dir):
+        img_dir = os.path.join(self.root, "imgs")
+        msk_dir = os.path.join(self.root, "msks")
+        if not os.path.exists(img_dir) or not os.path.exists(msk_dir):
             return False
 
-        self.img_paths = glob.glob(os.path.join(self.img_dir, "*.tif"))
-        self.msk_paths = glob.glob(os.path.join(self.msk_dir, "*.tif"))
+        self.img_paths = glob.glob(os.path.join(img_dir, "*.tif"))
+        self.img_paths.sort()
+        self.msk_paths = glob.glob(os.path.join(msk_dir, "*.tif"))
+        self.msk_paths.sort()
         if len(self.img_paths) == 0 or len(self.msk_paths) == 0:
             return False
 
@@ -164,4 +243,13 @@ class TrainingDataset(NonGeoDataset):
         msk_names = [
             os.path.basename(path).split(".", maxsplit=1)[0] for path in self.msk_paths
         ]
+
         return img_names == msk_names
+
+
+if __name__ == "__main__":
+    ds = TrainingDataset("../dataset/temp")
+    print(ds.colors.colors)
+    print(ds.colors.N)
+    # print(np.unique(ds[19]["mask"].numpy().squeeze()))
+    ds.plot(ds[19]).show()
