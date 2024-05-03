@@ -12,19 +12,17 @@ import utils
 
 class DataParser(ABC):
     @abstractmethod
-    def parse(self, obj_id: str) -> None:
-        ...
+    def parse(self, obj_id: str) -> None: ...
 
 
 class AssetParser(DataParser):
     def __init__(self) -> None:
         super().__init__()
-        self._manifest:  dict[str, dict[str, list[str]]] | None=None
-        self._surfs: gpd.GeoDataFrame|None = None
+        self._manifest: dict[str, dict[str, list[str]]] | None = None
+        self._surfs: gpd.GeoDataFrame | None = None
 
     @abstractmethod
-    def parse(self, obj_id: str) -> None:
-        ...
+    def parse(self, obj_id: str) -> None: ...
 
     def _update(self, obj_id: str) -> None:
         manifest_path = (

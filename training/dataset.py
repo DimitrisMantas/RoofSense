@@ -5,7 +5,7 @@ import json
 import os.path
 import warnings
 from collections.abc import Callable, Sequence
-from enum import auto, verify, UNIQUE, CONTINUOUS, IntEnum
+from enum import CONTINUOUS, UNIQUE, IntEnum, auto, verify
 from functools import lru_cache
 from typing import Any
 
@@ -130,8 +130,7 @@ class TrainingDataset(NonGeoDataset):
         if not self.has_plt:
             raise NotImplementedError
             warnings.warn(  # TODO: Inform the user that images will not be plotted.
-                "",
-                RuntimeWarning,
+                "", RuntimeWarning
             )
 
         # Extract the image and corresponding mask from the sample.
@@ -205,7 +204,7 @@ class TrainingDataset(NonGeoDataset):
         plt.colorbar(
             temp,
             ax=axs[2] if has_pred else axs[1],
-            ticks=np.arange(0, len(self.classes)+1),
+            ticks=np.arange(0, len(self.classes) + 1),
         )
 
         # fig.suptitle(f"Chip {''.join([chr(o) for o in sample['name']])}")

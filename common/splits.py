@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Sequence
-from typing import Generator, Any
+from typing import Any, Generator
 
 import numpy as np
 import torch

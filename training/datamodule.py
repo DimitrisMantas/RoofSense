@@ -12,7 +12,7 @@ from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
 from common.augmentations import MinMaxScaling
-from training.dataset import TrainingDataset, Band
+from training.dataset import Band, TrainingDataset
 
 
 class TrainingDataModule(NonGeoDataModule):
@@ -61,14 +61,12 @@ class TrainingDataModule(NonGeoDataModule):
 
         # General Augmentations
         self.aug = AugmentationSequential(
-            MinMaxScaling(self.mins, self.maxs),
-            data_keys=["image", "mask"],
+            MinMaxScaling(self.mins, self.maxs), data_keys=["image", "mask"]
         )
 
         # Training Augmentations
         # NOTE: This field overwrites the predefined augmentations.
-        self.train_aug = AugmentationSequential(
-            # Scaling
+        self.train_aug = AugmentationSequential(  # Scaling
             MinMaxScaling(self.mins, self.maxs),
             # Geometric Augmentations
             # Flips
@@ -80,8 +78,7 @@ class TrainingDataModule(NonGeoDataModule):
             # RandomSharpness(0.1),
             # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             data_keys=["image", "mask"],
-            extra_args={
-                # TODO: Figure out what the most appropriate setting for
+            extra_args={  # TODO: Figure out what the most appropriate setting for
                 #  `align_corners` should be.
                 DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
                 DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
@@ -93,9 +90,7 @@ class TrainingDataModule(NonGeoDataModule):
         dataset = TrainingDataset(**self.kwargs)
 
         subsets = random_split(
-            dataset,
-            lengths=self.lengths,
-            generator=torch.Generator().manual_seed(0),
+            dataset, lengths=self.lengths, generator=torch.Generator().manual_seed(0)
         )
 
         datasets = []

@@ -1,5 +1,5 @@
 # TODO - Reformat, finalize function and variable names, and add documentation.
-from collections.abc import Sequence, Callable
+from collections.abc import Callable, Sequence
 from typing import Any, Union
 
 import requests

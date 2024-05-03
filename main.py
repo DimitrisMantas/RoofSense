@@ -6,9 +6,8 @@ import training
 
 
 def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.8) -> None:
-    """
-    Entry point for:
-        roofsense --gen-pretrain-data <size> --bg-cutoff <pct>
+    """Entry point for:
+    roofsense --gen-pretrain-data <size> --bg-cutoff <pct>
     """
     # Initialize the program runtime.
     config.config(training=True)
@@ -44,9 +43,8 @@ def generate_pretraining_data(size: int = 10, background_cutoff: float = 0.8) ->
 
 
 def train() -> None:
-    """
-    Entry point for:
-        roofsense --train
+    """Entry point for:
+    roofsense --train
     """
     ...
 

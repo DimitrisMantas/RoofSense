@@ -16,7 +16,8 @@ from common.downloaders._base import _Downloader
 
 class AssetDownloader(_Downloader):
     """Convenience class for downloading 3DBAG tile assets from the latest BM5,
-    8 cm RGB orthoimagery, and AHN point cloud collections."""
+    8 cm RGB orthoimagery, and AHN point cloud collections.
+    """
 
     def __init__(self) -> None:
         """Initialize the downloader.
@@ -130,7 +131,4 @@ class _InfoStore:
             np.ndarray[tuple[Any], np.dtype[np.object_]],
         ],
     ) -> dict[str, list[str]]:
-        return {
-            "tid": info[0].tolist(),
-            "url": info[1].tolist(),
-        }
+        return {"tid": info[0].tolist(), "url": info[1].tolist()}

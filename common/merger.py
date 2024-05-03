@@ -58,7 +58,6 @@ class RasterStackBuilder(DataMerger):
 
         stack: rasterio.io.DatasetWriter
         with rasterio.open(out_path, mode="w", **out_meta) as stack:
-
             for band_id, path in enumerate(in_paths[1:], start=3):
                 tmp: rasterio.io.DatasetReader
                 with rasterio.open(path) as tmp:

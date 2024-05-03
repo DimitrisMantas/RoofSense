@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import (EarlyStopping,
-                                         ModelCheckpoint,
-                                         LearningRateMonitor, )
+                                         LearningRateMonitor,
+                                         ModelCheckpoint, )
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from training.datamodule import TrainingDataModule
@@ -23,14 +23,15 @@ if __name__ == "__main__":
         backbone="resnet18",
         weights=True,
         in_channels=5,
-        num_classes=8+1,
+        num_classes=8 + 1,
         loss="ce",
-        class_weights=torch.tensor(np.load("../dataset/temp/weights.npy"), dtype=torch.float32),
+        class_weights=torch.tensor(
+            np.load("../dataset/temp/weights.npy"), dtype=torch.float32
+        ),
         ignore_index=0,
     )
 
-    datamodule = TrainingDataModule(
-        # TODO: Try a batch size of 12.
+    datamodule = TrainingDataModule(  # TODO: Try a batch size of 12.
         root="../dataset/temp", batch_size=16, num_workers=8
     )
 

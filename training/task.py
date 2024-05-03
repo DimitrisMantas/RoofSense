@@ -5,12 +5,12 @@ from typing import Literal
 
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torchgeo.trainers import SemanticSegmentationTask
-from torchmetrics import MetricCollection, Metric
+from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
-                                         MulticlassJaccardIndex,
-                                         MulticlassF1Score, )
+                                         MulticlassF1Score,
+                                         MulticlassJaccardIndex, )
 
 
 class TrainingTask(SemanticSegmentationTask):
@@ -51,19 +51,11 @@ class TrainingTask(SemanticSegmentationTask):
         scalar_metrics = MetricCollection(
             self._init_metrics(average="macro") | self._init_metrics(average="micro")
         )
-        self.train_metrics = scalar_metrics.clone(
-            prefix="Training/"
-        )
-        self.val_metrics = scalar_metrics.clone(
-            prefix="Validation/"
-        )
-        self.test_metrics = scalar_metrics.clone(
-            prefix="Testing/"
-        )
+        self.train_metrics = scalar_metrics.clone(prefix="Training/")
+        self.val_metrics = scalar_metrics.clone(prefix="Validation/")
+        self.test_metrics = scalar_metrics.clone(prefix="Testing/")
 
-    def configure_optimizers(
-        self,
-    ) -> OptimizerLRSchedulerConfig:
+    def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         # TODO: Explore different optimizers and schedulers and their specific
         #  parameters.
         optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
