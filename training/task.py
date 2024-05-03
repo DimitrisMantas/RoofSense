@@ -51,9 +51,15 @@ class TrainingTask(SemanticSegmentationTask):
         scalar_metrics = MetricCollection(
             self._init_metrics(average="macro") | self._init_metrics(average="micro")
         )
-        self.train_metrics = scalar_metrics.clone(prefix="train_")
-        self.val_metrics = scalar_metrics.clone(prefix="val_")
-        self.test_metrics = scalar_metrics.clone(prefix="test_")
+        self.train_metrics = scalar_metrics.clone(
+            prefix="Training/"
+        )
+        self.val_metrics = scalar_metrics.clone(
+            prefix="Validation/"
+        )
+        self.test_metrics = scalar_metrics.clone(
+            prefix="Testing/"
+        )
 
     def configure_optimizers(
         self,
@@ -102,6 +108,7 @@ class TrainingTask(SemanticSegmentationTask):
         self, average: Literal["macro", "micro", "none"] | None
     ) -> dict[str, Metric]:
         _average = "multiclass" if average == "none" or average is None else average
+        _average.capitalize()
 
         num_classes: int = self.hparams["num_classes"]
         ignore_index: int | None = self.hparams["ignore_index"]
