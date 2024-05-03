@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from inference.augmentations import MinMaxScaling, RandomSharpness, ColorJiggle
+from inference.augmentations import MinMaxScaling
 from training.dataset import TrainingDataset, Band
 
 
@@ -77,8 +77,8 @@ class TrainingDataModule(NonGeoDataModule):
             # Rotations
             K.RandomRotation(90),
             # Intensity Augmentations
-            RandomSharpness(0.1),
-            ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
+            # RandomSharpness(0.1),
+            # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             data_keys=["image", "mask"],
             extra_args={
                 # TODO: Figure out what the most appropriate setting for
