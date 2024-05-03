@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from inference.augmentations import MinMaxScaling
+from common.augmentations import MinMaxScaling
 from training.dataset import TrainingDataset, Band
 
 

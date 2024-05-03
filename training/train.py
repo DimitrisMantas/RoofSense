@@ -25,7 +25,7 @@ if __name__ == "__main__":
         in_channels=5,
         num_classes=8+1,
         loss="ce",
-        class_weights=torch.tensor(np.load("../dataset/temp/weights.npy"),dtype=torch.float32),
+        class_weights=torch.tensor(np.load("../dataset/temp/weights.npy"), dtype=torch.float32),
         ignore_index=0,
     )
 
