@@ -27,7 +27,6 @@ if __name__ == "__main__":
         loss="ce",
         class_weights=torch.tensor(np.load("../dataset/temp/weights.npy"),dtype=torch.float32),
         ignore_index=0,
-        # ignore_metrics={PerformanceMetricAverage.WEIGHTED: PerformanceMetric.ALL},
     )
 
     datamodule = TrainingDataModule(
@@ -37,10 +36,9 @@ if __name__ == "__main__":
 
     # todo check strategies + callbacks + profiler
     trainer = Trainer(
-        # accelerator="cpu",
         callbacks=[
             ModelCheckpoint(
-                dirpath="../logs/test",
+                dirpath="../logs/RoofSense",
                 filename="best",
                 monitor="val_loss",
                 save_last=True,
@@ -58,7 +56,7 @@ if __name__ == "__main__":
             # TODO: lightning.pytorch.callbacks.ModelPruning,
         ],
         log_every_n_steps=1,
-        logger=TensorBoardLogger(save_dir="../logs/test"),
+        logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
         benchmark=True,
         # TODO: profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
         # detect_anomaly=True
