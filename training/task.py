@@ -146,9 +146,7 @@ class TrainingTask(SemanticSegmentationTask):
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         # TODO: Explore different optimizers and schedulers and their specific
         #  parameters.
-        optimizer = AdamW(
-            self.parameters(), lr=self.hparams["lr"], weight_decay=1e-4, amsgrad=True
-        )
+        optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
 
         max_epochs: int = self.hparams["max_epochs"]
         if self.trainer and self.trainer.max_epochs:
