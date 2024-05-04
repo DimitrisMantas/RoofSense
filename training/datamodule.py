@@ -73,7 +73,9 @@ class TrainingDataModule(NonGeoDataModule):
             K.RandomHorizontalFlip(),
             K.RandomVerticalFlip(),
             # Rotations
-            K.RandomRotation(360),
+            K.RandomRotation((90,90)),
+            K.RandomRotation((90,90)),
+            K.RandomRotation((90,90)),
             # Intensity Augmentations
             # RandomSharpness(0.1),
             # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
