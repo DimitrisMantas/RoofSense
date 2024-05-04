@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import os
 import warnings
 from typing import Literal
 
+import segmentation_models_pytorch as smp
+import torch.optim
+import torchgeo.trainers.utils
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
-from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
+from torchgeo.models import FCN
 from torchgeo.trainers import SemanticSegmentationTask
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassF1Score,
                                          MulticlassJaccardIndex, )
+from torchvision.models import WeightsEnum
 
 from training.loss import CrossEntropyJaccardLoss
 
@@ -69,6 +74,74 @@ class TrainingTask(SemanticSegmentationTask):
         self.train_metrics = scalar_metrics.clone(prefix="Training/")
         self.val_metrics = scalar_metrics.clone(prefix="Validation/")
         self.test_metrics = scalar_metrics.clone(prefix="Testing/")
+
+    def configure_models(self) -> None:
+        model: str = self.hparams["model"]
+        backbone: str = self.hparams["backbone"]
+        weights = self.weights
+        in_channels: int = self.hparams["in_channels"]
+        num_classes: int = self.hparams["num_classes"]
+        num_filters: int = self.hparams["num_filters"]
+
+        if model == "unet":
+            self.model = smp.Unet(
+                encoder_name=backbone,
+                encoder_weights="imagenet" if weights is True else None,
+                in_channels=in_channels,
+                classes=num_classes,
+            )
+        elif model == "deeplabv3+":
+            self.model = smp.DeepLabV3Plus(
+                encoder_name=backbone,
+                encoder_weights="imagenet" if weights is True else None,
+                in_channels=in_channels,
+                classes=num_classes,
+            )
+        elif model == "fcn":
+            self.model = FCN(
+                in_channels=in_channels, classes=num_classes, num_filters=num_filters
+            )
+        else:
+            raise ValueError(
+                f"Model type '{model}' is not valid. "
+                "Currently, only supports 'unet', 'deeplabv3+' and 'fcn'."
+            )
+
+        if model != "fcn":
+            if weights and weights is not True:
+                if isinstance(weights, WeightsEnum):
+                    state_dict = weights.get_state_dict(progress=True)
+                elif os.path.exists(weights):
+                    _, state_dict = torchgeo.trainers.utils.extract_backbone(weights)
+                else:
+                    state_dict = torchgeo.models.get_weight(weights).get_state_dict(
+                        progress=True
+                    )
+                self.model.encoder.conv1 = (
+                    torchgeo.trainers.utils.reinit_initial_conv_layer(
+                        self.model.encoder.conv1,
+                        new_in_channels=state_dict["conv1.weight"].shape[1],
+                        keep_rgb_weights=True,
+                    )
+                )
+                self.model.encoder.load_state_dict(state_dict)
+                self.model.encoder.conv1 = (
+                    torchgeo.trainers.utils.reinit_initial_conv_layer(
+                        self.model.encoder.conv1,
+                        new_in_channels=in_channels,
+                        keep_rgb_weights=True,
+                    )
+                )
+
+        # Freeze backbone
+        if self.hparams["freeze_backbone"] and model in ["unet", "deeplabv3+"]:
+            for param in self.model.encoder.parameters():
+                param.requires_grad = False
+
+        # Freeze decoder
+        if self.hparams["freeze_decoder"] and model in ["unet", "deeplabv3+"]:
+            for param in self.model.decoder.parameters():
+                param.requires_grad = False
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         # TODO: Explore different optimizers and schedulers and their specific
