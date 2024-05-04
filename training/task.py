@@ -5,9 +5,9 @@ import warnings
 from typing import Literal
 
 import segmentation_models_pytorch as smp
-import torch.optim
 import torchgeo.trainers.utils
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torchgeo.models import FCN
 from torchgeo.trainers import SemanticSegmentationTask
@@ -146,7 +146,9 @@ class TrainingTask(SemanticSegmentationTask):
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         # TODO: Explore different optimizers and schedulers and their specific
         #  parameters.
-        optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
+        optimizer = AdamW(
+            self.parameters(), lr=self.hparams["lr"], weight_decay=1e-4, amsgrad=True
+        )
 
         max_epochs: int = self.hparams["max_epochs"]
         if self.trainer and self.trainer.max_epochs:
