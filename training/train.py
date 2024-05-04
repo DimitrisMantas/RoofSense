@@ -24,7 +24,7 @@ if __name__ == "__main__":
         weights=True,
         in_channels=5,
         num_classes=8 + 1,
-        loss="ce",
+        loss="CrossEntropyJaccard",
         class_weights=torch.tensor(
             np.load("../dataset/temp/weights.npy"), dtype=torch.float32
         ),

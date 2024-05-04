@@ -12,6 +12,8 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassF1Score,
                                          MulticlassJaccardIndex, )
 
+from training.loss import CrossEntropyJaccardLoss
+
 
 class TrainingTask(SemanticSegmentationTask):
     def __init__(
@@ -46,6 +48,19 @@ class TrainingTask(SemanticSegmentationTask):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+
+    def configure_losses(self) -> None:
+        try:
+            super().configure_losses()
+        except ValueError as e:
+            if self.hparams["loss"] == "CrossEntropyJaccard":
+                self.criterion = CrossEntropyJaccardLoss(
+                    self.hparams["num_classes"],
+                    ignore_index=self.hparams["ignore_index"],
+                    class_weights=self.hparams["class_weights"],
+                )
+            else:
+                raise e
 
     def configure_metrics(self) -> None:
         scalar_metrics = MetricCollection(
