@@ -54,11 +54,11 @@ class TrainingTask(SemanticSegmentationTask):
             super().configure_losses()
         except ValueError as e:
             if self.hparams["loss"] == "CrossEntropyJaccard":
-                self.criterion = CrossEntropyJaccardLoss(
-                    self.hparams["num_classes"],
-                    ignore_index=self.hparams["ignore_index"],
-                    class_weights=self.hparams["class_weights"],
-                )
+                self.criterion = CrossEntropyJaccardLoss(self.hparams["num_classes"],
+                                                         ignore_index=self.hparams[
+                                                             "ignore_index"],
+                                                         class_weights=self.hparams[
+                                                             "class_weights"])
             else:
                 raise e
 
