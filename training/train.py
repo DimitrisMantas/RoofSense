@@ -24,9 +24,9 @@ if __name__ == "__main__":
         weights=True,
         in_channels=5,
         num_classes=8 + 1,
-        model_kwargs={
-            "decoder_attention_type": "scse"
-        },
+        # model_kwargs={
+        #     "decoder_attention_type": "scse"
+        # },
         # Loss Configuration
         loss="CrossEntropyJaccard",
         class_weights=torch.tensor(

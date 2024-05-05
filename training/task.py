@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import warnings
-from typing import Any, Literal
+from typing import Literal
 
 import segmentation_models_pytorch as smp
 import torchgeo.trainers.utils
@@ -50,7 +50,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0.01,
-        model_kwargs: dict[str, Any] | None = None,
+        model_kwargs: dict[str, float|str|None] | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
