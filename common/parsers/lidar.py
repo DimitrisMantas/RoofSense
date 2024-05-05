@@ -45,9 +45,10 @@ class LiDARParser(AssetParser):
 
                 rfl.fill()
 
-            # Convert the unit from dB to the underlying ratio.
+            # Convert the unit of measurement from dB to the underlying optical power
+            # ratio.
             rfl.data = 10 ** (0.1 * rfl.data)
-            # Clip erroneous values corresponding to non-Lambertian surfaces.
+            # Discard values corresponding to non-Lambertian reflectors.
             rfl.data = rfl.data.clip(max=1)
 
             rfl.save(rfl_path)
