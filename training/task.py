@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import warnings
-from typing import Literal
+from typing import Any, Literal
 
 import segmentation_models_pytorch as smp
 import torchgeo.trainers.utils
@@ -50,6 +50,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0.01,
+        model_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -89,6 +90,7 @@ class TrainingTask(SemanticSegmentationTask):
                 encoder_weights="imagenet" if weights is True else None,
                 in_channels=in_channels,
                 classes=num_classes,
+                **self.hparams["model_kwargs"],
             )
         elif model == "deeplabv3+":
             self.model = smp.DeepLabV3Plus(
@@ -96,10 +98,14 @@ class TrainingTask(SemanticSegmentationTask):
                 encoder_weights="imagenet" if weights is True else None,
                 in_channels=in_channels,
                 classes=num_classes,
+                **self.hparams["model_kwargs"],
             )
         elif model == "fcn":
             self.model = FCN(
-                in_channels=in_channels, classes=num_classes, num_filters=num_filters
+                in_channels=in_channels,
+                classes=num_classes,
+                num_filters=num_filters,
+                **self.hparams["model_kwargs"],
             )
         else:
             raise ValueError(
