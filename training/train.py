@@ -10,8 +10,6 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from training.datamodule import TrainingDataModule
 from training.task import TrainingTask
 
-# from training.task import TrainingTask, PerformanceMetricAverage, PerformanceMetric
-
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     torch.backends.cudnn.allow_tf32 = True
@@ -19,11 +17,17 @@ if __name__ == "__main__":
     lightning.pytorch.seed_everything(42, workers=True)
 
     task = TrainingTask(
+        # Model Configuration
         model="unet",
         backbone="resnet18",
+        # ImageNet
         weights=True,
         in_channels=5,
         num_classes=8 + 1,
+        model_kwargs={
+            "decoder_attention_type": "scse"
+        },
+        # Loss Configuration
         loss="CrossEntropyJaccard",
         class_weights=torch.tensor(
             np.load("../dataset/temp/weights.npy"), dtype=torch.float32
@@ -31,7 +35,8 @@ if __name__ == "__main__":
         ignore_index=0,
     )
 
-    datamodule = TrainingDataModule(  # TODO: Try a batch size of 12.
+    datamodule = TrainingDataModule(
+        # TODO: Try a batch size of 12.
         root="../dataset/temp", batch_size=16, num_workers=8
     )
 
