@@ -50,7 +50,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0.01,
-        model_kwargs: dict[str, float|str|None] | None = None,
+        model_kwargs: dict[str, float | str | None] | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -84,28 +84,30 @@ class TrainingTask(SemanticSegmentationTask):
         num_classes: int = self.hparams["num_classes"]
         num_filters: int = self.hparams["num_filters"]
 
+        standard_kwargs = {
+            "encoder_name": backbone,
+            "encoder_weights": "imagenet" if weights is True else None,
+            "in_channels": in_channels,
+            "classes": num_classes,
+        }
+        optional_kwargs: dict[str, float | str | None] | None = self.hparams[
+            "model_kwargs"
+        ]
+
+        # TODO: Initialize any SMP model dynamically.
         if model == "unet":
-            self.model = smp.Unet(
-                encoder_name=backbone,
-                encoder_weights="imagenet" if weights is True else None,
-                in_channels=in_channels,
-                classes=num_classes,
-                **self.hparams["model_kwargs"],
-            )
+            if optional_kwargs is None:
+                self.model = smp.Unet(**standard_kwargs)
+            else:
+                self.model = smp.Unet(**standard_kwargs, **optional_kwargs)
         elif model == "deeplabv3+":
-            self.model = smp.DeepLabV3Plus(
-                encoder_name=backbone,
-                encoder_weights="imagenet" if weights is True else None,
-                in_channels=in_channels,
-                classes=num_classes,
-                **self.hparams["model_kwargs"],
-            )
+            if optional_kwargs is None:
+                self.model = smp.DeepLabV3Plus(**standard_kwargs)
+            else:
+                self.model = smp.DeepLabV3Plus(**standard_kwargs, **optional_kwargs)
         elif model == "fcn":
             self.model = FCN(
-                in_channels=in_channels,
-                classes=num_classes,
-                num_filters=num_filters,
-                **self.hparams["model_kwargs"],
+                in_channels=in_channels, classes=num_classes, num_filters=num_filters
             )
         else:
             raise ValueError(
