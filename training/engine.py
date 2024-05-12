@@ -16,8 +16,7 @@ if __name__ == "__main__":
 
     lightning.pytorch.seed_everything(42, workers=True)
 
-    task = TrainingTask(
-        # Model Configuration
+    task = TrainingTask(  # Model Configuration
         model="unet",
         backbone="resnet18",
         # ImageNet
@@ -35,39 +34,25 @@ if __name__ == "__main__":
         ignore_index=0,
     )
 
-    datamodule = TrainingDataModule(
-        # TODO: Try a batch size of 12.
+    datamodule = TrainingDataModule(  # TODO: Try a batch size of 12.
         root="../dataset/temp", batch_size=16, num_workers=8
     )
 
     # todo check strategies + callbacks + profiler
     trainer = Trainer(
+        logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
         callbacks=[
             ModelCheckpoint(
                 dirpath="../logs/RoofSense",
                 filename="best",
-                monitor="val_loss",
+                monitor="val/loss",
                 save_last=True,
             ),
-            EarlyStopping(monitor="val_loss", patience=500),
-            # TODO: LearningRateFinder(),
-            # GradientAccumulationScheduler(scheduling={0: 3}),
-            LearningRateMonitor(),  # TODO: OnExceptionCheckpoint(
-            #     dirpath="logs/RoofSense",
-            #     # Overwrite the last checkpoint.
-            #     filename="last",
-            # ),
-            # TODO: lightning.pytorch.callbacks.SpikeDetection,
-            # TODO: lightning.pytorch.callbacks.StochasticWeightAveraging
-            # TODO: lightning.pytorch.callbacks.ModelPruning,
+            EarlyStopping(monitor="val/loss", patience=1000),
+            LearningRateMonitor(),
         ],
         log_every_n_steps=1,
-        logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
-        benchmark=True,
-        # TODO: profiler=AdvancedProfiler(dirpath="logs/RoofSense/profiling"),
-        # detect_anomaly=True
-        # fast_dev_run=True
-        # overfit_batches=1
+        benchmark=True
     )
 
     trainer.fit(model=task, datamodule=datamodule)

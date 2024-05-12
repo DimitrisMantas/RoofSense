@@ -11,7 +11,6 @@ import torchgeo.transforms
 import tqdm
 
 import common.augmentations
-import inference.datamodule
 import inference.dataset
 import training.task
 
