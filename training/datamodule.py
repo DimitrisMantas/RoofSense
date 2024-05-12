@@ -12,7 +12,7 @@ from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
 from common.augmentations import MinMaxScaling
-from training.dataset import Band, TrainingDataset
+from training.dataset import TrainingDataset
 
 
 class TrainingDataModule(NonGeoDataModule):
@@ -66,8 +66,7 @@ class TrainingDataModule(NonGeoDataModule):
 
         # Training Augmentations
         # NOTE: This field overwrites the predefined augmentations.
-        self.train_aug = AugmentationSequential(
-            # Scaling
+        self.train_aug = AugmentationSequential(  # Scaling
             MinMaxScaling(self.mins, self.maxs),
             # Geometric Augmentations
             # Flips
@@ -83,8 +82,7 @@ class TrainingDataModule(NonGeoDataModule):
             # RandomSharpness(0.1),
             # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             data_keys=["image", "mask"],
-            extra_args={
-                # TODO: Figure out what the most appropriate setting for
+            extra_args={  # TODO: Figure out what the most appropriate setting for
                 #  `align_corners` should be.
                 DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
                 DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
@@ -121,12 +119,3 @@ class TrainingDataModule(NonGeoDataModule):
             generator=torch.Generator().manual_seed(0),
             persistent_workers=self.persistent_workers,
         )
-
-
-if __name__ == "__main__":
-    dm = TrainingDataModule(batch_size=1, root="../dataset/temp", bands=Band.ALL)
-    dm.setup("fit")
-    dm.train_dataset.transforms = dm.train_aug
-    img = dm.train_dataset[0]
-    dm.plot(img).show()
-    print(dm.train_dataset.img_paths)
