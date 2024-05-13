@@ -6,7 +6,7 @@ from torchgeo.datasets import RasterDataset
 
 class InferenceDataset(RasterDataset):
     # GeoDataset
-    filename_glob = "*.stack.tif"
+    filename_glob = "*.stack.mask.tif"
     # RasterDataset
     # TODO: Fill these fields in.
     all_bands: list[str] = []
