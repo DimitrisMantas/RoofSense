@@ -54,17 +54,21 @@ class InferenceEngine:
         self.loader = torch.utils.data.DataLoader(
             self.dataset,
             # TODO: Expose these parameters in the initializer.
-            batch_size=1,
+            batch_size=16,
             sampler=self.sampler,
-            # num_workers=max(os.cpu_count() // 2, 1),
-            num_workers=1,
+            num_workers=max(os.cpu_count() // 2, 1),
             collate_fn=torchgeo.datasets.stack_samples,
             pin_memory=True,
             generator=torch.Generator().manual_seed(0),
             persistent_workers=True,
         )
 
-        self.trainer = lightning.Trainer(benchmark=True)
+        # NOTE: This is required to detect the best available accelerator.
+        self.trainer = lightning.Trainer(
+            # TODO: Find out whether this is a global setting.
+            benchmark=True,
+            logger=False,
+        )
 
         # TODO: Expose these parameters in the initializer.
         self.size = torchgeo.samplers.utils._to_tuple(512)
@@ -77,10 +81,10 @@ class InferenceEngine:
             self.dataset.bounds, self.size, self.strd
         )
 
-        self.width = int(
+        self.width = round(
             (self.dataset.bounds.maxx - self.dataset.bounds.minx) / self.dataset.res
         )
-        self.height = int(
+        self.height = round(
             (self.dataset.bounds.maxy - self.dataset.bounds.miny) / self.dataset.res
         )
         # TODO: Expose these parameters in the initializer.
@@ -104,7 +108,9 @@ class InferenceEngine:
                 | list[torchgeo.datasets.BoundingBox]
                 | torch.Tensor,
             ] = self.augmet(batch)
-            images: torch.Tensor = batch["image"].to(self.model.device)
+            images: torch.Tensor = batch["image"].to(
+                self.trainer.strategy.root_device.type
+            )
 
             with torch.inference_mode():
                 preds: torch.Tensor = (
@@ -112,23 +118,17 @@ class InferenceEngine:
                 )
 
             for i in range(images.shape[0]):
-                row_idx, col_idx = divmod(
-                    img_idx,
-                    self.cols
-                )
+                row_idx, col_idx = divmod(img_idx, self.cols)
                 # NOTE: The chip sampler starts at the southeast corner of the stack.
                 row_off, col_off = len(self.buffer) - row_idx * 256, col_idx * 256
 
-                self.buffer[
-                    row_off - 512 : row_off,
-                    col_off : col_off + 512
-                ] = preds[i]
+                self.buffer[row_off - 512 : row_off, col_off : col_off + 512] = preds[i]
 
                 img_idx += 1
 
         dst: rasterio.io.DatasetWriter
         with rasterio.open(
-            "pred.tif",
+            "../dataset/infer/9-284-556.map.tif",
             mode="w",
             width=self.width,
             height=self.height,
