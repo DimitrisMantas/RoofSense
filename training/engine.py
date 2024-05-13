@@ -8,6 +8,7 @@ from lightning.pytorch.callbacks import (EarlyStopping,
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from training.datamodule import TrainingDataModule
+from training.loss import DistributionLoss, RegionLoss
 from training.task import TrainingTask
 
 if __name__ == "__main__":
@@ -16,22 +17,27 @@ if __name__ == "__main__":
 
     lightning.pytorch.seed_everything(42, workers=True)
 
-    task = TrainingTask(  # Model Configuration
+    task = TrainingTask(
+        # Decoder Configuration
         model="unet",
+        # Encoder Configuration
         backbone="resnet18",
-        # ImageNet
         weights=True,
+        # I/O Layer Configuration
         in_channels=5,
         num_classes=8 + 1,
-        # model_kwargs={
-        #     "decoder_attention_type": "scse"
-        # },
         # Loss Configuration
-        loss="CrossEntropyJaccard",
-        class_weights=torch.tensor(
-            np.load("../dataset/temp/weights.npy"), dtype=torch.float32
-        ),
-        ignore_index=0,
+        loss={
+            "base": DistributionLoss.CROSS_ENTROPY,
+            "other": RegionLoss.JACCARD,
+            "weight": torch.tensor(
+                np.load("../dataset/temp/weights.npy"), dtype=torch.float32
+            ),
+            "ignore_index":0,
+            "other_kwargs": {
+                "log_loss": True
+            },
+        }
     )
 
     datamodule = TrainingDataModule(  # TODO: Try a batch size of 12.

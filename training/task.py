@@ -2,22 +2,27 @@ from __future__ import annotations
 
 import os
 import warnings
-from typing import Literal
+from typing import Any, Literal
 
 import segmentation_models_pytorch as smp
 import torchgeo.trainers.utils
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from torch import Tensor
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
+from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchgeo.models import FCN
 from torchgeo.trainers import SemanticSegmentationTask
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import ClasswiseWrapper, Metric, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassF1Score,
                                          MulticlassJaccardIndex, )
 from torchvision.models import WeightsEnum
+from typing_extensions import override
 
-from training.loss import CrossEntropyJaccardLoss
+from training.loss import CompoundLoss
 
 
 class TrainingTask(SemanticSegmentationTask):
@@ -51,31 +56,12 @@ class TrainingTask(SemanticSegmentationTask):
         # of the nominal learning rate.
         min_lr_pct: float = 0.01,
         model_kwargs: dict[str, float | str | None] | None = None,
+        loss,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
-    def configure_losses(self) -> None:
-        try:
-            super().configure_losses()
-        except ValueError as e:
-            if self.hparams["loss"] == "CrossEntropyJaccard":
-                self.criterion = CrossEntropyJaccardLoss(
-                    self.hparams["num_classes"],
-                    ignore_index=self.hparams["ignore_index"],
-                    class_weights=self.hparams["class_weights"],
-                )
-            else:
-                raise e
-
-    def configure_metrics(self) -> None:
-        scalar_metrics = MetricCollection(
-            self._init_metrics(average="macro") | self._init_metrics(average="micro")
-        )
-        self.train_metrics = scalar_metrics.clone(prefix="Training/")
-        self.val_metrics = scalar_metrics.clone(prefix="Validation/")
-        self.test_metrics = scalar_metrics.clone(prefix="Testing/")
-
+    @override
     def configure_models(self) -> None:
         model: str = self.hparams["model"]
         backbone: str = self.hparams["backbone"]
@@ -151,6 +137,34 @@ class TrainingTask(SemanticSegmentationTask):
             for param in self.model.decoder.parameters():
                 param.requires_grad = False
 
+    @override
+    def configure_losses(self) -> None:
+        self.criterion = CompoundLoss(**self.hparams.loss)
+
+    @override
+    def configure_metrics(self) -> None:
+        self.train_metrics_scalar = MetricCollection(
+            self._init_metrics(average="macro")
+            | self._init_metrics(average="micro"),  # | classwise,
+            prefix="tra/",
+        )
+        self.val_metrics_scalar = self.train_metrics_scalar.clone(prefix="val/")
+        self.test_metrics_scalar = self.train_metrics_scalar.clone(prefix="tst/")
+
+        temp = self._init_metrics(average=None)
+        # TODO: Figure out why IoU cannot be wrapped.
+        temp.pop("IoU")
+        self.train_metrics_class = MetricCollection(
+            {
+                name: ClasswiseWrapper(metric, prefix=f"{name}/")
+                for name, metric in temp.items()
+            },
+            prefix="tra/",
+        )
+        self.val_metrics_class = self.train_metrics_class.clone(prefix="val/")
+        self.test_metrics_class = self.train_metrics_class.clone(prefix="tst/")
+
+    @override
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         # TODO: Explore different optimizers and schedulers and their specific
         #  parameters.
@@ -199,7 +213,7 @@ class TrainingTask(SemanticSegmentationTask):
         _average.capitalize()
 
         num_classes: int = self.hparams["num_classes"]
-        ignore_index: int | None = self.hparams["ignore_index"]
+        ignore_index: int | None = self.hparams["loss"]["ignore_index"]
 
         return {
             f"{_average}Accuracy": MulticlassAccuracy(
