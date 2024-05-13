@@ -56,3 +56,7 @@ if __name__ == "__main__":
     )
 
     trainer.fit(model=task, datamodule=datamodule)
+
+    print("Training completed successfully. Testing...")
+
+    trainer.test(model=task, datamodule=datamodule)
