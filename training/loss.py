@@ -1,4 +1,4 @@
-from enum import UNIQUE, StrEnum, auto, verify
+from enum import UNIQUE, Enum, auto, verify
 from typing import Literal
 
 import monai.losses
@@ -7,28 +7,34 @@ from torch import Tensor
 
 
 @verify(UNIQUE)
-class DistribLoss(StrEnum):
+class DistribBasedLoss(Enum):
     CROSS = auto()
     FOCAL = auto()
 
 
 @verify(UNIQUE)
-class RegionLoss(StrEnum):
+class RegionBasedLoss(Enum):
     DICE = auto()
     JACC = auto()
 
 
 # TODO: Add single-component loss support.
-class CompoundLoss(torch.nn.modules.loss._Loss):
+class CompoundLoss(
+    # NOTE: This is technically a weighted loss, but inheriting from its parent
+    # avoids registering an unnecessary weight buffer.
+    torch.nn.modules.loss._Loss
+):
+    """Composite loss function composed of a distribution- and, optionally, a region-based component."""
+
     def __init__(
         self,
-        this: DistribLoss,
-        that: RegionLoss,
+        this: DistribBasedLoss,
+        that: RegionBasedLoss,
         ignore_background: bool = True,
         weight: Tensor | None = None,
         reduction: Literal["mean", "none", "sum"] = "mean",
         this_kwargs: dict[str, bool | float] | None = None,
-        that_logcsh: bool = False,
+        that_smooth: bool = False,
         that_kwargs: dict[str, bool | float] | None = None,
         this_lambda: float = 1,
         that_lambda: float = 1,
@@ -39,16 +45,21 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
             # NOTE: MONAI does not normalize class weights.
             weight /= weight.sum()
 
-        common_kwargs = {"weight": weight, "reduction": reduction}
+        common_kwargs = {
+            "weight": weight[1:]
+            if ignore_background and weight is not None
+            else weight,
+            "reduction": reduction,
+        }
         variable_kwargs = this_kwargs if this_kwargs is not None else {}
 
-        if this == DistribLoss.CROSS:
+        if this == DistribBasedLoss.CROSS:
             self.this = torch.nn.CrossEntropyLoss(
                 ignore_index=0 if ignore_background else -100,
                 **common_kwargs,
                 **variable_kwargs,
             )
-        elif this == DistribLoss.FOCAL:
+        elif this == DistribBasedLoss.FOCAL:
             self.this = monai.losses.FocalLoss(
                 include_background=not ignore_background,
                 to_onehot_y=True,
@@ -70,18 +81,18 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
         }
         variable_kwargs = that_kwargs if that_kwargs is not None else {}
 
-        if that == RegionLoss.DICE:
+        if that == RegionBasedLoss.DICE:
             self.that = monai.losses.DiceLoss(
                 jaccard=False, **common_kwargs, **variable_kwargs
             )
-        elif that == RegionLoss.JACC:
+        elif that == RegionBasedLoss.JACC:
             self.that = monai.losses.DiceLoss(
                 jaccard=True, **common_kwargs, **variable_kwargs
             )
         else:
             raise ValueError
 
-        self.that_logcsh = that_logcsh
+        self.that_smooth = that_smooth
 
         self.this_lambda = this_lambda
         self.that_lambda = that_lambda
@@ -98,7 +109,7 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
         )
 
         that_val = self.that(input, target)
-        if self.that_logcsh:
+        if self.that_smooth:
             that_val = torch.log(torch.cosh(that_val))
 
         return self.this_lambda * this_val + self.that_lambda * that_val
