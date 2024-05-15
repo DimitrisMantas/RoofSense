@@ -8,7 +8,7 @@ from lightning.pytorch.callbacks import (EarlyStopping,
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from training.datamodule import TrainingDataModule
-from training.loss import DistributionLoss, RegionLoss
+from training.loss import DistribLoss, RegionLoss
 from training.task import TrainingTask
 
 if __name__ == "__main__":
@@ -27,20 +27,17 @@ if __name__ == "__main__":
         in_channels=5,
         num_classes=8 + 1,
         # Loss Configuration
-        loss={
-            "base": DistributionLoss.CROSS_ENTROPY,
-            "other": RegionLoss.JACCARD,
+        loss_params={
+            "this": DistribLoss.CROSS,
+            "that": RegionLoss.JACC,
+            "ignore_background":True,
             "weight": torch.tensor(
                 np.load("../dataset/temp/weights.npy"), dtype=torch.float32
-            ),
-            "ignore_index":0,
-            "other_kwargs": {
-                "log_loss": True
-            },
-        }
+            )
+        },
     )
 
-    datamodule = TrainingDataModule(  # TODO: Try a batch size of 12.
+    datamodule = TrainingDataModule(
         root="../dataset/temp", batch_size=16, num_workers=8
     )
 
@@ -58,11 +55,11 @@ if __name__ == "__main__":
             LearningRateMonitor(),
         ],
         log_every_n_steps=1,
-        benchmark=True
+        benchmark=True,
     )
 
-    trainer.fit(model=task, datamodule=datamodule)
-
-    print("Training completed successfully. Testing...")
-
+    trainer.fit(
+        model=task,
+        datamodule=datamodule
+    )
     trainer.test(model=task, datamodule=datamodule)

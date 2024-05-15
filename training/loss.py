@@ -1,112 +1,92 @@
 from enum import UNIQUE, StrEnum, auto, verify
 from typing import Literal
 
+import monai.losses
 import torch
 from torch import Tensor
-from torch.nn import CrossEntropyLoss
-from torch.nn.modules.loss import _WeightedLoss
-from torchseg.losses import (MULTICLASS_MODE,
-                             DiceLoss,
-                             JaccardLoss,
-                             LovaszLoss,
-                             TverskyLoss, )
 
 
 @verify(UNIQUE)
-class DistributionLoss(StrEnum):
-    CROSS_ENTROPY = auto()
+class DistribLoss(StrEnum):
+    CROSS = auto()
     FOCAL = auto()
 
 
 @verify(UNIQUE)
 class RegionLoss(StrEnum):
     DICE = auto()
-    JACCARD = auto()
-    LOVASZ = auto()
-    TVERSKY = auto()
+    JACC = auto()
 
 
-class FocalLoss(_WeightedLoss):
+# TODO: Add single-component loss support.
+class CompoundLoss(torch.nn.modules.loss._Loss):
     def __init__(
         self,
+        this: DistribLoss,
+        that: RegionLoss,
+        ignore_background: bool = True,
         weight: Tensor | None = None,
-        ignore_index: int = -100,
-        gamma: float = 2,
         reduction: Literal["mean", "none", "sum"] = "mean",
+        this_kwargs: dict[str, bool | float] | None = None,
+        that_kwargs: dict[str, bool | float] | None = None,
+        this_lambda: float = 1,
+        that_lambda: float = 1,
     ):
-        super().__init__(weight=weight, reduction=reduction)
+        super().__init__(reduction=reduction)
 
-        self.base = CrossEntropyLoss(ignore_index=ignore_index, reduction="none")
+        if weight is not None:
+            # NOTE: MONAI does not normalize class weights.
+            weight /= weight.sum()
 
-    def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        ce = self.base(input, target)
-        pt = torch.exp(-ce)
+        common_kwargs = {"weight": weight, "reduction": reduction}
+        variable_kwargs = this_kwargs if this_kwargs is not None else {}
 
-        ls = (1 - pt) ** self.gamma * ce
-        if self.weight is not None:
-            self.weight: Tensor
-            # TODO: Figure out why the weights must be gathered.
-            at = self.weight.div(self.weight.sum()).gather(0, target.data.view(-1))
-            ls *= at
-
-        if self.reduction == "mean":
-            return ls.mean()
-        elif self.reduction == "sum":
-            return ls.sum()
+        if this == DistribLoss.CROSS:
+            self.this = torch.nn.CrossEntropyLoss(
+                ignore_index=0 if ignore_background else -100,
+                **common_kwargs,
+                **variable_kwargs,
+            )
+        elif this == DistribLoss.FOCAL:
+            self.this = monai.losses.FocalLoss(
+                include_background=not ignore_background,
+                to_onehot_y=True,
+                use_softmax=True,
+                **common_kwargs,
+                **variable_kwargs,
+            )
         else:
-            return ls
-
-
-class CompoundLoss(_WeightedLoss):
-    def __init__(
-        self,
-        base: DistributionLoss,
-        other: RegionLoss,
-        weight: Tensor | None = None,
-        ignore_index: int | None = None,
-        reduction: Literal["mean", "none", "sum"] = "mean",
-        base_kwargs: dict[str, float] | None = None,
-        other_kwargs: dict[str, bool | float] | None = None,
-        base_lambda: float = 1,
-        other_lambda: float = 1,
-    ):
-        super().__init__(weight, reduction=reduction)
+            raise ValueError
 
         common_kwargs = {
-            "weight": weight,
-            # NOTE: Region-based losses require this parameter to be specified.
-            "ignore_index": -100 if ignore_index is None else ignore_index,
+            "include_background": not ignore_background,
+            "to_onehot_y": True,
+            "softmax": True,
             "reduction": reduction,
+            "weight": weight[1:]
+            if ignore_background and weight is not None
+            else weight,
         }
-        optional_kwargs = base_kwargs if base_kwargs is not None else {}
-
-        if base == DistributionLoss.CROSS_ENTROPY:
-            self.base = CrossEntropyLoss(**common_kwargs, **optional_kwargs)
-        elif base == DistributionLoss.FOCAL:
-            self.base = FocalLoss(**common_kwargs, **optional_kwargs)
-        else:
-            raise TypeError(
-                f"Failed to parse base loss: {base!r}.Expected {DistributionLoss.__class__.__name__} or string equivalent, but got {type(base)!r} instead. Invalid type."
+        variable_kwargs = that_kwargs if that_kwargs is not None else {}
+        if that == RegionLoss.DICE:
+            self.that = monai.losses.DiceLoss(
+                jaccard=False, **common_kwargs, **variable_kwargs
+            )
+        elif that == RegionLoss.JACC:
+            self.that = monai.losses.DiceLoss(
+                jaccard=True, **common_kwargs, **variable_kwargs
             )
 
-        common_kwargs = {"mode": MULTICLASS_MODE, "ignore_index": ignore_index}
-        optional_kwargs = other_kwargs if other_kwargs is not None else {}
-        if other == RegionLoss.DICE:
-            self.other = DiceLoss(**common_kwargs, **optional_kwargs)
-        elif other == RegionLoss.JACCARD:
-            self.other = JaccardLoss(**common_kwargs, **optional_kwargs)
-        elif other == RegionLoss.LOVASZ:
-            self.other = LovaszLoss(**common_kwargs, **optional_kwargs)
-        elif other == RegionLoss.TVERSKY:
-            self.other = TverskyLoss(**common_kwargs, **optional_kwargs)
-            raise TypeError(
-                f"Failed to parse base loss: {base!r}.Expected {RegionLoss.__class__.__name__} or string equivalent, but got {type(base)!r} instead. Invalid type."
-            )
-
-        self.base_lambda = base_lambda
-        self.other_lambda = other_lambda
+        self.this_lambda = this_lambda
+        self.that_lambda = that_lambda
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return self.base_lambda * self.base(
-            input, target
-        ) + self.other_lambda * self.other(input, target)
+        # NOTE: Target tensors are of shape BxHxW be MONAI requires it to be Bx1xHxW.
+        target = torch.unsqueeze(target, dim=1)
+
+        return self.this_lambda * self.this(
+            input,
+            torch.squeeze(target, dim=1)
+            if isinstance(self.this, torch.nn.CrossEntropyLoss)
+            else target,
+        ) + self.that_lambda * self.that(input, target)
