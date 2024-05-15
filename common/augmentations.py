@@ -29,25 +29,7 @@ class MinMaxScaling(K.IntensityAugmentationBase2D):
         return (input - mins) / (maxs - mins + self.delta)
 
 
-class RandomSharpness(K.RandomSharpness):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    @override
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: Dict[str, Tensor],
-        flags: Dict[str, Any],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        input[:, :3, ...] = super().apply_transform(
-            input[:, :3, ...], params, flags, transform
-        )
-        return input
-
-
-class RandomDiagonalFlip(K.IntensityAugmentationBase2D):
+class RandomDiagonalFlip(K.GeometricAugmentationBase2D):
     def __init__(self, diag: Literal["main", "antid"], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.flags = {"diag": diag}
@@ -68,6 +50,24 @@ class RandomDiagonalFlip(K.IntensityAugmentationBase2D):
             return input.transpose(-1, -2).contiguous()
         else:
             return vflip(hflip(input))
+
+
+class RandomSharpness(K.RandomSharpness):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
 
     @override
     def apply_transform(
