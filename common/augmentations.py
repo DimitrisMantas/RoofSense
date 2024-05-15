@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 import kornia.augmentation as K
 import torch
+from kornia.geometry import hflip, vflip
 from overrides import override
 from torch import Tensor
 
@@ -44,6 +45,39 @@ class RandomSharpness(K.RandomSharpness):
             input[:, :3, ...], params, flags, transform
         )
         return input
+
+
+class RandomDiagonalFlip(K.IntensityAugmentationBase2D):
+    def __init__(self, diag: Literal["main", "antid"], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.flags = {"diag": diag}
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        if input.shape[-1] != input.shape[-2]:
+            raise RuntimeError(
+                "Flipping along the image diagonal is only applicable to square inputs."
+            )
+        if self.flags["diag"] == "main":
+            return input.transpose(-1, -2).contiguous()
+        else:
+            return vflip(hflip(input))
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        return torch.flipud(torch.fliplr(input))
 
 
 class ColorJiggle(K.ColorJiggle):

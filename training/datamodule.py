@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import MinMaxScaling
+from common.augmentations import MinMaxScaling, RandomDiagonalFlip
 from training.dataset import TrainingDataset
 
 
@@ -66,12 +66,16 @@ class TrainingDataModule(NonGeoDataModule):
 
         # Training Augmentations
         # NOTE: This field overwrites the predefined augmentations.
-        self.train_aug = AugmentationSequential(  # Scaling
+        self.train_aug = AugmentationSequential(
+            # Scaling
             MinMaxScaling(self.mins, self.maxs),
             # Geometric Augmentations
+            # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips
             K.RandomHorizontalFlip(),
             K.RandomVerticalFlip(),
+            RandomDiagonalFlip(diag="main"),
+            RandomDiagonalFlip(diag="antid"),
             # Rotations
             # NOTE: This approach is equivalent to allowing only 90, 180, and 270
             # degree rotations.
@@ -82,7 +86,8 @@ class TrainingDataModule(NonGeoDataModule):
             # RandomSharpness(0.1),
             # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             data_keys=["image", "mask"],
-            extra_args={  # TODO: Figure out what the most appropriate setting for
+            extra_args={
+                # TODO: Figure out what the most appropriate setting for
                 #  `align_corners` should be.
                 DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
                 DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
