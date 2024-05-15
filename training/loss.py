@@ -28,6 +28,7 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
         weight: Tensor | None = None,
         reduction: Literal["mean", "none", "sum"] = "mean",
         this_kwargs: dict[str, bool | float] | None = None,
+        that_logcsh: bool = False,
         that_kwargs: dict[str, bool | float] | None = None,
         this_lambda: float = 1,
         that_lambda: float = 1,
@@ -68,6 +69,7 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
             else weight,
         }
         variable_kwargs = that_kwargs if that_kwargs is not None else {}
+
         if that == RegionLoss.DICE:
             self.that = monai.losses.DiceLoss(
                 jaccard=False, **common_kwargs, **variable_kwargs
@@ -76,6 +78,10 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
             self.that = monai.losses.DiceLoss(
                 jaccard=True, **common_kwargs, **variable_kwargs
             )
+        else:
+            raise ValueError
+
+        self.that_logcsh = that_logcsh
 
         self.this_lambda = this_lambda
         self.that_lambda = that_lambda
@@ -84,9 +90,15 @@ class CompoundLoss(torch.nn.modules.loss._Loss):
         # NOTE: Target tensors are of shape BxHxW be MONAI requires it to be Bx1xHxW.
         target = torch.unsqueeze(target, dim=1)
 
-        return self.this_lambda * self.this(
+        this_val = self.this(
             input,
             torch.squeeze(target, dim=1)
             if isinstance(self.this, torch.nn.CrossEntropyLoss)
             else target,
-        ) + self.that_lambda * self.that(input, target)
+        )
+
+        that_val = self.that(input, target)
+        if self.that_logcsh:
+            that_val = torch.log(torch.cosh(that_val))
+
+        return self.this_lambda * this_val + self.that_lambda * that_val
