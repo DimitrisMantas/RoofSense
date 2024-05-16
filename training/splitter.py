@@ -13,10 +13,11 @@ import config
 import utils.geom
 
 
-def split(obj_id: str, background_cutoff: float) -> None:
+def split(obj_id: str, background_cutoff: float,limit:int) -> None:
     # Dissolve the surfaces so that only their edges are buffered.
     surfs = utils.geom.read_surfaces(obj_id).dissolve()
-
+    rng=np.random.default_rng(seed=0)
+    num_accepted_in_a_row=0
     stack_path = pathlib.Path(
         f"{config.env('TEMP_DIR')}"
         f"{obj_id}"
@@ -29,15 +30,22 @@ def split(obj_id: str, background_cutoff: float) -> None:
         original_surf_mask, *_ = rasterio.mask.raster_geometry_mask(
             stack, shapes=surfs[config.var("DEFAULT_GM_FIELD_NAME")]
         )
-
+        blocks=0
         block: rasterio.windows.Window
         # Use the data blocks of the first band.
         # NOTE: This ensures indexing notation ensures that all bands share the
         #       same internal data block structure.
         for (row, col), block in stack.block_windows(-1):
+            if blocks==limit:
+                return limit
             if block.width != block.height:
                 continue
-
+            if rng.binomial(1,p=0.5)==0:
+                continue
+            if num_accepted_in_a_row==3:
+                num_accepted_in_a_row=0
+                continue
+            num_accepted_in_a_row+=1
             # TODO: Document this block.
             original_patch_data = stack.read(window=block, masked=True)
             original_patch_data.mask = (
@@ -96,3 +104,6 @@ def split(obj_id: str, background_cutoff: float) -> None:
                 f".png"
             )
             cv2.imwrite(rgb_patch_path.absolute().as_posix(), rgb_data)
+
+            blocks+=1
+        return blocks
