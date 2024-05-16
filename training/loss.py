@@ -32,7 +32,7 @@ class CompoundLoss(
         that: RegionBasedLoss,
         ignore_background: bool = True,
         weight: Tensor | None = None,
-        reduction: Literal["mean", "none", "sum"] = "mean",
+        reduction: Literal["mean", "sum"] = "mean",
         this_kwargs: dict[str, bool | float] | None = None,
         that_smooth: bool = False,
         that_kwargs: dict[str, bool | float] | None = None,
@@ -43,18 +43,17 @@ class CompoundLoss(
 
         if weight is not None:
             # NOTE: MONAI does not normalize class weights.
+            weight: Tensor
             weight /= weight.sum()
 
-        common_kwargs = {
-            "weight": weight[1:]
-            if ignore_background and weight is not None
-            else weight,
-            "reduction": reduction,
-        }
+        self.weight = weight
+
+        common_kwargs = {"reduction": reduction}
         variable_kwargs = this_kwargs if this_kwargs is not None else {}
 
         if this == DistribBasedLoss.CROSS:
             self.this = torch.nn.CrossEntropyLoss(
+                weight=weight,
                 ignore_index=0 if ignore_background else -100,
                 **common_kwargs,
                 **variable_kwargs,
@@ -63,9 +62,16 @@ class CompoundLoss(
             self.this = monai.losses.FocalLoss(
                 include_background=not ignore_background,
                 to_onehot_y=True,
+                weight=weight[1:]
+                if ignore_background and weight is not None
+                else weight,
                 use_softmax=True,
                 **common_kwargs,
                 **variable_kwargs,
+            )
+            # to be able to load checkpoints
+            self.this.class_weight = (
+                weight if weight is None else weight[1:].view((-1, 1, 1))
             )
         else:
             raise ValueError
@@ -92,6 +98,9 @@ class CompoundLoss(
         else:
             raise ValueError
 
+        # to be able to load checkpoints
+        self.that.class_weight = weight if weight is None else weight[1:]
+
         self.that_smooth = that_smooth
 
         self.this_lambda = this_lambda
@@ -101,15 +110,15 @@ class CompoundLoss(
         # NOTE: Target tensors are of shape BxHxW be MONAI requires it to be Bx1xHxW.
         target = torch.unsqueeze(target, dim=1)
 
-        this_val = self.this(
+        this_val: Tensor = self.this(
             input,
             torch.squeeze(target, dim=1)
             if isinstance(self.this, torch.nn.CrossEntropyLoss)
             else target,
         )
 
-        that_val = self.that(input, target)
+        that_val: Tensor = self.that(input, target)
         if self.that_smooth:
-            that_val = torch.log(torch.cosh(that_val))
+            that_val = that_val.cosh().log()
 
         return self.this_lambda * this_val + self.that_lambda * that_val

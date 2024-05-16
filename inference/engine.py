@@ -40,8 +40,17 @@ class InferenceEngine:
             data_keys=["image"],
         )
 
+        # NOTE: This is required to detect the best available accelerator.
+        self.trainer = lightning.Trainer(
+            # TODO: Find out whether this is a global setting.
+            benchmark=True,
+            logger=False,
+        )
+
         self.model: training.task.TrainingTask = (
-            training.task.TrainingTask.load_from_checkpoint(model_ckpt)
+            training.task.TrainingTask.load_from_checkpoint(
+                model_ckpt, map_location=self.trainer.strategy.root_device.type
+            )
         )
         self.model.eval()
 
@@ -61,13 +70,6 @@ class InferenceEngine:
             pin_memory=True,
             generator=torch.Generator().manual_seed(0),
             persistent_workers=True,
-        )
-
-        # NOTE: This is required to detect the best available accelerator.
-        self.trainer = lightning.Trainer(
-            # TODO: Find out whether this is a global setting.
-            benchmark=True,
-            logger=False,
         )
 
         # TODO: Expose these parameters in the initializer.
@@ -128,7 +130,7 @@ class InferenceEngine:
 
         dst: rasterio.io.DatasetWriter
         with rasterio.open(
-            "../dataset/infer/9-284-556.map.tif",
+            "../dataset/infer/9-284-556.v5.map.tif",
             mode="w",
             width=self.width,
             height=self.height,
@@ -148,8 +150,7 @@ class InferenceEngine:
             compress="DEFLATE",
             num_threads=os.cpu_count(),
         ) as dst:
-            dst.write(
-                # Trim the buffer to the stack dimensions.
+            dst.write(  # Trim the buffer to the stack dimensions.
                 self.buffer[
                     len(self.buffer) - self.height : len(self.buffer), : self.width
                 ],
@@ -159,6 +160,6 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best.ckpt"
+        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best-v5.ckpt"
     )
     engine.run()
