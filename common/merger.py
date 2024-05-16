@@ -9,6 +9,7 @@ import rasterio.warp
 from overrides import override
 
 import config
+import utils
 from utils import raster
 
 
@@ -33,8 +34,8 @@ class RasterStackBuilder(DataMerger):
             f"{config.var('TIF')}"
         )
 
-        # if utils.file.exists(out_path):
-        #     return
+        if utils.file.exists(out_path):
+            return
 
         in_paths = [
             f"{config.env('TEMP_DIR')}{obj_id}{img_tp}{config.var('TIF')}"
