@@ -28,8 +28,8 @@ if __name__ == "__main__":
         num_classes=8 + 1,
         # Loss Configuration
         loss_params={
-            "this": DistribBasedLoss.FOCAL,
-            "that": RegionBasedLoss.DICE,
+            "this": DistribBasedLoss.CROSS,
+            "that": RegionBasedLoss.JACC,
             "ignore_background": True,
             "weight": torch.tensor(
                 np.load("../dataset/temp/weights.npy"), dtype=torch.float32
