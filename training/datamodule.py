@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import MinMaxScaling, RandomDiagonalFlip
+from common.augmentations import MinMaxScaling
 from training.dataset import TrainingDataset
 
 
@@ -73,8 +73,8 @@ class TrainingDataModule(NonGeoDataModule):
             # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips
             K.RandomVerticalFlip(), K.RandomHorizontalFlip(),
-            RandomDiagonalFlip(diag="main"),
-            RandomDiagonalFlip(diag="anti"),
+            # RandomDiagonalFlip(diag="main"),
+            # RandomDiagonalFlip(diag="anti"),
             # Rotations
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
