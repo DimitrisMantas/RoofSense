@@ -72,13 +72,10 @@ class TrainingDataModule(NonGeoDataModule):
             # Geometric Augmentations
             # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips
-            K.RandomHorizontalFlip(),
-            K.RandomVerticalFlip(),
+            K.RandomVerticalFlip(), K.RandomHorizontalFlip(),
             RandomDiagonalFlip(diag="main"),
-            RandomDiagonalFlip(diag="antid"),
+            RandomDiagonalFlip(diag="anti"),
             # Rotations
-            # NOTE: This approach is equivalent to allowing only 90, 180, and 270
-            # degree rotations.
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
