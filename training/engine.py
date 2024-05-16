@@ -8,7 +8,7 @@ from lightning.pytorch.callbacks import (EarlyStopping,
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from training.datamodule import TrainingDataModule
-from training.loss import DistribLoss, RegionLoss
+from training.loss import DistribBasedLoss, RegionBasedLoss
 from training.task import TrainingTask
 
 if __name__ == "__main__":
@@ -17,23 +17,19 @@ if __name__ == "__main__":
 
     lightning.pytorch.seed_everything(42, workers=True)
 
-    task = TrainingTask(
-        # Decoder Configuration
-        model="unet",
-        # Encoder Configuration
+    task = TrainingTask(  # Decoder Configuration
+        model="unet",  # Encoder Configuration
         backbone="resnet18",
-        weights=True,
-        # I/O Layer Configuration
+        weights=True,  # I/O Layer Configuration
         in_channels=5,
-        num_classes=8 + 1,
-        # Loss Configuration
+        num_classes=8 + 1,  # Loss Configuration
         loss_params={
-            "this": DistribLoss.CROSS,
-            "that": RegionLoss.JACC,
-            "ignore_background":True,
+            "this": DistribBasedLoss.FOCAL,
+            "that": RegionBasedLoss.DICE,
+            "ignore_background": True,
             "weight": torch.tensor(
                 np.load("../dataset/temp/weights.npy"), dtype=torch.float32
-            )
+            ),
         },
     )
 
@@ -58,8 +54,5 @@ if __name__ == "__main__":
         benchmark=True,
     )
 
-    trainer.fit(
-        model=task,
-        datamodule=datamodule
-    )
+    trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)

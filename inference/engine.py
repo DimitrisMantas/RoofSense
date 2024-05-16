@@ -159,6 +159,6 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best-v0.ckpt"
+        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best.ckpt"
     )
     engine.run()
