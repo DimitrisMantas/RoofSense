@@ -192,7 +192,12 @@ class PointCloud:
         cells = ras.xy()
 
         # Query the index.
-        neighbors, distances = self.index.query(tuple(map(tuple, cells)), r=res)
+        neighbors, distances = self.index.query(
+            tuple(map(tuple, cells)),
+            r=res/2,
+            # Chebyshev Distance
+            p=np.inf
+        )
 
         # TODO: Add multithreading.
         # Interpolate the attribute value at the raster cells.
