@@ -194,9 +194,9 @@ class PointCloud:
         # Query the index.
         neighbors, distances = self.index.query(
             tuple(map(tuple, cells)),
-            r=res/2,
+            r=res / 2,
             # Chebyshev Distance
-            p=np.inf
+            p=np.inf,
         )
 
         # TODO: Add multithreading.
