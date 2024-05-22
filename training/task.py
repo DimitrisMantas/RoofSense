@@ -277,10 +277,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tra/" + "loss", loss)
-
-        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="tra")
-        self.log_dict(scalar_metrics)
-        self.log_dict(class_metrics)
+        self.log_dict(self._update_metrics(preds, target, stage="tra"))
 
         self._plot_confmat(preds, target, step="tra")
 
@@ -350,10 +347,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("val/" + "loss", loss)
-
-        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="val")
-        self.log_dict(scalar_metrics)
-        self.log_dict(class_metrics)
+        self.log_dict(self._update_metrics(preds, target, stage="val"))
 
         self._plot_confmat(preds, target, step="val")
 
@@ -391,10 +385,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tst/" + "loss", loss)
-
-        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="tst")
-        self.log_dict(scalar_metrics)
-        self.log_dict(class_metrics)
+        self.log_dict(self._update_metrics(preds, target, stage="tst"))
 
         self._plot_confmat(preds, target, step="tst")
 
@@ -444,10 +435,7 @@ class TrainingTask(SemanticSegmentationTask):
 
     def _update_metrics(
         self, preds, target, stage: Literal["tra", "val", "tst"]
-    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
-        num_classes: int = self.hparams["num_classes"]
-        include_background: bool = not self.hparams["loss_params"]["ignore_background"]
-
+    ) -> dict[str, Tensor]:
         # NOTE: torchmetrics.segmentation.MeanIoU does not support one-hot encoded
         # predictions.
         preds = preds.argmax(dim=1)
@@ -455,38 +443,24 @@ class TrainingTask(SemanticSegmentationTask):
         scalar_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_scalar")(
             preds, target
         )
-
         class_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_class")(
             preds, target
         )
 
-        if include_background:
-            return scalar_metrics, class_metrics
+        if not self.hparams["loss_params"]["ignore_background"]:
+            return scalar_metrics | class_metrics
 
         # Discard metrics referring to the background class.
-        # TODO: Simplify the IoU relabelling step.
-        increm_names = []
-        ignore_names = []
-        for name, metric in class_metrics.items():
-            _, metric, label = name.split("/")
-            # NOTE: torchmetrics.segmentation.MeanIoU automatically discards
-            # background results.
-            # However, the resulting class labels of the remaining must be
-            # incremented by one to match the actual ones.
-            if metric == "IoU":
-                increm_names.append(name)
-                continue
-            if label == str(int(include_background)):
-                ignore_names.append(name)
-        temp = {
-            f"{stage}/IoU/{label}": class_metrics[name]
-            for label, name in enumerate(increm_names, start=1)
-        }
-        for name in increm_names:
-            class_metrics.pop(name)
-        for name, metric in temp.items():
-            class_metrics[name] = metric
-        for name in ignore_names:
+        for name in [name for name in class_metrics if name.split("/")[2] == "0"]:
             class_metrics.pop(name)
 
-        return scalar_metrics, class_metrics
+        old_iou_names = [name for name in class_metrics if name.split("/")[1] == "IoU"]
+        new_iou_names = {
+            f"{stage}/IoU/{label}": class_metrics[name]
+            for label, name in enumerate(old_iou_names, start=1)
+        }
+        for name in old_iou_names:
+            class_metrics.pop(name)
+        class_metrics |= new_iou_names
+
+        return scalar_metrics | class_metrics
