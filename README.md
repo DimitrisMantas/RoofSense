@@ -1,15 +1,11 @@
+![](colors.png)
+
 <a href="https://universe.roboflow.com/my-workspace-lg4pq/roofsense">
     <img src="https://app.roboflow.com/images/download-dataset-badge.svg"></img>
 </a>
 
 # Legal
 
-Copyright © 2023-2024 Dimitris Mantas
-<br>
-<br>
-<a rel="license" href="https://www.gnu.org/licenses/">
-<img alt="Creative Commons License" style="border-width:0; height:3rem" src="https://www.gnu.org/graphics/gplv3-or-later.svg" />
-</a>
-<br>
-Except where otherwise noted, this work is licensed under the <a rel="license" href="https://www.gnu.org/licenses/">GNU
-General Public License</a>.
+Copyright © 2024 Dimitris Mantas
+
+Except where otherwise noted, this work is licensed under the [MIT License](LICENSE).

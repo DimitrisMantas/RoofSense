@@ -5,7 +5,9 @@ import numpy as np
 import shapely
 from overrides import override
 
+import common
 import config
+import training
 
 
 class DataSampler(ABC):
@@ -13,19 +15,30 @@ class DataSampler(ABC):
         self._rng = np.random.default_rng(int(config.var("SEED")))
 
     @abstractmethod
-    def sample(self, size: int): ...
+    def sample(self, size: int,background_cutoff:float): ...
 
 
 class BAG3DSampler(DataSampler):
     def __init__(self) -> None:
         super().__init__()
+        # Initialize the data downloaders.
+        self.bag3d_downloader = common.downloaders.BAG3DDownloader()
+        self.asset_downloader = common.downloaders.AssetDownloader()
+
+        # Initialize the data parsers.
+        self.bag3d_parser = common.parsers.BAG3DParser()
+        self.image_parser = common.parsers.ImageParser()
+        self.lidar_parser = common.parsers.LiDARParser()
+
+        # Initialize the sheet indices.
         self._index = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
         self._seeds = gpd.read_file(config.env("CITIES"))
 
     @override
-    def sample(self, size: int) -> list[str]:
+    def sample(self, size: int,background_cutoff:float) -> list[str]:
+        num_im = 0
         sample = []
-        while len(sample) < size:
+        while num_im < size:
             seed_pt = self._seeds.sample(random_state=self._rng)[
                 config.var("DEFAULT_GM_FIELD_NAME")
             ]
@@ -60,6 +73,29 @@ class BAG3DSampler(DataSampler):
                     > 1.1e6
                 ):
                     continue
+                # -----
+                # Process the tile.
+                print(f"Processing tile {tile_id}...")
+                # Download the corresponding 3DBAG data.
+                self.bag3d_downloader.download(tile_id)
+                # Parse the data.
+                self.bag3d_parser.parse(tile_id)
+
+                # Download the corresponding assets.
+                self.asset_downloader.download(tile_id)
+                # Parse the data.
+                self.image_parser.parse(tile_id)
+                self.lidar_parser.parse(tile_id)
+
+                # Create the raster stack.
+                common.merger.RasterStackBuilder().merge(tile_id)
+
+                # Prepare the stacks for annotation.
+                print(f"Requesting at most {size-num_im} chips.")
+                new=training.splitter.split(tile_id, background_cutoff,limit=size-num_im)
+                print(f"Got {new} chips.")
+                num_im +=new
+                # -----
                 sample.append(tile_id)
         return sample
 

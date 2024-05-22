@@ -51,9 +51,7 @@ class BAG3DDownloader(_Downloader):
 
         with requests.Session() as session:
             utils.file.BlockingFileDownloader(
-                url,
-                filename=dst_filepath,
-                session=session,
+                url, filename=dst_filepath, session=session
             ).download()
 
 

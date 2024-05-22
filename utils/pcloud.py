@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence, Iterable
+from collections.abc import Iterable, Sequence
 from functools import cache
 from io import BytesIO
 from os import PathLike
@@ -21,7 +21,8 @@ class PointCloud:
     """Convenience class for manipulating point clouds in the `LASer
     <https://www.asprs.org/divisions-committees/lidar-division/laser-las-file-format
     -exchange-activities>`_ and `LASzip <https://rapidlasso.de/laszip/>`_ file
-    formats."""
+    formats.
+    """
 
     def __init__(
         self, filepath: str | bytes | BytesIO, init_index: bool = False
@@ -64,7 +65,8 @@ class PointCloud:
         """Get the two-dimensional, coordinate interleaved, axis-aligned bounding
         box, :math:`[x_{min}, y_{min}, x_{max}, y_{max}]`, specifying the spatial
         extent of the point cloud in the length unit of its coordinate reference
-        system."""
+        system.
+        """
         return *self.header.mins[:2], *self.header.maxs[:2]
 
     @property
@@ -142,7 +144,7 @@ class PointCloud:
         self,
         dim: str,
         res: float,
-        p:float=2,
+        p: float = 2,
         bbox: Optional[BoundingBoxLike] = None,
         meta: Optional[rasterio.profiles.Profile] = None,
     ) -> raster.Raster:
@@ -190,11 +192,18 @@ class PointCloud:
         cells = ras.xy()
 
         # Query the index.
-        neighbors, distances = self.index.query(tuple(map(tuple, cells)), r=res)
+        neighbors, distances = self.index.query(
+            tuple(map(tuple, cells)),
+            r=res / 2,
+            # Chebyshev Distance
+            p=np.inf,
+        )
 
         # TODO: Add multithreading.
         # Interpolate the attribute value at the raster cells.
-        ras_data = np.full_like(neighbors, fill_value=ras.meta["nodata"], dtype=ras.meta["dtype"])
+        ras_data = np.full_like(
+            neighbors, fill_value=ras.meta["nodata"], dtype=ras.meta["dtype"]
+        )
         for i, (neighbor, distance) in tqdm.tqdm(
             enumerate(zip(neighbors, distances)),
             desc="Rasterization",
@@ -228,14 +237,7 @@ class PointCloud:
         # NOTE: The unique element filter provided by NumPy is inefficient.
         #       See https://github.com/numpy/numpy/issues/11136 for more information.
         recs = pl.DataFrame(
-            np.vstack(
-                [
-                    self.X,
-                    self.Y,
-                    self.Z,
-                ]
-            ).transpose(),
-            schema=["X", "Y", "Z"],
+            np.vstack([self.X, self.Y, self.Z]).transpose(), schema=["X", "Y", "Z"]
         )
         recs = recs.with_row_index()
 

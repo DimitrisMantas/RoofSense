@@ -9,6 +9,7 @@ import rasterio.warp
 from overrides import override
 
 import config
+import utils
 from utils import raster
 
 
@@ -33,8 +34,8 @@ class RasterStackBuilder(DataMerger):
             f"{config.var('TIF')}"
         )
 
-        # if utils.file.exists(out_path):
-        #     return
+        if utils.file.exists(out_path):
+            return
 
         in_paths = [
             f"{config.env('TEMP_DIR')}{obj_id}{img_tp}{config.var('TIF')}"
@@ -58,7 +59,6 @@ class RasterStackBuilder(DataMerger):
 
         stack: rasterio.io.DatasetWriter
         with rasterio.open(out_path, mode="w", **out_meta) as stack:
-
             for band_id, path in enumerate(in_paths[1:], start=3):
                 tmp: rasterio.io.DatasetReader
                 with rasterio.open(path) as tmp:

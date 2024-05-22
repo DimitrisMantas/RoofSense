@@ -22,7 +22,7 @@ class LiDARParser(AssetParser):
     def parse(self, obj_id: str) -> None:
         self._update(obj_id)
         box = _get_bbox(obj_id)
-        ldr_path = self._merge_assets(obj_id,box)
+        ldr_path = self._merge_assets(obj_id, box)
         rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIF')}"
         slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIF')}"
         scalars = _get_scalars(rfl_path, slp_path)
@@ -31,7 +31,6 @@ class LiDARParser(AssetParser):
         pc = pcloud.PointCloud(ldr_path)
         # TODO: optimize the resolution factor
         res = _get_res(obj_id) * 3
-
 
         refl_field = config.var("REFLECTANCE_FIELD")
         elev_field = config.var("ELEVATION_FIELD")
@@ -46,9 +45,10 @@ class LiDARParser(AssetParser):
 
                 rfl.fill()
 
-            # Convert the unit from dB to the underlying ratio.
+            # Convert the unit of measurement from dB to the underlying optical power
+            # ratio.
             rfl.data = 10 ** (0.1 * rfl.data)
-            # Clip erroneous values corresponding to non-Lambertian surfaces.
+            # Discard values corresponding to non-Lambertian reflectors.
             rfl.data = rfl.data.clip(max=1)
 
             rfl.save(rfl_path)
@@ -64,7 +64,7 @@ class LiDARParser(AssetParser):
 
             elev.save(slp_path)
 
-    def _merge_assets(self, obj_id: str,box) -> str:
+    def _merge_assets(self, obj_id: str, box) -> str:
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
         if not utils.file.exists(out_path):
             in_paths = [

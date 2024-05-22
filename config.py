@@ -25,7 +25,7 @@ def config(training: bool = False) -> None:
 
 
 def env(key: str) -> str:
-    return os.path.join(_PROJ_DIR , os.environ[key])
+    return os.path.join(_PROJ_DIR, os.environ[key])
 
 
 def var(key: str) -> str:
