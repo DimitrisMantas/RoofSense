@@ -62,28 +62,28 @@ class CompoundLoss(
             self.this = monai.losses.FocalLoss(
                 include_background=not ignore_background,
                 to_onehot_y=True,
-                weight=weight[1:]
-                if ignore_background and weight is not None
-                else weight,
+                # weight=weight[1:]
+                # if ignore_background and weight is not None
+                # else weight,
                 use_softmax=True,
                 **common_kwargs,
                 **variable_kwargs,
             )
             # to be able to load checkpoints
-            self.this.class_weight = (
-                weight if weight is None else weight[1:].view((-1, 1, 1))
-            )
+            # self.this.class_weight = (
+            #     weight if weight is None else weight[1:].view((-1, 1, 1))
+            # )
         else:
             raise ValueError
 
         common_kwargs = {
             "include_background": not ignore_background,
             "to_onehot_y": True,
-            "softmax": True,
+            "other_act": lambda pred: pred.log_softmax(dim=1).exp(),
             "reduction": reduction,
-            "weight": weight[1:]
-            if ignore_background and weight is not None
-            else weight,
+            # "weight": weight[1:]
+            # if ignore_background and weight is not None
+            # else weight,
         }
         variable_kwargs = that_kwargs if that_kwargs is not None else {}
 
@@ -99,7 +99,7 @@ class CompoundLoss(
             raise ValueError
 
         # to be able to load checkpoints
-        self.that.class_weight = weight if weight is None else weight[1:]
+        # self.that.class_weight = weight if weight is None else weight[1:]
 
         self.that_smooth = that_smooth
 
@@ -120,5 +120,13 @@ class CompoundLoss(
         that_val: Tensor = self.that(input, target)
         if self.that_smooth:
             that_val = that_val.cosh().log()
+
+        # x = monai.metrics.compute_iou(
+        #     input.log_softmax(dim=1).exp(),
+        #     monai.losses.dice.one_hot(target,num_classes=9),
+        #     include_background=self.that.include_background,
+        # )
+        # x[torch.isnan(x)] = 0.0
+        # x=x.mean()
 
         return self.this_lambda * this_val + self.that_lambda * that_val
