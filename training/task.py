@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import os
 import warnings
@@ -186,7 +184,7 @@ class TrainingTask(SemanticSegmentationTask):
                     num_classes, ignore_index=ignore_index
                 ),
             },
-            prefix="tra/"
+            prefix="tra/",
         )
         self.val_metrics_scalar = self.tra_metrics_scalar.clone(prefix="val/")
         self.tst_metrics_scalar = self.tra_metrics_scalar.clone(prefix="tst/")
@@ -197,7 +195,7 @@ class TrainingTask(SemanticSegmentationTask):
                 name: ClasswiseWrapper(metric, prefix=f"{name}/")
                 for name, metric in self._init_metrics(average="none").items()
             },
-            prefix="tra/"
+            prefix="tra/",
         )
         self.val_metrics_class = self.tra_metrics_class.clone(prefix="val/")
         self.tst_metrics_class = self.tra_metrics_class.clone(prefix="tst/")
@@ -406,7 +404,6 @@ class TrainingTask(SemanticSegmentationTask):
     def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
         input = batch["image"]
         target = batch["mask"]
-        # TODO: Try ignoring background predictions here.
         preds = self(input)
         loss = self.criterion(preds, target)
 
@@ -415,8 +412,7 @@ class TrainingTask(SemanticSegmentationTask):
     def _update_metrics(
         self, preds, target, stage: Literal["tra", "val", "tst"]
     ) -> dict[str, Tensor]:
-        # NOTE: torchmetrics.segmentation.MeanIoU does not support one-hot encoded
-        # predictions.
+        # NOTE: torchmetrics.segmentation.MeanIoU does not support logit predictions.
         preds = preds.argmax(dim=1)
 
         scalar_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_scalar")(
@@ -429,17 +425,19 @@ class TrainingTask(SemanticSegmentationTask):
         if not self.hparams["loss_params"]["ignore_background"]:
             return scalar_metrics | class_metrics
 
-        # Discard metrics referring to the background class.
-        for name in [name for name in class_metrics if name.split("/")[2] == "0"]:
+        # Discard the metrics corresponding to the background,
+        # NOTE: I torchmetrics.segmentation.MeanIoU handles the background when
+        #  updated, but the resulting values are labelled using the index of the
+        # previous class (i.e., the IoU for Class 1 is labelled as that of Class 0).
+        # Therefore, IoU must be processed before any other metric so as to validate
+        # the corresponding metric names.
+        iou_names = [name for name in class_metrics if name.split("/")[1] == "IoU"]
+        iou_pairs = {}
+        for label, name in enumerate(iou_names, start=1):
+            iou_pairs[f"{stage}/IoU/{label}"] = class_metrics.pop(name)
+
+        bad_names = [name for name in class_metrics if name.split("/")[2] == "0"]
+        for name in bad_names:
             class_metrics.pop(name)
 
-        old_iou_names = [name for name in class_metrics if name.split("/")[1] == "IoU"]
-        new_iou_names = {
-            f"{stage}/IoU/{label}": class_metrics[name]
-            for label, name in enumerate(old_iou_names, start=1)
-        }
-        for name in old_iou_names:
-            class_metrics.pop(name)
-        class_metrics |= new_iou_names
-
-        return scalar_metrics | class_metrics
+        return scalar_metrics | class_metrics | iou_pairs
