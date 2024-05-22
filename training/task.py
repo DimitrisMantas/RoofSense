@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import warnings
 from typing import Any, Literal
@@ -8,24 +9,36 @@ import segmentation_models_pytorch as smp
 import torchgeo.trainers.utils
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.text import Text
 from torch import Tensor
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
+from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchgeo.models import FCN
 from torchgeo.trainers import SemanticSegmentationTask
 from torchmetrics import ClasswiseWrapper, Metric, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
-                                         MulticlassF1Score,
-                                         MulticlassJaccardIndex, )
+                                         MulticlassCohenKappa,
+                                         MulticlassConfusionMatrix,
+                                         MulticlassMatthewsCorrCoef,
+                                         MulticlassPrecision,
+                                         MulticlassRecall,
+                                         MulticlassSpecificity, )
+from torchmetrics.segmentation import MeanIoU
 from torchvision.models import WeightsEnum
 from typing_extensions import override
 
 from training.loss import CompoundLoss
+from utils.color import get_fg_color
 
 
 class TrainingTask(SemanticSegmentationTask):
+    # TODO: See if renaming the loss messes up something.
+    monitor = "val/loss"
+
     def __init__(
         self,
         *args,
@@ -56,7 +69,7 @@ class TrainingTask(SemanticSegmentationTask):
         # of the nominal learning rate.
         min_lr_pct: float = 0.01,
         model_kwargs: dict[str, float | str | None] | None = None,
-        loss,
+        loss_params: dict[str, Any],
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -139,30 +152,62 @@ class TrainingTask(SemanticSegmentationTask):
 
     @override
     def configure_losses(self) -> None:
-        self.criterion = CompoundLoss(**self.hparams.loss)
+        self.criterion = CompoundLoss(**self.hparams.loss_params)
 
     @override
     def configure_metrics(self) -> None:
-        self.train_metrics_scalar = MetricCollection(
-            self._init_metrics(average="macro")
-            | self._init_metrics(average="micro"),  # | classwise,
-            prefix="tra/",
+        num_classes: int = self.hparams["num_classes"]
+        ignore_index: int | None = (
+            0 if self.hparams["loss_params"]["ignore_background"] else None
         )
-        self.val_metrics_scalar = self.train_metrics_scalar.clone(prefix="val/")
-        self.test_metrics_scalar = self.train_metrics_scalar.clone(prefix="tst/")
 
-        temp = self._init_metrics(average=None)
-        # TODO: Figure out why IoU cannot be wrapped.
-        temp.pop("IoU")
-        self.train_metrics_class = MetricCollection(
-            {
-                name: ClasswiseWrapper(metric, prefix=f"{name}/")
-                for name, metric in temp.items()
+        # Initialize the global metrics (e.g., accuracy, precision, recall, etc.).
+        micro = self._init_metrics(average="micro")
+        # NOTE: torchmetrics.segmentation.MeanIoU does not support micro-averaging.
+        micro.pop("MicroIoU")
+
+        self.tra_metrics_scalar = MetricCollection(
+            self._init_metrics(average="macro")
+            | micro
+            | {
+                # NOTE: This is actually a problematic metric.
+                # It is only reported to facilitate the comparison of own results with
+                # previous works.
+                # See https://en.wikipedia.org/wiki/Cohen%27s_kappa#Limitations for more
+                # information.
+                # TODO: Find out which weighting method should be used.
+                "CohenCoefficient": MulticlassCohenKappa(
+                    num_classes, ignore_index=ignore_index
+                ),
+                # NOTE: This metric is implemented using the relevant covariance formula,
+                # and thus it does not support any averaging method,
+                # See https://blester125.com/blog/rk.html for more information.
+                "MatthewsCoefficient": MulticlassMatthewsCorrCoef(
+                    num_classes, ignore_index=ignore_index
+                ),
             },
             prefix="tra/",
         )
-        self.val_metrics_class = self.train_metrics_class.clone(prefix="val/")
-        self.test_metrics_class = self.train_metrics_class.clone(prefix="tst/")
+        self.val_metrics_scalar = self.tra_metrics_scalar.clone(prefix="val/")
+        self.tst_metrics_scalar = self.tra_metrics_scalar.clone(prefix="tst/")
+
+        # Initialize the classwise metrics.
+        self.tra_metrics_class = MetricCollection(
+            {
+                name: ClasswiseWrapper(metric, prefix=f"{name}/")
+                for name, metric in self._init_metrics(average="none").items()
+            },
+            prefix="tra/",
+        )
+        self.val_metrics_class = self.tra_metrics_class.clone(prefix="val/")
+        self.tst_metrics_class = self.tra_metrics_class.clone(prefix="tst/")
+
+        # Initialize the confusion matrix.
+        self.tra_confmat = MulticlassConfusionMatrix(
+            num_classes=num_classes, ignore_index=ignore_index, normalize="true"
+        )
+        self.val_confmat = self.tra_confmat.clone()
+        self.tst_confmat = self.tra_confmat.clone()
 
     @override
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
@@ -206,29 +251,224 @@ class TrainingTask(SemanticSegmentationTask):
             "lr_scheduler": {"scheduler": scheduler, "monitor": self.monitor},
         }
 
+    @override
+    def training_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        preds, target, loss = self._update_loss(batch)
+
+        # TODO: Store step prefixes in an StrEnum.
+        self.log("tra/" + "loss", loss)
+
+        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="tra")
+        self.log_dict(scalar_metrics)
+        self.log_dict(class_metrics)
+
+        self._plot_confmat(preds, target, step="tra")
+
+        return loss
+
+    def _plot_confmat(self, preds, target, step: Literal["tra", "val", "tst"]):
+        tboard = self._get_tboard()
+        if tboard is not None:
+            confmat: MulticlassConfusionMatrix = getattr(self, f"{step}_confmat")
+            confmat(preds, target)
+
+            fig: Figure
+            cax: Axes
+
+            # NOTE: The color map must be set before plotting.
+            cmap = plt.get_cmap("Blues")
+            plt.set_cmap(cmap)
+
+            fig, cax = confmat.plot()
+            fig.set_size_inches(5, 5)
+
+            # NOTE: The axis labels must be changed before searching for text artists
+            # to ensure that it is version invariant.
+            plt.xlabel("Predicted Class")
+            plt.ylabel("True Class")
+
+            # Change the value color to either black or white according to the
+            # luminance of the underlying cell.
+            vals: list[Text] = cax.findobj(
+                lambda artist: isinstance(artist, Text)
+                and artist.get_text() not in {"Predicted Class", "True Class"}
+                and math.isclose(artist.get_rotation(), 0)
+            )
+            for val in vals:
+                txt = val.get_text()
+                val.set_color(get_fg_color(cmap(0 if txt == "" else float(txt))))
+
+            # NOTE: The axis labels must be changed after searching for text artists
+            # to ensure that it is version invariant.
+            plt.xticks(rotation=0)
+            plt.yticks(rotation=0)
+
+            plt.minorticks_off()
+
+            tboard.add_figure(
+                f"{step}/ConfusionMatrix", fig, global_step=self.global_step
+            )
+
+        # todo: is this needded? tboard automatically closes figs...
+        plt.close()
+
+    def _get_tboard(self) -> SummaryWriter | None:
+        return (
+            self.logger.experiment
+            if hasattr(self.logger.experiment, "add_figure")
+            else None
+        )
+
+    def _get_img_logging(self) -> tuple[Any, str]:
+        """Get the function"""
+
+    @override
+    def validation_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        preds, target, loss = self._update_loss(batch)
+
+        # TODO: Store step prefixes in an StrEnum.
+        self.log("val/" + "loss", loss)
+
+        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="val")
+        self.log_dict(scalar_metrics)
+        self.log_dict(class_metrics)
+
+        self._plot_confmat(preds, target, step="val")
+
+        # TODO: Clean up this block.
+        if (
+            batch_idx < 10
+            and hasattr(self.trainer, "datamodule")
+            and hasattr(self.trainer.datamodule, "plot")
+            and self.logger
+            and hasattr(self.logger, "experiment")
+            and hasattr(self.logger.experiment, "add_figure")
+        ):
+            datamodule = self.trainer.datamodule
+            batch["prediction"] = preds.argmax(dim=1)
+            for key in ["image", "mask", "prediction"]:
+                batch[key] = batch[key].cpu()
+            sample = unbind_samples(batch)[0]
+
+            fig: Figure | None = None
+            try:
+                fig = datamodule.plot(sample)
+            except RGBBandsMissingError:
+                pass
+
+            if fig:
+                summary_writer = self.logger.experiment
+                summary_writer.add_figure(
+                    f"image/{batch_idx}", fig, global_step=self.global_step
+                )
+                plt.close()
+
+    @override
+    def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        preds, target, loss = self._update_loss(batch)
+
+        # TODO: Store step prefixes in an StrEnum.
+        self.log("tst/" + "loss", loss)
+
+        scalar_metrics, class_metrics = self._update_metrics(preds, target, stage="tst")
+        self.log_dict(scalar_metrics)
+        self.log_dict(class_metrics)
+
+        self._plot_confmat(preds, target, step="tst")
+
     def _init_metrics(
         self, average: Literal["macro", "micro", "none"] | None
     ) -> dict[str, Metric]:
-        _average = "multiclass" if average == "none" or average is None else average
-        _average.capitalize()
+        _average = "" if average == "none" or average is None else average.capitalize()
 
         num_classes: int = self.hparams["num_classes"]
-        ignore_index: int | None = self.hparams["loss"]["ignore_index"]
+        ignore_background: bool = self.hparams["loss_params"]["ignore_background"]
+        ignore_index: int | None = 0 if ignore_background else None
 
         return {
             f"{_average}Accuracy": MulticlassAccuracy(
-                num_classes,
-                average=average,
-                ignore_index=ignore_index,
-                multidim_average="global",
-            ),
-            f"{_average}F1Score": MulticlassF1Score(
-                num_classes,
-                average=average,
-                ignore_index=ignore_index,
-                multidim_average="global",
-            ),
-            f"{_average}IoU": MulticlassJaccardIndex(
                 num_classes, average=average, ignore_index=ignore_index
             ),
+            # NOTE: The F1-score is not reported directly because it is equivalent to
+            # accuracy when using micro-averaging.
+            f"{_average}Precision": MulticlassPrecision(
+                num_classes, average=average, ignore_index=ignore_index
+            ),
+            f"{_average}Recall": MulticlassRecall(
+                num_classes, average=average, ignore_index=ignore_index
+            ),
+            f"{_average}Specificity": MulticlassSpecificity(
+                num_classes, average=average, ignore_index=ignore_index
+            ),
+            # NOTE: torchmetrics.classification.JaccardIndex does not return correct
+            # results when ignore_index is specified.
+            # See https://github.com/Lightning-AI/torchmetrics/pull/1236 for more
+            # information.
+            f"{_average}IoU": MeanIoU(
+                num_classes,
+                include_background=not ignore_background,
+                per_class=True if average in ["none", None] else False,
+            ),
         }
+
+    def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
+        input = batch["image"]
+        target = batch["mask"]
+        # TODO: Try ignoring background predictions here.
+        preds = self(input)
+        loss = self.criterion(preds, target)
+
+        return preds, target, loss
+
+    def _update_metrics(
+        self, preds, target, stage: Literal["tra", "val", "tst"]
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
+        num_classes: int = self.hparams["num_classes"]
+        include_background: bool = not self.hparams["loss_params"]["ignore_background"]
+
+        # NOTE: torchmetrics.segmentation.MeanIoU does not support one-hot encoded
+        # predictions.
+        preds = preds.argmax(dim=1)
+
+        scalar_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_scalar")(
+            preds, target
+        )
+
+        class_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_class")(
+            preds, target
+        )
+
+        if include_background:
+            return scalar_metrics, class_metrics
+
+        # Discard metrics referring to the background class.
+        # TODO: Simplify the IoU relabelling step.
+        increm_names = []
+        ignore_names = []
+        for name, metric in class_metrics.items():
+            _, metric, label = name.split("/")
+            # NOTE: torchmetrics.segmentation.MeanIoU automatically discards
+            # background results.
+            # However, the resulting class labels of the remaining must be
+            # incremented by one to match the actual ones.
+            if metric == "IoU":
+                increm_names.append(name)
+                continue
+            if label == str(int(include_background)):
+                ignore_names.append(name)
+        temp = {
+            f"{stage}/IoU/{label}": class_metrics[name]
+            for label, name in enumerate(increm_names,start=1)
+        }
+        for name in increm_names:
+            class_metrics.pop(name)
+        for name,metric in temp.items():
+            class_metrics[name]=metric
+        for name in ignore_names:
+            class_metrics.pop(name)
+
+        return scalar_metrics, class_metrics
