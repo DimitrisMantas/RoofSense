@@ -462,12 +462,12 @@ class TrainingTask(SemanticSegmentationTask):
                 ignore_names.append(name)
         temp = {
             f"{stage}/IoU/{label}": class_metrics[name]
-            for label, name in enumerate(increm_names,start=1)
+            for label, name in enumerate(increm_names, start=1)
         }
         for name in increm_names:
             class_metrics.pop(name)
-        for name,metric in temp.items():
-            class_metrics[name]=metric
+        for name, metric in temp.items():
+            class_metrics[name] = metric
         for name in ignore_names:
             class_metrics.pop(name)
 
