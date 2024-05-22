@@ -336,9 +336,6 @@ class TrainingTask(SemanticSegmentationTask):
             else None
         )
 
-    def _get_img_logging(self) -> tuple[Any, str]:
-        """Get the function"""
-
     @override
     def validation_step(
         self, batch: Any, batch_idx: int, dataloader_idx: int = 0
