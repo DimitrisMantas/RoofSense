@@ -43,7 +43,6 @@ if __name__ == "__main__":
         root="../dataset/temp", batch_size=16, num_workers=8
     )
 
-    # todo check strategies + callbacks + profiler
     trainer = Trainer(
         logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
         callbacks=[
@@ -65,8 +64,5 @@ if __name__ == "__main__":
             "ignore",
             category=UserWarning
         )
-        trainer.fit(
-            model=task,
-            datamodule=datamodule
-        )
+        trainer.fit(model=task, datamodule=datamodule)
         trainer.test(model=task, datamodule=datamodule)
