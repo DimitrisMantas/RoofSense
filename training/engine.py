@@ -1,3 +1,5 @@
+import warnings
+
 import lightning.pytorch
 import numpy as np
 import torch
@@ -58,5 +60,13 @@ if __name__ == "__main__":
         benchmark=True,
     )
 
-    trainer.fit(model=task, datamodule=datamodule)
-    trainer.test(model=task, datamodule=datamodule)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning
+        )
+        trainer.fit(
+            model=task,
+            datamodule=datamodule
+        )
+        trainer.test(model=task, datamodule=datamodule)
