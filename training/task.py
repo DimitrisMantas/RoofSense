@@ -187,6 +187,20 @@ class TrainingTask(SemanticSegmentationTask):
                 ),
             },
             prefix="tra/",
+            # NOTE: Compute groups cannot be determined dynamically because the
+            # metrics are updated using MetricCollection.forward() instead of
+            # MetricCollection.update().
+            # In addition, the index filtering step would invalidate any existing group
+            # references.
+            # Therefore, compute groups must be specified manually.
+            # See https://github.com/Lightning-AI/torchmetrics/pull/1237 for more
+            # information.
+            compute_groups=[
+                ["MacroAccuracy", "MacroPrecision", "MacroRecall", "MacroSpecificity"],
+                ["MacroIoU"],
+                ["MicroAccuracy", "MicroPrecision", "MicroRecall", "MicroSpecificity"],
+                ["CohenCoefficient", "MatthewsCoefficient"],
+            ],
         )
         self.val_metrics_scalar = self.tra_metrics_scalar.clone(prefix="val/")
         self.tst_metrics_scalar = self.tra_metrics_scalar.clone(prefix="tst/")
@@ -198,6 +212,10 @@ class TrainingTask(SemanticSegmentationTask):
                 for name, metric in self._init_metrics(average="none").items()
             },
             prefix="tra/",
+            compute_groups=[
+                ["Accuracy", "Precision", "Recall", "Specificity"],
+                ["IoU"],
+            ],
         )
         self.val_metrics_class = self.tra_metrics_class.clone(prefix="val/")
         self.tst_metrics_class = self.tra_metrics_class.clone(prefix="tst/")
