@@ -1,3 +1,4 @@
+import warnings
 from enum import UNIQUE, Enum, auto, verify
 from typing import Literal
 
@@ -20,12 +21,11 @@ class RegionBasedLoss(Enum):
 
 # TODO: Add single-component loss support.
 class CompoundLoss(
-    # NOTE: This is technically a weighted loss, but inheriting from its parent
-    # avoids registering an unnecessary weight buffer.
-    torch.nn.modules.loss._Loss
+    # NOTE: This is technically a weighted loss, but inheriting from the
+    # corresponding parent class avoids registering an unnecessary weight buffer.
+    # This is because MONAI losses maintain their own weight buffers.
+    torch.nn.modules.loss._WeightedLoss
 ):
-    """Composite loss function composed of a distribution- and, optionally, a region-based component."""
-
     def __init__(
         self,
         this: DistribBasedLoss,
@@ -34,56 +34,57 @@ class CompoundLoss(
         weight: Tensor | None = None,
         reduction: Literal["mean", "sum"] = "mean",
         this_kwargs: dict[str, bool | float] | None = None,
-        that_smooth: bool = False,
         that_kwargs: dict[str, bool | float] | None = None,
         this_lambda: float = 1,
         that_lambda: float = 1,
     ):
-        super().__init__(reduction=reduction)
-
         if weight is not None:
             # NOTE: MONAI does not normalize class weights.
             weight: Tensor
             weight /= weight.sum()
 
-        self.weight = weight
-
-        common_kwargs = {"reduction": reduction}
-        variable_kwargs = this_kwargs if this_kwargs is not None else {}
-
-        if this == DistribBasedLoss.CROSS:
-            self.this = torch.nn.CrossEntropyLoss(
-                weight=weight,
-                ignore_index=0 if ignore_background else -100,
-                **common_kwargs,
-                **variable_kwargs,
-            )
-        elif this == DistribBasedLoss.FOCAL:
-            self.this = monai.losses.FocalLoss(
-                include_background=not ignore_background,
-                to_onehot_y=True,
-                # weight=weight[1:]
-                # if ignore_background and weight is not None
-                # else weight,
-                use_softmax=True,
-                **common_kwargs,
-                **variable_kwargs,
-            )
-            # to be able to load checkpoints
-            # self.this.class_weight = (
-            #     weight if weight is None else weight[1:].view((-1, 1, 1))
-            # )
-        else:
-            raise ValueError
+        super().__init__(weight=weight, reduction=reduction)
 
         common_kwargs = {
             "include_background": not ignore_background,
             "to_onehot_y": True,
-            "other_act": lambda pred: pred.log_softmax(dim=1).exp(),
-            "reduction": reduction,
-            # "weight": weight[1:]
-            # if ignore_background and weight is not None
-            # else weight,
+            # NOTE: MONAI expects the weight tensor to not include the background
+            # class when it is excluded.
+            # "weight": weight if weight is None else weight[1:],
+            # NOTE: MONAI computes weighted loss sums instead of averages, so any
+            # reduction must be applied manually to the classwise results.
+            "reduction": "none",
+        }
+        variable_kwargs = this_kwargs if this_kwargs is not None else {}
+
+        if this == DistribBasedLoss.CROSS:
+            self.this = torch.nn.CrossEntropyLoss(
+                # NOTE: PyTorch expects the ignored index to always be specified.
+                ignore_index=0 if ignore_background else -100,
+                # NOTE: PyTorch works as expected regarding class weights and loss
+                # reductions.
+                weight=weight,
+                reduction=reduction,
+                **variable_kwargs,
+            )
+        elif this == DistribBasedLoss.FOCAL:
+            # TODO: Adjust FocalLoss to return the same results as CrossEntropyLoss when
+            #  the corresponding modulating factor is equal to one.
+            warnings.warn(
+                "This loss is experimental and its implementation may not "
+                "be correct!",
+                UserWarning,
+            )
+            self.this = monai.losses.FocalLoss(
+                use_softmax=True, **common_kwargs, **variable_kwargs
+            )
+        else:
+            raise ValueError
+
+        common_kwargs |= {
+            # NOTE: This activation function is more numerically stable than standard
+            # softmax in that it helps avoid vanishing gradients.
+            "other_act": lambda pred: pred.log_softmax(dim=1).exp()
         }
         variable_kwargs = that_kwargs if that_kwargs is not None else {}
 
@@ -97,11 +98,6 @@ class CompoundLoss(
             )
         else:
             raise ValueError
-
-        # to be able to load checkpoints
-        # self.that.class_weight = weight if weight is None else weight[1:]
-
-        self.that_smooth = that_smooth
 
         self.this_lambda = this_lambda
         self.that_lambda = that_lambda
@@ -118,15 +114,19 @@ class CompoundLoss(
         )
 
         that_val: Tensor = self.that(input, target)
-        if self.that_smooth:
-            that_val = that_val.cosh().log()
+        # Broadcast to BxC.
+        that_val = that_val.view(*that_val.shape[:2])
 
-        # x = monai.metrics.compute_iou(
-        #     input.log_softmax(dim=1).exp(),
-        #     monai.losses.dice.one_hot(target,num_classes=9),
-        #     include_background=self.that.include_background,
-        # )
-        # x[torch.isnan(x)] = 0.0
-        # x=x.mean()
+        # Apply the class weights.
+        if self.weight is not None:
+            that_val *= self.weight[1:]
+
+        # Perform the reduction.
+        if self.reduction == "mean":
+            # Sum along the class dimension to take the weighted loss mean and
+            # average the result across all batches.
+            that_val = that_val.sum(dim=1).mean()
+        else:
+            that_val = that_val.sum()
 
         return self.this_lambda * this_val + self.that_lambda * that_val
