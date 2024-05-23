@@ -55,7 +55,6 @@ if __name__ == "__main__":
             EarlyStopping(monitor="val/loss", patience=1000),
             LearningRateMonitor(),
         ],
-        log_every_n_steps=1,
         benchmark=True,
     )
 
