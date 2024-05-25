@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 from torch import Tensor
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
+from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchgeo.models import FCN
@@ -30,6 +30,7 @@ from torchvision.models import WeightsEnum
 from typing_extensions import override
 
 from training.loss import CompoundLoss
+from training.scheduler import DecayingCosineAnnealingWarmRestarts
 from utils.color import get_fg_color
 
 
@@ -43,12 +44,12 @@ class TrainingTask(SemanticSegmentationTask):
         # The total number of warmup epochs, expressed as a percentage of the maximum
         # number of training epochs, as specified by the trainer this task is associated
         # with or `max_epochs`.
-        warmup_time: float = 0.05,
+        warmup_time: float = 0.01,
         # The maximum number of warmup epochs.
-        max_warmup_epochs: int = 50,
+        max_warmup_epochs: int = 1,
         # The total number of epochs constituting the period of the first cycle of the
         # annealing phase.
-        T_0: int = 50,
+        T_0: int = 10,
         # The period ratio `Ti+1/Ti` of two consecutive cycles `i` of the annealing
         # phase.
         T_mult: int = 2,
@@ -59,13 +60,13 @@ class TrainingTask(SemanticSegmentationTask):
         # The learning rate at the end of the warmup and each new cycle of the
         # subsequent annealing phases. This parameter is henceforth referred to
         # as the "nominal learning rate".
-        lr: float = 1e-4,
+        lr: float = 1e-3,
         # The learning rate at the start of the warmup phase, expressed as a
         # percentage of the nominal learning rate.
-        init_lr_pct: float = 0.1,
+        init_lr_pct: float = 0.01,
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
-        min_lr_pct: float = 0.01,
+        min_lr_pct: float = 0.1,
         model_kwargs: dict[str, float | str | None] | None = None,
         loss_params: dict[str, Any],
         **kwargs,
@@ -234,7 +235,7 @@ class TrainingTask(SemanticSegmentationTask):
                 ),
                 # TODO: Check whether having a decaying restart learning rate is
                 #  possible.
-                CosineAnnealingWarmRestarts(
+                DecayingCosineAnnealingWarmRestarts(
                     optimizer,
                     T_0=self.hparams["T_0"],
                     T_mult=self.hparams["T_mult"],
