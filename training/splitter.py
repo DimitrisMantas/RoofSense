@@ -13,7 +13,7 @@ import config
 import utils.geom
 
 
-def split(obj_id: str, background_cutoff: float,limit:int) -> None:
+def split(obj_id: str, background_cutoff: float,limit:int) -> int:
     # Dissolve the surfaces so that only their edges are buffered.
     surfs = utils.geom.read_surfaces(obj_id).dissolve()
     rng=np.random.default_rng(seed=0)
@@ -24,13 +24,14 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> None:
         f"{config.var('RASTER_STACK')}"
         f"{config.var('TIF')}"
     )
+    blocks = 0
     stack: rasterio.io.DatasetReader
     with rasterio.open(stack_path) as stack:
         # TODO: Check whether masking the whole stack twice can be avoided.
         original_surf_mask, *_ = rasterio.mask.raster_geometry_mask(
             stack, shapes=surfs[config.var("DEFAULT_GM_FIELD_NAME")]
         )
-        blocks=0
+
         block: rasterio.windows.Window
         # Use the data blocks of the first band.
         # NOTE: This ensures indexing notation ensures that all bands share the
@@ -40,12 +41,28 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> None:
                 return limit
             if block.width != block.height:
                 continue
+            # Flip coin
             if rng.binomial(1,p=0.5)==0:
                 continue
+            # Selected
             if num_accepted_in_a_row==3:
                 num_accepted_in_a_row=0
                 continue
             num_accepted_in_a_row+=1
+            original_patch_path = pathlib.Path(
+                f"{config.env('ORIGINAL_DATA_DIR')}"
+                f"{config.var('TRAINING_IMAG_DIRNAME')}"
+            ).joinpath(
+                f"{stack_path.stem.replace(config.var('RASTER_STACK'), '')}"
+                f"{config.var('SEPARATOR')}"
+                f"{row}"
+                f"{config.var('SEPARATOR')}"
+                f"{col}"
+                f"{stack_path.suffix}"
+            )
+            if original_patch_path.is_file():
+                blocks+=1
+                continue
             # TODO: Document this block.
             original_patch_data = stack.read(window=block, masked=True)
             original_patch_data.mask = (
@@ -72,17 +89,6 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> None:
                 tiled=False,
             )
 
-            original_patch_path = pathlib.Path(
-                f"{config.env('ORIGINAL_DATA_DIR')}"
-                f"{config.var('TRAINING_IMAG_DIRNAME')}"
-            ).joinpath(
-                f"{stack_path.stem.replace(config.var('RASTER_STACK'), '')}"
-                f"{config.var('SEPARATOR')}"
-                f"{row}"
-                f"{config.var('SEPARATOR')}"
-                f"{col}"
-                f"{stack_path.suffix}"
-            )
             original_patch: rasterio.io.DatasetWriter
             with rasterio.open(
                 original_patch_path, "w", **patch_meta
