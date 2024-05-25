@@ -21,9 +21,9 @@ if __name__ == "__main__":
 
     task = TrainingTask(
         # Decoder Configuration
-        model="unet",
+        model="deeplabv3+",
         # Encoder Configuration
-        backbone="resnet18",
+        backbone="resnet50",
         weights=True,
         # I/O Layer Configuration
         in_channels=5,
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     )
 
     datamodule = TrainingDataModule(
-        root="../dataset/temp", batch_size=16, num_workers=8
+        root="../dataset/temp", batch_size=8, num_workers=8
     )
 
     trainer = Trainer(
