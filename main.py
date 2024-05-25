@@ -4,7 +4,7 @@ import config
 import training
 
 
-def generate_pretraining_data(size: int = 100, background_cutoff: float = 0.8) -> None:
+def generate_pretraining_data(size: int = 200, background_cutoff: float = 0.8) -> None:
     """Entry point for:
     roofsense --gen-pretrain-data <size> --bg-cutoff <pct>
     """
