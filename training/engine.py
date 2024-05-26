@@ -64,4 +64,4 @@ if __name__ == "__main__":
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
         trainer.fit(model=task, datamodule=datamodule)
-        trainer.test(model=task, datamodule=datamodule)
+        trainer.test(model=task, datamodule=datamodule, ckpt_path="best")
