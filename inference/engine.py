@@ -116,7 +116,7 @@ class InferenceEngine:
 
             with torch.inference_mode():
                 preds: torch.Tensor = (
-                    self.model(images).softmax(dim=1).argmax(dim=1).cpu().numpy()
+                    self.model(images).argmax(dim=1).cpu().numpy()
                 )
 
             for i in range(images.shape[0]):
