@@ -149,6 +149,7 @@ class InferenceEngine:
             blockysize=512,
             compress="DEFLATE",
             num_threads=os.cpu_count(),
+            predictor=2,
         ) as dst:
             dst.write(  # Trim the buffer to the stack dimensions.
                 self.buffer[
