@@ -4,6 +4,7 @@ import warnings
 from typing import Any, Literal
 
 import segmentation_models_pytorch as smp
+import torch
 import torchgeo.trainers.utils
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
@@ -17,20 +18,19 @@ from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchgeo.models import FCN
 from torchgeo.trainers import SemanticSegmentationTask
-from torchmetrics import ClasswiseWrapper, Metric, MetricCollection
+from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
-                                         MulticlassCohenKappa,
                                          MulticlassConfusionMatrix,
-                                         MulticlassMatthewsCorrCoef,
+                                         MulticlassJaccardIndex,
                                          MulticlassPrecision,
                                          MulticlassRecall,
                                          MulticlassSpecificity, )
-from torchmetrics.segmentation import MeanIoU
 from torchvision.models import WeightsEnum
 from typing_extensions import override
 
 from training.loss import CompoundLoss
 from training.scheduler import DecayingCosineAnnealingWarmRestarts
+from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
 
 
@@ -160,46 +160,142 @@ class TrainingTask(SemanticSegmentationTask):
             0 if self.hparams["loss_params"]["ignore_background"] else None
         )
 
-        # Initialize the global metrics (e.g., accuracy, precision, recall, etc.).
-        micro = self._init_metrics(average="micro")
-        # NOTE: torchmetrics.segmentation.MeanIoU does not support micro-averaging.
-        micro.pop("MicroIoU")
+        self.tra_metrics = MetricCollection(
+            {  # Macro
+                # "MacroAccuracy": MulticlassAccuracy(
+                #     num_classes=num_classes,
+                #     average="macro",
+                #     ignore_index=ignore_index,
+                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #     # identified and excluded from the macroscopic averaging step.
+                #     zero_division=torch.nan,
+                # ),
+                "MacroPrecision": MacroAverageWrapper(
+                    MulticlassPrecision(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    )
+                ),
+                "MacroRecall": MacroAverageWrapper(
+                    MulticlassRecall(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    )
+                ),
+                # "MacroSpecificity": MulticlassSpecificity(
+                #     num_classes=num_classes,
+                #     average="macro",
+                #     ignore_index=ignore_index,
+                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #     # identified and excluded from the macroscopic averaging step.
+                #     zero_division=torch.nan,
+                # ),
+                "MacroIoU": MacroAverageWrapper(
+                    MulticlassJaccardIndex(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    )
+                ),  # Micro
+                "MicroAccuracy": MulticlassAccuracy(
+                    num_classes=num_classes,
+                    average="micro",
+                    ignore_index=ignore_index,
+                    # NOTE: Assign NaN to absent and ignored classes so that they can be
+                    # identified and excluded from the macroscopic averaging step.
+                    zero_division=torch.nan,
+                ),
+                # "MicroPrecision": MulticlassPrecision(
+                #     num_classes=num_classes,
+                #     average="micro",
+                #     ignore_index=ignore_index,
+                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #     # identified and excluded from the macroscopic averaging step.
+                #     zero_division=torch.nan,
+                # ),
+                # "MicroRecall": MulticlassRecall(
+                #     num_classes=num_classes,
+                #     average="micro",
+                #     ignore_index=ignore_index,
+                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #     # identified and excluded from the macroscopic averaging step.
+                #     zero_division=torch.nan,
+                # ),
+                "MicroSpecificity": MulticlassSpecificity(
+                    num_classes=num_classes,
+                    average="micro",
+                    ignore_index=ignore_index,
+                    # NOTE: Assign NaN to absent and ignored classes so that they can be
+                    # identified and excluded from the macroscopic averaging step.
+                    zero_division=torch.nan,
+                ),
+                "MicroIoU": MulticlassJaccardIndex(
+                    num_classes=num_classes,
+                    average="micro",
+                    ignore_index=ignore_index,
+                    # NOTE: Assign NaN to absent and ignored classes so that they can be
+                    # identified and excluded from the macroscopic averaging step.
+                    zero_division=torch.nan,
+                ),
 
-        self.tra_metrics_scalar = MetricCollection(
-            self._init_metrics(average="macro")
-            | micro
-            | {
-                # NOTE: This is actually a problematic metric.
-                # It is only reported to facilitate the comparison of own results with
-                # previous works.
-                # See https://en.wikipedia.org/wiki/Cohen%27s_kappa#Limitations for more
-                # information.
-                # TODO: Find out which weighting method should be used.
-                "CohenCoefficient": MulticlassCohenKappa(
-                    num_classes, ignore_index=ignore_index
-                ),
-                # NOTE: This metric is implemented using the relevant covariance formula,
-                # and thus it does not support any averaging method,
-                # See https://blester125.com/blog/rk.html for more information.
-                "MatthewsCoefficient": MulticlassMatthewsCorrCoef(
-                    num_classes, ignore_index=ignore_index
-                ),
             },
             prefix="tra/",
         )
-        self.val_metrics_scalar = self.tra_metrics_scalar.clone(prefix="val/")
-        self.tst_metrics_scalar = self.tra_metrics_scalar.clone(prefix="tst/")
-
-        # Initialize the classwise metrics.
-        self.tra_metrics_class = MetricCollection(
-            {
-                name: ClasswiseWrapper(metric, prefix=f"{name}/")
-                for name, metric in self._init_metrics(average="none").items()
-            },
-            prefix="tra/",
-        )
-        self.val_metrics_class = self.tra_metrics_class.clone(prefix="val/")
-        self.tst_metrics_class = self.tra_metrics_class.clone(prefix="tst/")
+        self.val_metrics = self.tra_metrics.clone(prefix="val/")
+        self.val_metrics.add_metrics({# None
+            # "Accuracy": torchmetrics.wrappers.ClasswiseWrapper(
+            #     MulticlassAccuracy(
+            #         num_classes=num_classes,
+            #         average="none",
+            #         ignore_index=ignore_index,
+            #         # NOTE: Assign NaN to absent and ignored classes so that they can be
+            #         # identified and excluded from the macroscopic averaging step.
+            #         zero_division=torch.nan,
+            #     ),
+            #     prefix="Accuracy/",
+            # ),
+            "Precision": ClasswiseWrapper(MulticlassPrecision(num_classes=num_classes,
+                average="none",
+                ignore_index=ignore_index,
+                # NOTE: Assign NaN to absent and ignored classes so that they can be
+                # identified and excluded from the macroscopic averaging step.
+                zero_division=torch.nan, ), prefix="Precision/", ),
+            "Recall": ClasswiseWrapper(MulticlassRecall(num_classes=num_classes,
+                average="none",
+                ignore_index=ignore_index,
+                # NOTE: Assign NaN to absent and ignored classes so that they can be
+                # identified and excluded from the macroscopic averaging step.
+                zero_division=torch.nan, ), prefix="Recall/", ),
+            # "Specificity": torchmetrics.wrappers.ClasswiseWrapper(
+            #     MulticlassSpecificity(
+            #         num_classes=num_classes,
+            #         average="none",
+            #         ignore_index=ignore_index,
+            #         # NOTE: Assign NaN to absent and ignored classes so that they can be
+            #         # identified and excluded from the macroscopic averaging step.
+            #         zero_division=torch.nan,
+            #     ),
+            #     prefix="Specificity/",
+            # ),
+            "IoU": ClasswiseWrapper(MulticlassJaccardIndex(num_classes=num_classes,
+                average="none",
+                ignore_index=ignore_index,
+                # NOTE: Assign NaN to absent and ignored classes so that they can be
+                # identified and excluded from the macroscopic averaging step.
+                zero_division=torch.nan, ), prefix="IoU/", ),
+        })
+        self.tst_metrics = self.val_metrics.clone(prefix="tst/")
 
         # Initialize the confusion matrix.
         self.tra_confmat = MulticlassConfusionMatrix(
@@ -258,7 +354,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tra/" + "loss", loss)
-        self.log_dict(self._update_metrics(preds, target, stage="tra"))
+        self.log_dict(self.tra_metrics(preds, target))
 
         self._plot_confmat(preds, target, step="tra")
 
@@ -325,7 +421,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("val/" + "loss", loss)
-        self.log_dict(self._update_metrics(preds, target, stage="val"))
+        self.log_dict(self.val_metrics(preds, target))
 
         self._plot_confmat(preds, target, step="val")
 
@@ -363,44 +459,9 @@ class TrainingTask(SemanticSegmentationTask):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tst/" + "loss", loss)
-        self.log_dict(self._update_metrics(preds, target, stage="tst"))
+        self.log_dict(self.tst_metrics(preds, target))
 
         self._plot_confmat(preds, target, step="tst")
-
-    def _init_metrics(
-        self, average: Literal["macro", "micro", "none"] | None
-    ) -> dict[str, Metric]:
-        _average = "" if average == "none" or average is None else average.capitalize()
-
-        num_classes: int = self.hparams["num_classes"]
-        ignore_background: bool = self.hparams["loss_params"]["ignore_background"]
-        ignore_index: int | None = 0 if ignore_background else None
-
-        return {
-            f"{_average}Accuracy": MulticlassAccuracy(
-                num_classes, average=average, ignore_index=ignore_index
-            ),
-            # NOTE: The F1-score is not reported directly because it is equivalent to
-            # accuracy when using micro-averaging.
-            f"{_average}Precision": MulticlassPrecision(
-                num_classes, average=average, ignore_index=ignore_index
-            ),
-            f"{_average}Recall": MulticlassRecall(
-                num_classes, average=average, ignore_index=ignore_index
-            ),
-            f"{_average}Specificity": MulticlassSpecificity(
-                num_classes, average=average, ignore_index=ignore_index
-            ),
-            # NOTE: torchmetrics.classification.JaccardIndex does not return correct
-            # results when ignore_index is specified.
-            # See https://github.com/Lightning-AI/torchmetrics/pull/1236 for more
-            # information.
-            f"{_average}IoU": MeanIoU(
-                num_classes,
-                include_background=not ignore_background,
-                per_class=True if average in ["none", None] else False,
-            ),
-        }
 
     def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
         input = batch["image"]
@@ -409,36 +470,3 @@ class TrainingTask(SemanticSegmentationTask):
         loss = self.criterion(preds, target)
 
         return preds, target, loss
-
-    def _update_metrics(
-        self, preds, target, stage: Literal["tra", "val", "tst"]
-    ) -> dict[str, Tensor]:
-        # NOTE: torchmetrics.segmentation.MeanIoU does not support logit predictions.
-        preds = preds.argmax(dim=1)
-
-        scalar_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_scalar")(
-            preds, target
-        )
-        class_metrics: dict[str, Tensor] = getattr(self, f"{stage}_metrics_class")(
-            preds, target
-        )
-
-        if not self.hparams["loss_params"]["ignore_background"]:
-            return scalar_metrics | class_metrics
-
-        # Discard the metrics corresponding to the background,
-        # NOTE: I torchmetrics.segmentation.MeanIoU handles the background when
-        #  updated, but the resulting values are labelled using the index of the
-        # previous class (i.e., the IoU for Class 1 is labelled as that of Class 0).
-        # Therefore, IoU must be processed before any other metric so as to validate
-        # the corresponding metric names.
-        iou_names = [name for name in class_metrics if name.split("/")[1] == "IoU"]
-        iou_pairs = {}
-        for label, name in enumerate(iou_names, start=1):
-            iou_pairs[f"{stage}/IoU/{label}"] = class_metrics.pop(name)
-
-        bad_names = [name for name in class_metrics if name.split("/")[2] == "0"]
-        for name in bad_names:
-            class_metrics.pop(name)
-
-        return scalar_metrics | class_metrics | iou_pairs
