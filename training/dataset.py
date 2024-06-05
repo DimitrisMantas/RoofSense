@@ -215,13 +215,13 @@ class TrainingDataset(NonGeoDataset):
     def _load_image(self, filename: str) -> Tensor:
         src: rasterio.io.DatasetReader
         with rasterio.open(filename) as src:
-            return torch.as_tensor(src.read(self.bands), dtype=torch.float32)
+            return torch.from_numpy(src.read(self.bands)).to(torch.float32)
 
     @lru_cache
     def _load_mask(self, filename: str) -> Tensor:
         src: rasterio.io.DatasetReader
         with rasterio.open(filename) as src:
-            return torch.as_tensor(src.read(), dtype=torch.int64)
+            return torch.from_numpy(src.read()).to(torch.int64)
 
     def _verify(self) -> bool:
         img_dir = os.path.join(self.root, "imgs")
