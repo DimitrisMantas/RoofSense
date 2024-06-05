@@ -31,9 +31,9 @@ if __name__ == "__main__":
             "this": DistribBasedLoss.CROSS,
             "that": RegionBasedLoss.JACC,
             "ignore_background": True,
-            "weight": torch.tensor(
-                np.load("../dataset/temp/weights.npy"), dtype=torch.float32
-            ),
+            "weight": torch.from_numpy(
+                np.load("../dataset/temp/weights.npy")
+            ).to(torch.float32),
         },
     )
 
