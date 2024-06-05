@@ -45,16 +45,16 @@ if __name__ == "__main__":
             lightning.pytorch.callbacks.EarlyStopping(
                 monitor="val/loss", patience=1000
             ),
-            lightning.pytorch.callbacks.DeviceStatsMonitor(cpu_stats=True),
+            # lightning.pytorch.callbacks.DeviceStatsMonitor(cpu_stats=True),
             lightning.pytorch.callbacks.ModelCheckpoint(
                 dirpath="../logs/RoofSense",
                 filename="best",
                 monitor="val/loss",
                 save_last=True,
             ),
-            lightning.pytorch.callbacks.OnExceptionCheckpoint(
-                dirpath="../logs/RoofSense"
-            ),
+            # lightning.pytorch.callbacks.OnExceptionCheckpoint(
+            #     dirpath="../logs/RoofSense"
+            # ),
             lightning.pytorch.callbacks.RichProgressBar(),
             LearningRateMonitor(),
         ],
