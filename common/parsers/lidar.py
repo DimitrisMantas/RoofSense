@@ -38,7 +38,7 @@ class LiDARParser(AssetParser):
         if refl_field in scalars:
             rfl = pc.rasterize(refl_field, res=res, bbox=box)
 
-            while num_nodata := np.count_nonzero(np.isnan(rfl.data)) != 0:
+            while (num_nodata := np.count_nonzero(np.isnan(rfl.data))) != 0:
                 # Fill until the raster is valid.
                 msg = f"Detected {num_nodata} no-data cells while processing {refl_field.lower()} raster. Filling until valid..."
                 warnings.warn(msg, EncodingWarning)
@@ -55,7 +55,7 @@ class LiDARParser(AssetParser):
         if elev_field in scalars:
             elev = pc.rasterize(elev_field, res=res, bbox=box).slope()
 
-            while num_nodata := np.count_nonzero(np.isnan(elev.data)) != 0:
+            while (num_nodata := np.count_nonzero(np.isnan(elev.data))) != 0:
                 # Fill until the raster is valid.
                 msg = f"Detected {num_nodata} no-data cells while processing {refl_field.lower()} raster. Filling until valid..."
                 warnings.warn(msg, EncodingWarning)
