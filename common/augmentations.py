@@ -98,16 +98,6 @@ class RandomSharpness(K.RandomSharpness):
         )
         return input
 
-    @override
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: Dict[str, Tensor],
-        flags: Dict[str, Any],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        return torch.flipud(torch.fliplr(input))
-
 
 class ColorJiggle(K.ColorJiggle):
     def __init__(self, *args, **kwargs) -> None:
