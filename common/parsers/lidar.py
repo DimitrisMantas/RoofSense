@@ -45,10 +45,15 @@ class LiDARParser(AssetParser):
 
                 rfl.fill()
 
-            # Convert the unit of measurement from dB to the underlying optical power
-            # ratio.
+            # Overwrite with the underlying ratio.
+            # NOTE: This rescaling allows the raster to be resampled using linear
+            # interpolation.
             rfl.data = 10 ** (0.1 * rfl.data)
             # Discard values corresponding to non-Lambertian reflectors.
+            # NOTE: Although certain materials of interest (e.g., glass) may appear
+            # as specular reflectors under the appropriate conditions, they are
+            # rarely encountered in practice, and their exceedingly high signal may
+            # overpower that of neighboring areas.
             rfl.data = rfl.data.clip(max=1)
 
             rfl.save(rfl_path)
