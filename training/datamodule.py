@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import MinMaxScaling
+from common.augmentations import AppendGreenness, MinMaxScaling
 from training.dataset import TrainingDataset
 
 
@@ -61,7 +61,17 @@ class TrainingDataModule(NonGeoDataModule):
 
         # General Augmentations
         self.aug = AugmentationSequential(
-            MinMaxScaling(self.mins, self.maxs), data_keys=["image", "mask"]
+            # Scaling
+            MinMaxScaling(self.mins, self.maxs),
+            # Spectral Indices
+            AppendGreenness(),
+            data_keys=["image", "mask"],
+            extra_args={
+                # TODO: Figure out what the most appropriate setting for
+                #  `align_corners` should be.
+                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
+                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
+            },
         )
 
         # Training Augmentations
@@ -69,6 +79,8 @@ class TrainingDataModule(NonGeoDataModule):
         self.train_aug = AugmentationSequential(
             # Scaling
             MinMaxScaling(self.mins, self.maxs),
+            # Spectral Indices
+            AppendGreenness(),
             # Geometric Augmentations
             # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips

@@ -24,7 +24,7 @@ if __name__ == "__main__":
         backbone="resnet50",
         weights=True,
         # I/O Layer Configuration
-        in_channels=5,
+        in_channels=5 + 1,
         num_classes=8 + 1,
         # Loss Configuration
         loss_params={
