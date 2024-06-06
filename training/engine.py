@@ -29,7 +29,10 @@ if __name__ == "__main__":
         # Loss Configuration
         loss_params={
             "this": DistribBasedLoss.CROSS,
-            "that": RegionBasedLoss.JACC,
+            "this_kwargs":{
+                "label_smoothing":0.05
+            },
+            "that": RegionBasedLoss.DICE,
             "ignore_background": True,
             "weight": torch.from_numpy(
                 np.load("../dataset/temp/weights.npy")
