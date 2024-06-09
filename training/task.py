@@ -298,7 +298,7 @@ class TrainingTask(SemanticSegmentationTask):
 
         # Initialize the confusion matrix.
         self.tra_confmat = MulticlassConfusionMatrix(
-            num_classes=num_classes, ignore_index=ignore_index, normalize="true"
+            num_classes=num_classes, normalize="true"
         )
         self.val_confmat = self.tra_confmat.clone()
         self.tst_confmat = self.tra_confmat.clone()
