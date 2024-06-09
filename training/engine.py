@@ -40,7 +40,26 @@ if __name__ == "__main__":
         },
     )
 
-    datamodule = TrainingDataModule(root="../dataset/temp")
+    datamodule = TrainingDataModule(root="../dataset/temp",
+                                    # # NOTE: The training dataset is too small for
+                                    # # asynchronous batch loading to be beneficial.
+                                    # # See https://lightning.ai/docs/pytorch/stable
+                                    # # /advanced/speed.html#dataloaders for more
+                                    # # information.
+                                    # num_workers=0,
+                                    # # NOTE: Batch loading is performed on the main
+                                    # # thread, so there are no workers to persist.
+                                    # persistent_workers=False
+                                    )
+
+    model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
+                dirpath="../logs/RoofSense",
+                filename="best",
+                monitor="val/loss",
+                save_last=True,
+            )
+    # Match log and checkpoint version numbers in the case of automatic versioning.
+    model_ckpt.STARTING_VERSION=0
 
     trainer = Trainer(
         logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
@@ -49,12 +68,7 @@ if __name__ == "__main__":
                 monitor="val/loss", patience=1000
             ),
             # lightning.pytorch.callbacks.DeviceStatsMonitor(cpu_stats=True),
-            lightning.pytorch.callbacks.ModelCheckpoint(
-                dirpath="../logs/RoofSense",
-                filename="best",
-                monitor="val/loss",
-                save_last=True,
-            ),
+            model_ckpt,
             # lightning.pytorch.callbacks.OnExceptionCheckpoint(
             #     dirpath="../logs/RoofSense"
             # ),
