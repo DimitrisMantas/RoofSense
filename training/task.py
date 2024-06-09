@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 from torch import Tensor
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import LinearLR, SequentialLR, CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchgeo.models import FCN
@@ -62,7 +62,7 @@ class TrainingTask(SemanticSegmentationTask):
         lr: float = 5e-4,
         # The learning rate at the start of the warmup phase, expressed as a
         # percentage of the nominal learning rate.
-        init_lr_pct: float = 1/3,
+        init_lr_pct: float = 1 / 3,
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0,
@@ -247,53 +247,69 @@ class TrainingTask(SemanticSegmentationTask):
                     # identified and excluded from the macroscopic averaging step.
                     zero_division=torch.nan,
                 ),
-
             },
             prefix="tra/",
         )
         self.val_metrics = self.tra_metrics.clone(prefix="val/")
-        self.val_metrics.add_metrics({# None
-            # "Accuracy": torchmetrics.wrappers.ClasswiseWrapper(
-            #     MulticlassAccuracy(
-            #         num_classes=num_classes,
-            #         average="none",
-            #         ignore_index=ignore_index,
-            #         # NOTE: Assign NaN to absent and ignored classes so that they can be
-            #         # identified and excluded from the macroscopic averaging step.
-            #         zero_division=torch.nan,
-            #     ),
-            #     prefix="Accuracy/",
-            # ),
-            "Precision": ClasswiseWrapper(MulticlassPrecision(num_classes=num_classes,
-                average="none",
-                ignore_index=ignore_index,
-                # NOTE: Assign NaN to absent and ignored classes so that they can be
-                # identified and excluded from the macroscopic averaging step.
-                zero_division=torch.nan, ), prefix="Precision/", ),
-            "Recall": ClasswiseWrapper(MulticlassRecall(num_classes=num_classes,
-                average="none",
-                ignore_index=ignore_index,
-                # NOTE: Assign NaN to absent and ignored classes so that they can be
-                # identified and excluded from the macroscopic averaging step.
-                zero_division=torch.nan, ), prefix="Recall/", ),
-            # "Specificity": torchmetrics.wrappers.ClasswiseWrapper(
-            #     MulticlassSpecificity(
-            #         num_classes=num_classes,
-            #         average="none",
-            #         ignore_index=ignore_index,
-            #         # NOTE: Assign NaN to absent and ignored classes so that they can be
-            #         # identified and excluded from the macroscopic averaging step.
-            #         zero_division=torch.nan,
-            #     ),
-            #     prefix="Specificity/",
-            # ),
-            "IoU": ClasswiseWrapper(MulticlassJaccardIndex(num_classes=num_classes,
-                average="none",
-                ignore_index=ignore_index,
-                # NOTE: Assign NaN to absent and ignored classes so that they can be
-                # identified and excluded from the macroscopic averaging step.
-                zero_division=torch.nan, ), prefix="IoU/", ),
-        })
+        self.val_metrics.add_metrics(
+            {  # None
+                # "Accuracy": torchmetrics.wrappers.ClasswiseWrapper(
+                #     MulticlassAccuracy(
+                #         num_classes=num_classes,
+                #         average="none",
+                #         ignore_index=ignore_index,
+                #         # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #         # identified and excluded from the macroscopic averaging step.
+                #         zero_division=torch.nan,
+                #     ),
+                #     prefix="Accuracy/",
+                # ),
+                "Precision": ClasswiseWrapper(
+                    MulticlassPrecision(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    ),
+                    prefix="Precision/",
+                ),
+                "Recall": ClasswiseWrapper(
+                    MulticlassRecall(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    ),
+                    prefix="Recall/",
+                ),
+                # "Specificity": torchmetrics.wrappers.ClasswiseWrapper(
+                #     MulticlassSpecificity(
+                #         num_classes=num_classes,
+                #         average="none",
+                #         ignore_index=ignore_index,
+                #         # NOTE: Assign NaN to absent and ignored classes so that they can be
+                #         # identified and excluded from the macroscopic averaging step.
+                #         zero_division=torch.nan,
+                #     ),
+                #     prefix="Specificity/",
+                # ),
+                "IoU": ClasswiseWrapper(
+                    MulticlassJaccardIndex(
+                        num_classes=num_classes,
+                        average="none",
+                        ignore_index=ignore_index,
+                        # NOTE: Assign NaN to absent and ignored classes so that they can be
+                        # identified and excluded from the macroscopic averaging step.
+                        zero_division=torch.nan,
+                    ),
+                    prefix="IoU/",
+                ),
+            }
+        )
         self.tst_metrics = self.val_metrics.clone(prefix="tst/")
 
         # Initialize the confusion matrix.
