@@ -1,7 +1,8 @@
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from torchgeo.datasets import RasterDataset
+from torchgeo.datasets import BoundingBox, RasterDataset
+from typing_extensions import override
 
 
 class InferenceDataset(RasterDataset):
@@ -45,6 +46,13 @@ class InferenceDataset(RasterDataset):
             raise ValueError(base_err_msg + " " + "Empty dataset root path.")
         elif len(self) > 1:
             raise ValueError(base_err_msg + " " + "Invalid dataset root path.")
+
+    @override
+    def __getitem__(self, query: BoundingBox) -> dict[str, Any]:
+        sample: dict[str, Any] = super().__getitem__(query)
+        # simulate boundless read
+        sample["image"] = sample["image"].nan_to_num(0)
+        return sample
 
 
 if __name__ == "__main__":
