@@ -53,6 +53,7 @@ class InferenceEngine:
             )
         )
         self.model.eval()
+        self.model.freeze()
 
         self.sampler = torchgeo.samplers.GridGeoSampler(
             self.dataset,
