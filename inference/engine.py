@@ -91,6 +91,14 @@ class InferenceEngine:
         )
         # TODO: Expose these parameters in the initializer.
         self.buffer = np.zeros(
+            (
+                self.model.hparams["num_classes"],
+                256 * (self.rows + 1),
+                256 * (self.cols + 1),
+            ),
+            dtype=np.float32,
+        )
+        self.images = np.zeros(
             (256 * (self.rows + 1), 256 * (self.cols + 1)), dtype=np.uint8
         )
 
@@ -115,22 +123,32 @@ class InferenceEngine:
             )
 
             with torch.inference_mode():
-                preds: torch.Tensor = (
-                    self.model(images).argmax(dim=1).cpu().numpy()
-                )
+                probs: torch.Tensor = self.model(images).softmax(dim=1).cpu().numpy()
 
             for i in range(images.shape[0]):
                 row_idx, col_idx = divmod(img_idx, self.cols)
                 # NOTE: The chip sampler starts at the southeast corner of the stack.
-                row_off, col_off = len(self.buffer) - row_idx * 256, col_idx * 256
+                row_off, col_off = (self.buffer.shape[1] - row_idx * 256, col_idx * 256)
 
-                self.buffer[row_off - 512 : row_off, col_off : col_off + 512] = preds[i]
+                self.buffer[:, row_off - 512 : row_off, col_off : col_off + 512] += (
+                    probs[i]
+                )
+                self.images[row_off - 512 : row_off, col_off : col_off + 512] += 1
 
                 img_idx += 1
 
+        # Blend
+        preds = self.buffer / self.images
+        # Predict
+        preds = preds.argmax(axis=0)
+        # Trim the buffer to the stack dimensions.
+        preds = preds[
+            self.buffer.shape[1] - self.height : self.buffer.shape[1], : self.width
+        ]
+
         dst: rasterio.io.DatasetWriter
         with rasterio.open(
-            "../dataset/infer/9-284-556.v5.map.tif",
+            "../dataset/infer/9-284-556.map.avg.tif",
             mode="w",
             width=self.width,
             height=self.height,
@@ -151,16 +169,11 @@ class InferenceEngine:
             num_threads=os.cpu_count(),
             predictor=2,
         ) as dst:
-            dst.write(  # Trim the buffer to the stack dimensions.
-                self.buffer[
-                    len(self.buffer) - self.height : len(self.buffer), : self.width
-                ],
-                indexes=1,
-            )
+            dst.write(preds, indexes=1)
 
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best-v5.ckpt"
+        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best.ckpt"
     )
     engine.run()
