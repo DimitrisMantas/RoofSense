@@ -4,7 +4,6 @@ import lightning.pytorch
 import numpy as np
 import torch
 from lightning import Trainer
-from lightning.pytorch.callbacks import LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from training.datamodule import TrainingDataModule
@@ -40,41 +39,51 @@ if __name__ == "__main__":
         },
     )
 
-    datamodule = TrainingDataModule(root="../dataset/temp",
-                                    # # NOTE: The training dataset is too small for
-                                    # # asynchronous batch loading to be beneficial.
-                                    # # See https://lightning.ai/docs/pytorch/stable
-                                    # # /advanced/speed.html#dataloaders for more
-                                    # # information.
-                                    # num_workers=0,
-                                    # # NOTE: Batch loading is performed on the main
-                                    # # thread, so there are no workers to persist.
-                                    # persistent_workers=False
-                                    )
+    datamodule = TrainingDataModule(root="../dataset/temp")
+
+    logger=TensorBoardLogger(save_dir="../logs", name="encoders", version="base")
 
     model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
-                dirpath="../logs/RoofSense",
-                filename="best",
-                monitor="val/loss",
-                save_last=True,
-            )
+        dirpath=logger.log_dir,
+        filename="best",
+        monitor="val/loss",
+        save_last=True,
+    )
     # Match log and checkpoint version numbers in the case of automatic versioning.
-    model_ckpt.STARTING_VERSION=0
+    model_ckpt.STARTING_VERSION = 0
 
     trainer = Trainer(
-        logger=TensorBoardLogger(save_dir="../logs/RoofSense"),
+        logger=logger,
+        # NOTE: We do not employ any gradient accumulation schemes due to the
+        # existence of batch normalization layers in our encoders of choice.
+        # This is because the parameters of these layers are not accumulated and
+        # are instead updated only in the backpropagation step.
+        # In fact, this is also why we choose not to freeze any encoder
+        # parameters in the transfer learning process.
         callbacks=[
             lightning.pytorch.callbacks.EarlyStopping(
-                monitor="val/loss", patience=1000
+                monitor="val/loss",
+                # NOTE: We employ high early stopping patience in the exploration
+                # phase to ensure that configurations which are relatively slow train
+                # but still performant overall are not discarded accidentally.
+                # Our patience is reduced to 50 epochs in the exploitation stage to
+                # prune potentially hyper-optimistic learning rate schedules and thus
+                # promote stable training.
+                patience=100,
             ),
-            # lightning.pytorch.callbacks.DeviceStatsMonitor(cpu_stats=True),
             model_ckpt,
-            # lightning.pytorch.callbacks.OnExceptionCheckpoint(
-            #     dirpath="../logs/RoofSense"
-            # ),
             lightning.pytorch.callbacks.RichProgressBar(),
             LearningRateMonitor(),
+            lightning.pytorch.callbacks.LearningRateMonitor(),
         ],
+        # NOTE: We initially train all models for 1000 epochs to investigate the full
+        # convergence behavior of each configuration.
+        # Once we have limited our search space to a certain architecture and a
+        # particular collection of support models to sweep, we limit the training
+        # duration to the maximum number of epochs required to achieve quasi-minimum
+        # validation loss with similar configurations in the earlier stages of this
+        # process.
+        max_epochs=600,
         benchmark=True,
     )
 
