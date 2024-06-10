@@ -1,6 +1,10 @@
-from collections.abc import Sequence
+def get_fg_color(patch_color: tuple[float, float, float, float]) -> str:
+    r, g, b, a = patch_color
+    r, g, b = (
+        c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)
+    )
 
+    # Get the relative luminance
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
 
-def get_fg_color(bg_color: Sequence[float, float, float, float]) -> tuple[float, float, float, float]:
-    lum = 0.299 * bg_color[0] + 0.587 * bg_color[1] + 0.114 * bg_color[2]
-    return (0, 0, 0, 1) if lum > 0.5 else (1, 1, 1, 1)
+    return ".1" if y > 0.4 else "white"
