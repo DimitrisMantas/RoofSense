@@ -1,11 +1,12 @@
 import math
 import os
 import warnings
+from collections.abc import Sequence
 from typing import Any, Literal
 
-import segmentation_models_pytorch as smp
 import torch
 import torchgeo.trainers.utils
+import torchseg
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -66,7 +67,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0,
-        model_kwargs: dict[str, float | str | None] | None = None,
+        model_kwargs: dict[str, dict[str,float|str|Sequence[float]|None]|float | str | None] | None = None,
         loss_params: dict[str, Any],
         **kwargs,
     ):
@@ -94,14 +95,14 @@ class TrainingTask(SemanticSegmentationTask):
         # TODO: Initialize any SMP model dynamically.
         if model == "unet":
             if optional_kwargs is None:
-                self.model = smp.Unet(**standard_kwargs)
+                self.model = torchseg.Unet(**standard_kwargs)
             else:
-                self.model = smp.Unet(**standard_kwargs, **optional_kwargs)
+                self.model = torchseg.Unet(**standard_kwargs, **optional_kwargs)
         elif model == "deeplabv3+":
             if optional_kwargs is None:
-                self.model = smp.DeepLabV3Plus(**standard_kwargs)
+                self.model = torchseg.DeepLabV3Plus(**standard_kwargs)
             else:
-                self.model = smp.DeepLabV3Plus(**standard_kwargs, **optional_kwargs)
+                self.model = torchseg.DeepLabV3Plus(**standard_kwargs, **optional_kwargs)
         elif model == "fcn":
             self.model = FCN(
                 in_channels=in_channels, classes=num_classes, num_filters=num_filters
