@@ -65,10 +65,9 @@ class TrainingDataModule(NonGeoDataModule):
             MinMaxScaling(self.mins, self.maxs),
             data_keys=["image", "mask"],
             extra_args={
-                # TODO: Figure out what the most appropriate setting for
-                #  `align_corners` should be.
-                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
-                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
+                # https://discuss.pytorch.org/t/what-we-should-use-align-corners-false/22663/5
+                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": False},
+                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": False},
             },
         )
 
@@ -92,10 +91,9 @@ class TrainingDataModule(NonGeoDataModule):
             # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
             data_keys=["image", "mask"],
             extra_args={
-                # TODO: Figure out what the most appropriate setting for
-                #  `align_corners` should be.
-                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": None},
-                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": None},
+                # https://discuss.pytorch.org/t/what-we-should-use-align-corners-false/22663/5
+                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": False},
+                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": False},
             },
         )
 
