@@ -1,12 +1,10 @@
 import math
-import os
-import warnings
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 import torch
-import torchgeo.trainers.utils
 import torchseg
+from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -17,8 +15,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
-from torchgeo.models import FCN
-from torchgeo.trainers import SemanticSegmentationTask
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassConfusionMatrix,
@@ -26,7 +22,6 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassPrecision,
                                          MulticlassRecall,
                                          MulticlassSpecificity, )
-from torchvision.models import WeightsEnum
 from typing_extensions import override
 
 from training.loss import CompoundLoss
@@ -34,29 +29,46 @@ from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
 
 
-class TrainingTask(SemanticSegmentationTask):
+class TrainingTask(LightningModule):
+    #: Model to train.
+    model: Any
+
+    #: Performance metric to monitor in learning rate scheduler and callbacks.
     # TODO: See if renaming the loss messes up something.
     monitor = "val/loss"
 
+    #: Whether the goal is to minimize or maximize the performance metric to monitor.
+    mode = "min"
+
+    # noinspection PyUnusedLocal
     def __init__(
         self,
-        *args,
-        # The total number of warmup epochs, expressed as a percentage of the maximum
-        # number of training epochs, as specified by the trainer this task is associated
-        # with or `max_epochs`.
-        warmup_time: float = 0.05,
-        # The maximum number of warmup epochs.
-        max_warmup_epochs: int = 30,
+        # The name of the model decoder.
+        decoder: Literal["unet","unetplusplus","manet","linknet","fpn","pspnet","pan","deeplabv3","deeplabv3plus"],
+        # The name of the model encoder.
+        encoder: str,
+
+        loss_params: dict[str, Any],
+
+        encoder_weights: str|None = "imagenet",
+        in_channels: int = 5,
+            # TODO: See if we can remove background predictions from the model output.
+        num_classes: int = 8+1,
+        model_params: dict[
+            str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
+        ]
+        | None = None,
+        ignore_index: Optional[int] = None,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        # The total number of warmup epochs.
+        warmup_epochs: int=15,
         # The total number of epochs constituting the period of the first cycle of the
         # annealing phase.
         T_0: int = 60,
         # The period ratio `Ti+1/Ti` of two consecutive cycles `i` of the annealing
         # phase.
         T_mult: int = 2,
-        # The maximum number of training epochs.
-        # NOTE: This parameter is used to provide a fallback in case the trainer this
-        # task is used with cannot provide it.
-        max_epochs: int = 1000,
         # The learning rate at the end of the warmup and each new cycle of the
         # subsequent annealing phases. This parameter is henceforth referred to
         # as the "nominal learning rate".
@@ -67,247 +79,101 @@ class TrainingTask(SemanticSegmentationTask):
         # The minimum learning rate at the annealing phase, expressed as a percentage
         # of the nominal learning rate.
         min_lr_pct: float = 0,
-        model_kwargs: dict[str, dict[str,float|str|Sequence[float]|None]|float | str | None] | None = None,
-        loss_params: dict[str, Any],
-        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__()
 
-    @override
-    def configure_models(self) -> None:
-        model: str = self.hparams["model"]
-        backbone: str = self.hparams["backbone"]
-        weights = self.weights
-        in_channels: int = self.hparams["in_channels"]
-        num_classes: int = self.hparams["num_classes"]
-        num_filters: int = self.hparams["num_filters"]
-
-        standard_kwargs = {
-            "encoder_name": backbone,
-            "encoder_weights": "imagenet" if weights is True else None,
-            "in_channels": in_channels,
-            "classes": num_classes,
-        }
-        optional_kwargs: dict[str, float | str | None] | None = self.hparams[
-            "model_kwargs"
-        ]
-
-        # TODO: Initialize any SMP model dynamically.
-        if model == "unet":
-            if optional_kwargs is None:
-                self.model = torchseg.Unet(**standard_kwargs)
-            else:
-                self.model = torchseg.Unet(**standard_kwargs, **optional_kwargs)
-        elif model == "deeplabv3+":
-            if optional_kwargs is None:
-                self.model = torchseg.DeepLabV3Plus(**standard_kwargs)
-            else:
-                self.model = torchseg.DeepLabV3Plus(**standard_kwargs, **optional_kwargs)
-        elif model == "fcn":
-            self.model = FCN(
-                in_channels=in_channels, classes=num_classes, num_filters=num_filters
-            )
-        else:
-            raise ValueError(
-                f"Model type '{model}' is not valid. "
-                "Currently, only supports 'unet', 'deeplabv3+' and 'fcn'."
-            )
-
-        if model != "fcn":
-            if weights and weights is not True:
-                if isinstance(weights, WeightsEnum):
-                    state_dict = weights.get_state_dict(progress=True)
-                elif os.path.exists(weights):
-                    _, state_dict = torchgeo.trainers.utils.extract_backbone(weights)
-                else:
-                    state_dict = torchgeo.models.get_weight(weights).get_state_dict(
-                        progress=True
-                    )
-                self.model.encoder.conv1 = (
-                    torchgeo.trainers.utils.reinit_initial_conv_layer(
-                        self.model.encoder.conv1,
-                        new_in_channels=state_dict["conv1.weight"].shape[1],
-                        keep_rgb_weights=True,
-                    )
-                )
-                self.model.encoder.load_state_dict(state_dict)
-                self.model.encoder.conv1 = (
-                    torchgeo.trainers.utils.reinit_initial_conv_layer(
-                        self.model.encoder.conv1,
-                        new_in_channels=in_channels,
-                        keep_rgb_weights=True,
-                    )
-                )
-
-        # Freeze backbone
-        if self.hparams["freeze_backbone"] and model in ["unet", "deeplabv3+"]:
-            for param in self.model.encoder.parameters():
-                param.requires_grad = False
-
-        # Freeze decoder
-        if self.hparams["freeze_decoder"] and model in ["unet", "deeplabv3+"]:
-            for param in self.model.decoder.parameters():
-                param.requires_grad = False
-
-    @override
-    def configure_losses(self) -> None:
-        self.criterion = CompoundLoss(**self.hparams.loss_params)
-
-    @override
-    def configure_metrics(self) -> None:
-        num_classes: int = self.hparams["num_classes"]
-        ignore_index: int | None = (
-            0 if self.hparams["loss_params"]["ignore_background"] else None
+        self.save_hyperparameters(
+            # NOTE: See https://github.com/microsoft/torchgeo/pull/1897 for more
+            # information.
+            ignore=["ignore", "encoder_weights"]
+            if encoder_weights is not None
+            else ["ignore"]
         )
 
+        self._init_model()
+        self._loss = CompoundLoss(**loss_params)
+
+        self._init_metrics()
+
+    # TODO: Add support for freezing the encoder and or decoder in the supported
+    #  architectures.
+    def _init_model(self) -> None:
+        encoder_weights: str | None
+        try:
+            encoder_weights = self.hparams.encoder_weights
+        except AttributeError:
+            # The encoder is pretrained.
+            encoder_weights = None
+
+        model_params: (
+            dict[
+                str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
+            ]
+            | None
+        ) = self.hparams.model_params
+        model_params = model_params if model_params is not None else {}
+
+        self.model = torchseg.create_model(
+            self.hparams.decoder,
+            encoder_name=self.hparams.encoder,
+            encoder_weights=encoder_weights,
+            in_channels=self.hparams.in_channels,
+            classes=self.hparams.num_classes,
+            **model_params,
+        )
+
+    def _init_metrics(self) -> None:
+        num_classes: int = self.hparams["num_classes"]
+
+        base_params = {
+            "num_classes": num_classes,
+            "ignore_index": 0
+            if self.hparams.loss_params["ignore_background"]
+            else None,
+            # NOTE: Assign NaN to absent and ignored classes so that they can be
+            # identified and excluded from the macroscopic averaging step.
+            "zero_division": torch.nan,
+        }
+        macro_params = base_params | {"average": "macro"}
+        micro_params = base_params | {"average": "micro"}
+        none_params = base_params | {"average": "none"}
+
         self.tra_metrics = MetricCollection(
-            {  # Macro
-                # "MacroAccuracy": MulticlassAccuracy(
-                #     num_classes=num_classes,
-                #     average="macro",
-                #     ignore_index=ignore_index,
-                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #     # identified and excluded from the macroscopic averaging step.
-                #     zero_division=torch.nan,
-                # ),
+            {
+                # FIXME: Track macro accuracy and specificity.
+                # Macro
+                # "MacroAccuracy": MulticlassAccuracy(**macro_params),
                 "MacroPrecision": MacroAverageWrapper(
-                    MulticlassPrecision(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    )
+                    MulticlassPrecision(**none_params)
                 ),
-                "MacroRecall": MacroAverageWrapper(
-                    MulticlassRecall(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    )
-                ),
-                # "MacroSpecificity": MulticlassSpecificity(
-                #     num_classes=num_classes,
-                #     average="macro",
-                #     ignore_index=ignore_index,
-                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #     # identified and excluded from the macroscopic averaging step.
-                #     zero_division=torch.nan,
-                # ),
-                "MacroIoU": MacroAverageWrapper(
-                    MulticlassJaccardIndex(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    )
-                ),  # Micro
-                "MicroAccuracy": MulticlassAccuracy(
-                    num_classes=num_classes,
-                    average="micro",
-                    ignore_index=ignore_index,
-                    # NOTE: Assign NaN to absent and ignored classes so that they can be
-                    # identified and excluded from the macroscopic averaging step.
-                    zero_division=torch.nan,
-                ),
-                # "MicroPrecision": MulticlassPrecision(
-                #     num_classes=num_classes,
-                #     average="micro",
-                #     ignore_index=ignore_index,
-                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #     # identified and excluded from the macroscopic averaging step.
-                #     zero_division=torch.nan,
-                # ),
-                # "MicroRecall": MulticlassRecall(
-                #     num_classes=num_classes,
-                #     average="micro",
-                #     ignore_index=ignore_index,
-                #     # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #     # identified and excluded from the macroscopic averaging step.
-                #     zero_division=torch.nan,
-                # ),
-                "MicroSpecificity": MulticlassSpecificity(
-                    num_classes=num_classes,
-                    average="micro",
-                    ignore_index=ignore_index,
-                    # NOTE: Assign NaN to absent and ignored classes so that they can be
-                    # identified and excluded from the macroscopic averaging step.
-                    zero_division=torch.nan,
-                ),
-                "MicroIoU": MulticlassJaccardIndex(
-                    num_classes=num_classes,
-                    average="micro",
-                    ignore_index=ignore_index,
-                    # NOTE: Assign NaN to absent and ignored classes so that they can be
-                    # identified and excluded from the macroscopic averaging step.
-                    zero_division=torch.nan,
-                ),
+                "MacroRecall": MacroAverageWrapper(MulticlassRecall(**none_params)),
+                # "MacroSpecificity": MulticlassSpecificity(**macro_params),
+                "MacroIoU": MacroAverageWrapper(MulticlassJaccardIndex(**none_params)),
+                # Micro
+                "MicroAccuracy": MulticlassAccuracy(**micro_params),
+                "MicroPrecision": MulticlassPrecision(**micro_params),
+                "MicroRecall": MulticlassRecall(**micro_params),
+                "MicroSpecificity": MulticlassSpecificity(**micro_params),
+                "MicroIoU": MulticlassJaccardIndex(**micro_params),
             },
             prefix="tra/",
         )
         self.val_metrics = self.tra_metrics.clone(prefix="val/")
         self.val_metrics.add_metrics(
             {  # None
-                # "Accuracy": torchmetrics.wrappers.ClasswiseWrapper(
-                #     MulticlassAccuracy(
-                #         num_classes=num_classes,
-                #         average="none",
-                #         ignore_index=ignore_index,
-                #         # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #         # identified and excluded from the macroscopic averaging step.
-                #         zero_division=torch.nan,
-                #     ),
-                #     prefix="Accuracy/",
+                # "Accuracy": ClasswiseWrapper(
+                #     MulticlassAccuracy(**none_params), prefix="Accuracy/"
                 # ),
                 "Precision": ClasswiseWrapper(
-                    MulticlassPrecision(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    ),
-                    prefix="Precision/",
+                    MulticlassPrecision(**none_params), prefix="Precision/"
                 ),
                 "Recall": ClasswiseWrapper(
-                    MulticlassRecall(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    ),
-                    prefix="Recall/",
-                ),
-                # "Specificity": torchmetrics.wrappers.ClasswiseWrapper(
-                #     MulticlassSpecificity(
-                #         num_classes=num_classes,
-                #         average="none",
-                #         ignore_index=ignore_index,
-                #         # NOTE: Assign NaN to absent and ignored classes so that they can be
-                #         # identified and excluded from the macroscopic averaging step.
-                #         zero_division=torch.nan,
-                #     ),
-                #     prefix="Specificity/",
+                    MulticlassRecall(**none_params), prefix="Recall/"
+                ),  # "Specificity": ClasswiseWrapper(
+                #     MulticlassSpecificity(**none_params), prefix="Specificity/"
                 # ),
                 "IoU": ClasswiseWrapper(
-                    MulticlassJaccardIndex(
-                        num_classes=num_classes,
-                        average="none",
-                        ignore_index=ignore_index,
-                        # NOTE: Assign NaN to absent and ignored classes so that they can be
-                        # identified and excluded from the macroscopic averaging step.
-                        zero_division=torch.nan,
-                    ),
-                    prefix="IoU/",
+                    MulticlassJaccardIndex(**none_params), prefix="IoU/"
                 ),
             }
         )
@@ -326,17 +192,7 @@ class TrainingTask(SemanticSegmentationTask):
         #  parameters.
         optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
 
-        max_epochs: int = self.hparams["max_epochs"]
-        if self.trainer and self.trainer.max_epochs:
-            warnings.warn(
-                "The trainer does not specify a maximum number of epochs", UserWarning
-            )
-            max_epochs = self.trainer.max_epochs
-        warmup_epochs = min(
-            int(max_epochs * self.hparams["warmup_time"]),
-            self.hparams["max_warmup_epochs"],
-        )
-
+        warmup_epochs:int=self.hparams.warmup_epochs
         scheduler = SequentialLR(
             optimizer,
             schedulers=[
@@ -375,6 +231,82 @@ class TrainingTask(SemanticSegmentationTask):
         self._plot_confmat(preds, target, step="tra")
 
         return loss
+
+    @override
+    def validation_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        preds, target, loss = self._update_loss(batch)
+
+        # TODO: Store step prefixes in an StrEnum.
+        self.log("val/" + "loss", loss)
+        self.log_dict(self.val_metrics(preds, target))
+
+        self._plot_confmat(preds, target, step="val")
+
+        # TODO: Clean up this block.
+        if (
+            batch_idx < 10
+            and hasattr(self.trainer, "datamodule")
+            and hasattr(self.trainer.datamodule, "plot")
+            and self.logger
+            and hasattr(self.logger, "experiment")
+            and hasattr(self.logger.experiment, "add_figure")
+        ):
+            datamodule = self.trainer.datamodule
+            batch["prediction"] = preds.argmax(dim=1)
+            for key in ["image", "mask", "prediction"]:
+                batch[key] = batch[key].cpu()
+            sample = unbind_samples(batch)[0]
+
+            fig: Figure | None = None
+            try:
+                fig = datamodule.plot(sample)
+            except RGBBandsMissingError:
+                pass
+
+            if fig:
+                summary_writer = self.logger.experiment
+                summary_writer.add_figure(
+                    f"image/{batch_idx}", fig, global_step=self.global_step
+                )
+                plt.close()
+
+    @override
+    def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        preds, target, loss = self._update_loss(batch)
+
+        # TODO: Store step prefixes in an StrEnum.
+        self.log("tst/" + "loss", loss)
+        self.log_dict(self.tst_metrics(preds, target))
+
+        self._plot_confmat(preds, target, step="tst")
+
+    @override
+    def predict_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute the predicted class probabilities.
+
+        Args:
+            batch: The output of your DataLoader.
+            batch_idx: Integer displaying index of this batch.
+            dataloader_idx: Index of the current dataloader.
+
+        Returns:
+            Output predicted probabilities.
+        """
+        x = batch["image"]
+        y_hat: Tensor = self(x).softmax(dim=1)
+        return y_hat
+
+    def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
+        input = batch["image"]
+        target = batch["mask"]
+        preds = self(input)
+        loss = self._loss(preds, target)
+
+        return preds, target, loss
 
     def _plot_confmat(self, preds, target, step: Literal["tra", "val", "tst"]):
         tboard = self._get_tboard()
@@ -429,60 +361,14 @@ class TrainingTask(SemanticSegmentationTask):
             else None
         )
 
-    @override
-    def validation_step(
-        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        preds, target, loss = self._update_loss(batch)
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        """Forward pass of the model.
 
-        # TODO: Store step prefixes in an StrEnum.
-        self.log("val/" + "loss", loss)
-        self.log_dict(self.val_metrics(preds, target))
+        Args:
+            args: Arguments to pass to model.
+            kwargs: Keyword arguments to pass to model.
 
-        self._plot_confmat(preds, target, step="val")
-
-        # TODO: Clean up this block.
-        if (
-            batch_idx < 10
-            and hasattr(self.trainer, "datamodule")
-            and hasattr(self.trainer.datamodule, "plot")
-            and self.logger
-            and hasattr(self.logger, "experiment")
-            and hasattr(self.logger.experiment, "add_figure")
-        ):
-            datamodule = self.trainer.datamodule
-            batch["prediction"] = preds.argmax(dim=1)
-            for key in ["image", "mask", "prediction"]:
-                batch[key] = batch[key].cpu()
-            sample = unbind_samples(batch)[0]
-
-            fig: Figure | None = None
-            try:
-                fig = datamodule.plot(sample)
-            except RGBBandsMissingError:
-                pass
-
-            if fig:
-                summary_writer = self.logger.experiment
-                summary_writer.add_figure(
-                    f"image/{batch_idx}", fig, global_step=self.global_step
-                )
-                plt.close()
-
-    @override
-    def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
-        preds, target, loss = self._update_loss(batch)
-
-        # TODO: Store step prefixes in an StrEnum.
-        self.log("tst/" + "loss", loss)
-        self.log_dict(self.tst_metrics(preds, target))
-
-        self._plot_confmat(preds, target, step="tst")
-
-    def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
-        input = batch["image"]
-        target = batch["mask"]
-        preds = self(input)
-        loss = self.criterion(preds, target)
-
-        return preds, target, loss
+        Returns:
+            Output of the model.
+        """
+        return self.model(*args, **kwargs)

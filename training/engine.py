@@ -18,24 +18,33 @@ if __name__ == "__main__":
     lightning.pytorch.seed_everything(42, workers=True)
 
     task = TrainingTask(
+        # Architecture Configuration
+        # NOTE: We choose to not experiment with any purely transformer-based
+        # architectures due to their limited effectiveness with small datasets such
+        # as ours.
+        # Instead, we prefer to exploit the inherent inductive biases of CNNs to
+        # maintain reasonable performance.
+        encoder="resnet50",
         # Decoder Configuration
-        model="deeplabv3+",
-        # Encoder Configuration
-        backbone="resnet50",
-        weights=True,
-        # I/O Layer Configuration
-        in_channels=5,
-        num_classes=8 + 1,
+        decoder="deeplabv3plus",
         # Loss Configuration
         loss_params={
             "this": DistribBasedLoss.CROSS,
-            "this_kwargs": {"label_smoothing": 0.1},
+            "this_kwargs": {"label_smoothing": 0.05},
             "that": RegionBasedLoss.DICE,
             "ignore_background": True,
             "weight": torch.from_numpy(np.load("../dataset/temp/weights.npy")).to(
                 torch.float32
             ),
         },
+        # # Optim Configuration
+        # optim_params={
+        # "optimizer":
+        #     {...}
+        # ,
+        # "scheduler":
+        #     {...}
+        # }
     )
 
     datamodule = TrainingDataModule(root="../dataset/temp")
@@ -74,6 +83,15 @@ if __name__ == "__main__":
             model_ckpt,
             lightning.pytorch.callbacks.RichProgressBar(),
             lightning.pytorch.callbacks.LearningRateMonitor(),
+            # TODO: Should we add this in? It triggers when there's significant
+            #  deviation from the cumulative mean training loss.
+            # lightning.pytorch.callbacks.SpikeDetection(
+            #     # TODO: Get this from the task.
+            #     warmup=10,
+            #     # TODO: Link this with the log directory.
+            #     exclude_batches_path=logger.log_dir,
+            #     finite_only=False,
+            # ),
         ],
         # NOTE: We initially train all models for 1000 epochs to investigate the full
         # convergence behavior of each configuration.
