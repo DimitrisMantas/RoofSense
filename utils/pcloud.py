@@ -232,6 +232,76 @@ class PointCloud:
 
         return ras
 
+    def density(
+        self,
+        res: float | None,
+        bbox: Optional[BoundingBoxLike] = None,
+        meta: Optional[rasterio.profiles.Profile] = None,
+    ) -> float | raster.Raster:
+        """Compute the planar density of the point cloud.
+
+        Args:
+            res: The spatial resolution of the output raster in the CRS of the point cloud. If provided, the density is computed per cell. Otherwise, a global density is returned.
+        """
+        # Disambiguate the input.
+        bbox = bbox if bbox is not None else self.bbox
+
+        if res is None:
+            area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            return len(self) / area
+
+        return self._rasterize_density(res,bbox,meta)
+
+
+
+    def _rasterize_density(self,
+                           res: float ,
+        bbox: Optional[BoundingBoxLike] = None,
+        meta: Optional[rasterio.profiles.Profile] = None)->raster.Raster:
+        # Initialize the index.
+        # TODO: Factor this block out to a private method.
+        if self.index is None:
+            self._index = Index(self)
+
+        # Initialize the output raster.
+        ras = raster.Raster(res, bbox=bbox, meta=meta)
+        cells = ras.xy()
+
+        # Query the index.
+        neighbors, _ = self.index.query(
+            tuple(map(tuple, cells)),
+            r=res / 2,
+            # Chebyshev Distance
+            p=np.inf,
+        )
+
+        # TODO: Add multithreading.
+        # Interpolate the attribute value at the raster cells.
+        ras_data = np.full_like(neighbors,
+            fill_value=ras.meta["nodata"],
+            dtype=ras.meta["dtype"])
+        for i, neighbor in tqdm.tqdm(enumerate(neighbors),
+                desc="Rasterization",
+                total=len(neighbors),
+                unit="cells", ):
+            if not neighbor:
+                # The cell is empty.
+                continue
+            ras_data[i]=len(neighbor)/(res**2)
+
+
+        # Reshape the raster data into a two-dimensional array.
+        ras_data = ras_data.reshape([ras.height, ras.width])
+
+        # Overwrite the raster data.
+        ras.data = ras_data
+
+        # Fill the empty cells.
+        ras.fill()
+
+        return ras
+
+
     def remove_duplicates(self) -> Self:
         # Gather the point records.
         # NOTE: The unique element filter provided by NumPy is inefficient.

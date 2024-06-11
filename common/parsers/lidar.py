@@ -25,6 +25,8 @@ class LiDARParser(AssetParser):
         ldr_path = self._merge_assets(obj_id, box)
         rfl_path = f"{config.env('TEMP_DIR')}{obj_id}.rfl{config.var('TIF')}"
         slp_path = f"{config.env('TEMP_DIR')}{obj_id}.slp{config.var('TIF')}"
+        #density
+        den_path = f"{config.env('TEMP_DIR')}{obj_id}.den{config.var('TIF')}"
         scalars = _get_scalars(rfl_path, slp_path)
         if not scalars:
             return
@@ -68,6 +70,19 @@ class LiDARParser(AssetParser):
                 elev.fill()
 
             elev.save(slp_path)
+
+        # # rasterize density
+        # if not os.path.isfile(den_path):
+        #     den = pc.density(res=res, bbox=box)
+        #
+        #     while num_nodata := np.count_nonzero(np.isnan(den.data)) != 0:
+        #         # Fill until the raster is valid.
+        #         msg = f"Detected {num_nodata} no-data cells while processing {refl_field.lower()} raster. Filling until valid..."
+        #         warnings.warn(msg, EncodingWarning)
+        #
+        #         den.fill()
+        #
+        #     den.save(den_path)
 
     def _merge_assets(self, obj_id: str, box) -> str:
         out_path = f"{config.env('TEMP_DIR')}{obj_id}{config.var('LAZ')}"
