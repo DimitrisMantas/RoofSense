@@ -44,7 +44,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The total number of warmup epochs, expressed as a percentage of the maximum
         # number of training epochs, as specified by the trainer this task is associated
         # with or `max_epochs`.
-        warmup_time: float = 0.01,
+        warmup_time: float = 0.05,
         # The maximum number of warmup epochs.
         max_warmup_epochs: int = 30,
         # The total number of epochs constituting the period of the first cycle of the
