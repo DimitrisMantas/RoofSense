@@ -135,16 +135,23 @@ class AppendGreenness(K.IntensityAugmentationBase2D):
         input = torch.cat((input, ag), dim=1)
         return input
 
+
 class AppendHSV(K.IntensityAugmentationBase2D):
-    "rgb data must be 0..1"
-    def __init__(self,*args,**kwargs):
-        super().__init__(p=1,*args,**kwargs)
+    """rgb data must be 0..1"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(p=1, *args, **kwargs)
+
     def apply_transform(
-        self, input: Tensor, params: Dict[str, Tensor], flags: Dict[str, Any], transform: Optional[Tensor] = None
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
     ) -> Tensor:
-        hsv=kornia.color.rgb_to_hsv(input[:, :3, ...])
+        hsv = kornia.color.rgb_to_hsv(input[:, :3, ...])
         # scale the H channel to from [0,2pi] to [0,1]
-        hsv[:,0,...]=hsv[:,0,...]/(2*math.pi)
+        hsv[:, 0, ...] = hsv[:, 0, ...] / (2 * math.pi)
 
         input = torch.cat((input, hsv), dim=1)
         return input
@@ -169,6 +176,78 @@ class RandomSharpness(K.RandomSharpness):
 
 
 class ColorJiggle(K.ColorJiggle):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
+
+
+class NormalizeRGB(K.Normalize):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
+
+
+class RandomEqualize(K.RandomEqualize):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
+
+
+class RandomPosterize(K.RandomPosterize):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @override
+    def apply_transform(
+        self,
+        input: Tensor,
+        params: Dict[str, Tensor],
+        flags: Dict[str, Any],
+        transform: Optional[Tensor] = None,
+    ) -> Tensor:
+        input[:, :3, ...] = super().apply_transform(
+            input[:, :3, ...], params, flags, transform
+        )
+        return input
+
+
+class RandomGaussianBlur(K.RandomGaussianBlur):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 

@@ -11,7 +11,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import MinMaxScaling
+from common.augmentations import (MinMaxScaling, )
 from training.dataset import TrainingDataset
 
 
@@ -79,19 +79,45 @@ class TrainingDataModule(NonGeoDataModule):
             # Geometric Augmentations
             # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips
-            K.RandomVerticalFlip(), K.RandomHorizontalFlip(),
-            # RandomDiagonalFlip(diag="main"),
-            # RandomDiagonalFlip(diag="anti"),
+            K.RandomVerticalFlip(),
+            K.RandomHorizontalFlip(),
             # Rotations
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
-            # Intensity Augmentations
-            # RandomSharpness(0.1),
-            # ColorJiggle(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.5),
+            # # Scaling
+            # K.RandomAffine(degrees=0, translate=(0, 0), scale=(0.9, 1.1), shear=0),
+            # # ---
+            # # https://forums.fast.ai/t/applying-segmentation-model-to-different-dataset-without-transfer-learning/98561
+            # # ---
+            # # Warping
+            # K.RandomPerspective(
+            #     distortion_scale=0.1, sampling_method="area_preserving"
+            # ),
+            # # Intensity Augmentations
+            # # Color
+            # ColorJiggle(p=0.5, contrast=0.1, hue=0.1, saturation=0.1, brightness=0.1),
+            # RandomPosterize(),
+            # # Histogram
+            # RandomEqualize(),
+            # # Sharpness
+            # RandomGaussianBlur(
+            #     kernel_size=3,
+            #     sigma=(0.5,0.5)
+            # ),
+            # RandomSharpness(
+            #     sharpness=0.1
+            # ),
             data_keys=["image", "mask"],
             extra_args={
-                # https://discuss.pytorch.org/t/what-we-should-use-align-corners-false/22663/5
+                # NOTE: We choose to always resample with bilinear interpolation to
+                # preserve the scaled value range of the stack.
+                # This is important because both reflectance and slope values have a
+                # physical interpretation.
+                # NOTE; Interpolation with aligned corners may disturb the spatial
+                # inductive biases of the model.
+                # See https://discuss.pytorch.org/t/what-we-should-use-align-corners
+                # -false/22663/5 for more information.
                 DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": False},
                 DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": False},
             },

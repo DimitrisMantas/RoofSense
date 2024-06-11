@@ -46,10 +46,10 @@ class TrainingTask(SemanticSegmentationTask):
         # with or `max_epochs`.
         warmup_time: float = 0.01,
         # The maximum number of warmup epochs.
-        max_warmup_epochs: int = 1,
+        max_warmup_epochs: int = 30,
         # The total number of epochs constituting the period of the first cycle of the
         # annealing phase.
-        T_0: int = 15,
+        T_0: int = 60,
         # The period ratio `Ti+1/Ti` of two consecutive cycles `i` of the annealing
         # phase.
         T_mult: int = 2,
@@ -60,7 +60,7 @@ class TrainingTask(SemanticSegmentationTask):
         # The learning rate at the end of the warmup and each new cycle of the
         # subsequent annealing phases. This parameter is henceforth referred to
         # as the "nominal learning rate".
-        lr: float = 5e-4,
+        lr: float = 1e-4,
         # The learning rate at the start of the warmup phase, expressed as a
         # percentage of the nominal learning rate.
         init_lr_pct: float = 1 / 3,

@@ -29,9 +29,7 @@ if __name__ == "__main__":
         # Loss Configuration
         loss_params={
             "this": DistribBasedLoss.CROSS,
-            "this_kwargs":{
-                "label_smoothing":0.05
-            },
+            "this_kwargs": {"label_smoothing": 0.1},
             "that": RegionBasedLoss.DICE,
             "ignore_background": True,
             "weight": torch.from_numpy(np.load("../dataset/temp/weights.npy")).to(
@@ -42,7 +40,7 @@ if __name__ == "__main__":
 
     datamodule = TrainingDataModule(root="../dataset/temp")
 
-    logger=TensorBoardLogger(save_dir="../logs", name="encoders", version="base")
+    logger=TensorBoardLogger(save_dir="../logs", name="training", version="base")
 
     model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "ckpts"),
