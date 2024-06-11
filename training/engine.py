@@ -34,9 +34,9 @@ if __name__ == "__main__":
             },
             "that": RegionBasedLoss.DICE,
             "ignore_background": True,
-            "weight": torch.from_numpy(
-                np.load("../dataset/temp/weights.npy")
-            ).to(torch.float32),
+            "weight": torch.from_numpy(np.load("../dataset/temp/weights.npy")).to(
+                torch.float32
+            ),
         },
     )
 
@@ -68,13 +68,12 @@ if __name__ == "__main__":
                 # phase to ensure that configurations which are relatively slow train
                 # but still performant overall are not discarded accidentally.
                 # Our patience is reduced to 50 epochs in the exploitation stage to
-                # prune potentially hyper-optimistic learning rate schedules and thus
+                # prune potentially over-optimistic learning rate schedules and thus
                 # promote stable training.
                 patience=100,
             ),
             model_ckpt,
             lightning.pytorch.callbacks.RichProgressBar(),
-            LearningRateMonitor(),
             lightning.pytorch.callbacks.LearningRateMonitor(),
         ],
         # NOTE: We initially train all models for 1000 epochs to investigate the full
