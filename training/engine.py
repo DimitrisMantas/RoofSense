@@ -69,6 +69,7 @@ if __name__ == "__main__":
         # In fact, this is also why we choose not to freeze any encoder
         # parameters in the transfer learning process.
         callbacks=[
+            # TODO: Check if this hinders training.
             lightning.pytorch.callbacks.EarlyStopping(
                 monitor="val/loss",
                 verbose=True,
@@ -83,15 +84,12 @@ if __name__ == "__main__":
             model_ckpt,
             lightning.pytorch.callbacks.RichProgressBar(),
             lightning.pytorch.callbacks.LearningRateMonitor(),
-            # TODO: Should we add this in? It triggers when there's significant
-            #  deviation from the cumulative mean training loss.
-            # lightning.pytorch.callbacks.SpikeDetection(
-            #     # TODO: Get this from the task.
-            #     warmup=10,
-            #     # TODO: Link this with the log directory.
-            #     exclude_batches_path=logger.log_dir,
-            #     finite_only=False,
-            # ),
+            # TODO: Check if this hinders training.
+            lightning.pytorch.callbacks.SpikeDetection(
+                warmup=task.hparams.warmup_epochs,
+                exclude_batches_path=os.path.join(logger.log_dir, "spike"),
+                finite_only=False,
+            ),
         ],
         # NOTE: We initially train all models for 1000 epochs to investigate the full
         # convergence behavior of each configuration.
