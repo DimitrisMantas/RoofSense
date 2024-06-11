@@ -47,6 +47,8 @@ if __name__ == "__main__":
         # }
     )
 
+    # TODO: Optimize the batch size. It should be around 4-8.
+    # TODO: Optimize the total number of worker threads.
     datamodule = TrainingDataModule(root="../dataset/temp")
 
     logger=TensorBoardLogger(save_dir="../logs", name="training", version="base")
