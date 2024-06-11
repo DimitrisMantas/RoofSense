@@ -64,6 +64,7 @@ if __name__ == "__main__":
         callbacks=[
             lightning.pytorch.callbacks.EarlyStopping(
                 monitor="val/loss",
+                verbose=True,
                 # NOTE: We employ high early stopping patience in the exploration
                 # phase to ensure that configurations which are relatively slow train
                 # but still performant overall are not discarded accidentally.
