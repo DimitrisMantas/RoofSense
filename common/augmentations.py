@@ -139,8 +139,8 @@ class AppendGreenness(K.IntensityAugmentationBase2D):
 class AppendHSV(K.IntensityAugmentationBase2D):
     """rgb data must be 0..1"""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(p=1, *args, **kwargs)
+    def __init__(self):
+        super().__init__(p=1)
 
     def apply_transform(
         self,
