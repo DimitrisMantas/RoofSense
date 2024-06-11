@@ -1,3 +1,4 @@
+import os
 import warnings
 
 import lightning.pytorch
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     logger=TensorBoardLogger(save_dir="../logs", name="encoders", version="base")
 
     model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
-        dirpath=logger.log_dir,
+        dirpath=os.path.join(logger.log_dir, "ckpts"),
         filename="best",
         monitor="val/loss",
         save_last=True,
