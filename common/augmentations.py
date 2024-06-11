@@ -83,7 +83,7 @@ class RandomDiagonalFlip(K.GeometricAugmentationBase2D):
         )
 
 
-class AppendGreenness(K.IntensityAugmentationBase2D):
+class AppendTGI(K.IntensityAugmentationBase2D):
     """Basically NDVI for RGB (https://research.tudelft.nl/files/96224757/1_s2.0_S0924271621001854_main.pdf). rgb data must be 0..1"""
 
     def __init__(
