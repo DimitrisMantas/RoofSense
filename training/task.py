@@ -24,6 +24,7 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassSpecificity, )
 from typing_extensions import override
 
+from training import model
 from training.loss import CompoundLoss
 from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
@@ -113,22 +114,30 @@ class TrainingTask(LightningModule):
             # The encoder is pretrained.
             encoder_weights = None
 
-        model_params: (
+        common_params = {
+            "encoder_name": self.hparams.encoder,
+            "encoder_weights": encoder_weights,
+            "in_channels": self.hparams.in_channels,
+            "classes": self.hparams.num_classes,
+        }
+
+        optional_params: (
             dict[
                 str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
             ]
             | None
         ) = self.hparams.model_params
-        model_params = model_params if model_params is not None else {}
+        optional_params = optional_params if optional_params is not None else {}
 
-        self.model = torchseg.create_model(
-            self.hparams.decoder,
-            encoder_name=self.hparams.encoder,
-            encoder_weights=encoder_weights,
-            in_channels=self.hparams.in_channels,
-            classes=self.hparams.num_classes,
-            **model_params,
-        )
+        if self.hparams.decoder == "deeplabv3plus" and optional_params.get(
+            "attention", False
+        ):
+            self.model = model.DeepLabV3Plus(**common_params, **optional_params)
+        else:
+            optional_params.pop("attention", None)
+            self.model = torchseg.create_model(
+                self.hparams.decoder, **common_params, **optional_params
+            )
 
     def _init_metrics(self) -> None:
         num_classes: int = self.hparams["num_classes"]

@@ -27,6 +27,12 @@ if __name__ == "__main__":
         encoder="resnet50",
         # Decoder Configuration
         decoder="deeplabv3plus",
+        model_params={
+            # Se-DeepLabv3+
+            "attention":False,
+            # Enable better support for fine annotations.
+            "encoder_output_stride": 16
+        },
         # Loss Configuration
         loss_params={
             "this": DistribBasedLoss.CROSS,
