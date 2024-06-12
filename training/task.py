@@ -44,16 +44,24 @@ class TrainingTask(LightningModule):
     def __init__(
         self,
         # The name of the model decoder.
-        decoder: Literal["unet","unetplusplus","manet","linknet","fpn","pspnet","pan","deeplabv3","deeplabv3plus"],
+        decoder: Literal[
+            "unet",
+            "unetplusplus",
+            "manet",
+            "linknet",
+            "fpn",
+            "pspnet",
+            "pan",
+            "deeplabv3",
+            "deeplabv3plus",
+        ],
         # The name of the model encoder.
         encoder: str,
-
         loss_params: dict[str, Any],
-
-        encoder_weights: str|None = "imagenet",
+        encoder_weights: str | None = "imagenet",
         in_channels: int = 5,
-            # TODO: See if we can remove background predictions from the model output.
-        num_classes: int = 8+1,
+        # TODO: See if we can remove background predictions from the model output.
+        num_classes: int = 8 + 1,
         model_params: dict[
             str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
         ]
@@ -62,7 +70,7 @@ class TrainingTask(LightningModule):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         # The total number of warmup epochs.
-        warmup_epochs: int=15,
+        warmup_epochs: int = 15,
         # The total number of epochs constituting the period of the first cycle of the
         # annealing phase.
         T_0: int = 60,
@@ -188,11 +196,9 @@ class TrainingTask(LightningModule):
 
     @override
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
-        # TODO: Explore different optimizers and schedulers and their specific
-        #  parameters.
         optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
 
-        warmup_epochs:int=self.hparams.warmup_epochs
+        warmup_epochs: int = self.hparams.warmup_epochs
         scheduler = SequentialLR(
             optimizer,
             schedulers=[

@@ -30,28 +30,21 @@ if __name__ == "__main__":
         # Loss Configuration
         loss_params={
             "this": DistribBasedLoss.CROSS,
-            "this_kwargs": {"label_smoothing": 0.05},
+            "this_kwargs": {
+                # Discourage overconfidence due to potential annotation errors.
+                "label_smoothing": 0.05
+            },
             "that": RegionBasedLoss.DICE,
             "ignore_background": True,
             "weight": torch.from_numpy(np.load("../dataset/temp/weights.npy")).to(
                 torch.float32
             ),
         },
-        # # Optim Configuration
-        # optim_params={
-        # "optimizer":
-        #     {...}
-        # ,
-        # "scheduler":
-        #     {...}
-        # }
     )
 
-    # TODO: Optimize the batch size. It should be around 4-8.
-    # TODO: Optimize the total number of worker threads.
     datamodule = TrainingDataModule(root="../dataset/temp")
 
-    logger=TensorBoardLogger(save_dir="../logs", name="training", version="base")
+    logger = TensorBoardLogger(save_dir="../logs", name="training", version="base")
 
     model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "ckpts"),
@@ -83,10 +76,11 @@ if __name__ == "__main__":
                 # promote stable training.
                 patience=100,
             ),
+            lightning.pytorch.callbacks.LearningRateMonitor(),
             model_ckpt,
             lightning.pytorch.callbacks.RichProgressBar(),
-            lightning.pytorch.callbacks.LearningRateMonitor(),
             # TODO: Check if this hinders training.
+            # FIXME: This doesn't work with LearningRateFinder.
             lightning.pytorch.callbacks.SpikeDetection(
                 warmup=task.hparams.warmup_epochs,
                 exclude_batches_path=os.path.join(logger.log_dir, "spike"),
