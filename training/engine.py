@@ -28,7 +28,10 @@ if __name__ == "__main__":
         # Decoder Configuration
         decoder="deeplabv3plus",
         model_params={
-            # Se-DeepLabv3+
+            # Use the custom model implementation.
+            "custom":True,
+            # Add a squeeze-and-excitation module after each atrous convolution as
+            # well as before the feature concatenation stage at the ASPP exit.
             "attention":False,
             # Enable better support for fine annotations.
             "encoder_output_stride": 16

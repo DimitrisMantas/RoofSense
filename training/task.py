@@ -130,8 +130,9 @@ class TrainingTask(LightningModule):
         optional_params = optional_params if optional_params is not None else {}
 
         if self.hparams.decoder == "deeplabv3plus" and optional_params.get(
-            "attention", False
+            "custom", False
         ):
+            optional_params.pop("custom")
             self.model = model.DeepLabV3Plus(**common_params, **optional_params)
         else:
             optional_params.pop("attention", None)
