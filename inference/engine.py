@@ -103,7 +103,7 @@ class InferenceEngine:
             (256 * (self.rows + 1), 256 * (self.cols + 1)), dtype=np.uint8
         )
 
-    def run(self):
+    def run(self,filename:str)->None:
         img_idx = 0
         for batch in tqdm.tqdm(
             self.loader,
@@ -149,7 +149,7 @@ class InferenceEngine:
 
         dst: rasterio.io.DatasetWriter
         with rasterio.open(
-            "../dataset/infer/9-284-556.map.avg.tif",
+            filename,
             mode="w",
             width=self.width,
             height=self.height,
@@ -175,6 +175,6 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/RoofSense/best.ckpt"
+        data_root="../dataset/infer", model_ckpt="../logs/training/base-tgi/ckpts/best.ckpt",
     )
-    engine.run()
+    engine.run("../dataset/infer/9-284-556.map.base.tgi.tif")
