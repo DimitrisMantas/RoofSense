@@ -37,7 +37,7 @@ if __name__ == "__main__":
         loss_params={
             "this": DistribBasedLoss.CROSS,
             "this_kwargs": {
-                # Discourage overconfidence due to potential annotation errors.
+                # Account for potential annotation errors.
                 "label_smoothing": 0.05
             },
             "that": RegionBasedLoss.DICE,
