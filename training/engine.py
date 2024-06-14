@@ -33,7 +33,6 @@ if __name__ == "__main__":
             # Add a squeeze-and-excitation module after each atrous convolution as
             # well as before the feature concatenation stage at the ASPP exit.
             "attention": False,
-            "dropout": 0.2,
             # Use fine feature maps to better parse small objects.
             "encoder_output_stride": 16
         },
