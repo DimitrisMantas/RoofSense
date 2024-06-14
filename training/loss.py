@@ -48,12 +48,6 @@ class CompoundLoss(
         common_kwargs = {
             "include_background": not ignore_background,
             "to_onehot_y": True,
-            # NOTE: MONAI expects the weight tensor to not include the background
-            # class when it is excluded.
-            # "weight": weight if weight is None else weight[1:],
-            # NOTE: MONAI computes weighted loss sums instead of averages, so any
-            # reduction must be applied manually to the classwise results.
-            "reduction": "none",
         }
         variable_kwargs = this_kwargs if this_kwargs is not None else {}
 
@@ -76,7 +70,10 @@ class CompoundLoss(
                 UserWarning,
             )
             self.this = monai.losses.FocalLoss(
-                use_softmax=True, **common_kwargs, **variable_kwargs
+                reduction=reduction,
+                use_softmax=True,
+                **common_kwargs,
+                **variable_kwargs,
             )
         else:
             raise ValueError
@@ -84,7 +81,13 @@ class CompoundLoss(
         common_kwargs |= {
             # NOTE: This activation function is more numerically stable than standard
             # softmax in that it helps avoid vanishing gradients.
-            "other_act": lambda pred: pred.log_softmax(dim=1).exp()
+            "other_act": lambda pred: pred.log_softmax(dim=1).exp(),
+            # NOTE: MONAI expects the weight tensor to not include the background
+            # class when it is excluded.
+            # "weight": weight if weight is None else weight[1:],
+            # NOTE: MONAI computes weighted loss sums instead of averages, so any
+            # reduction must be applied manually to the classwise results.
+            "reduction": "none",
         }
         variable_kwargs = that_kwargs if that_kwargs is not None else {}
 
