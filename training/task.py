@@ -187,7 +187,8 @@ class TrainingTask(LightningModule):
                 ),
                 "Recall": ClasswiseWrapper(
                     MulticlassRecall(**none_params), prefix="Recall/"
-                ),  # "Specificity": ClasswiseWrapper(
+                ),
+                # "Specificity": ClasswiseWrapper(
                 #     MulticlassSpecificity(**none_params), prefix="Specificity/"
                 # ),
                 "IoU": ClasswiseWrapper(
