@@ -29,10 +29,11 @@ if __name__ == "__main__":
         decoder="deeplabv3plus",
         model_params={
             # Use the custom model implementation.
-            "custom":True,
+            "custom": True,
             # Add a squeeze-and-excitation module after each atrous convolution as
             # well as before the feature concatenation stage at the ASPP exit.
-            "attention":False,
+            "attention": False,
+            "dropout": 0.2,
             # Use fine feature maps to better parse small objects.
             "encoder_output_stride": 16
         },
