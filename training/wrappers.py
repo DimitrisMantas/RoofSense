@@ -16,7 +16,9 @@ class MacroAverageWrapper(WrapperMetric):
 
     mean: torch.Tensor
 
-    def __init__(self, base_metric: Metric, **kwargs: Any) -> None:
+    def __init__(
+        self, base_metric: Metric, ignore_index: int | None = None, **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
 
         if not isinstance(base_metric, Metric):
@@ -24,7 +26,7 @@ class MacroAverageWrapper(WrapperMetric):
                 f"Expected base metric to be an instance of `torchmetrics.Metric` but received {base_metric}."
             )
         self._base_metric = base_metric
-
+        self.ignore_index = ignore_index
         self.mean = torch.tensor(torch.nan)
 
     def update(self, *args: Any, **kwargs: Any) -> None:
@@ -43,6 +45,8 @@ class MacroAverageWrapper(WrapperMetric):
             raise RuntimeError(
                 f"Returned value from base metric should be a float or scalar tensor, but got {val}."
             )
+        if self.ignore_index is not None:
+            val[self.ignore_index] = torch.nan
         self.mean = val.nanmean()
         return self.mean
 

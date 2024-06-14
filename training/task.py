@@ -162,11 +162,18 @@ class TrainingTask(LightningModule):
                 # Macro
                 # "MacroAccuracy": MulticlassAccuracy(**macro_params),
                 "MacroPrecision": MacroAverageWrapper(
-                    MulticlassPrecision(**none_params)
+                    MulticlassPrecision(**none_params),
+                    ignore_index=base_params["ignore_index"],
                 ),
-                "MacroRecall": MacroAverageWrapper(MulticlassRecall(**none_params)),
+                "MacroRecall": MacroAverageWrapper(
+                    MulticlassRecall(**none_params),
+                    ignore_index=base_params["ignore_index"],
+                ),
                 # "MacroSpecificity": MulticlassSpecificity(**macro_params),
-                "MacroIoU": MacroAverageWrapper(MulticlassJaccardIndex(**none_params)),
+                "MacroIoU": MacroAverageWrapper(
+                    MulticlassJaccardIndex(**none_params),
+                    ignore_index=base_params["ignore_index"],
+                ),
                 # Micro
                 "MicroAccuracy": MulticlassAccuracy(**micro_params),
                 "MicroPrecision": MulticlassPrecision(**micro_params),
