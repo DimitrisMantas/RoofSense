@@ -175,6 +175,6 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/training/base-tgi/ckpts/best.ckpt",
+        data_root="../dataset/infer", model_ckpt="../logs/training/base/ckpts/best.ckpt"
     )
-    engine.run("../dataset/infer/9-284-556.map.base.tgi.tif")
+    engine.run("../dataset/infer/9-284-556.map.base.tif")
