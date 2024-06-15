@@ -135,7 +135,9 @@ class TrainingTask(LightningModule):
             optional_params.pop("custom")
             self.model = model.DeepLabV3Plus(**common_params, **optional_params)
         else:
-            optional_params.pop("attention", None)
+            # Sanitize the model parameters.
+            for param in ["attention", "custom", "dropout", "separable"]:
+                optional_params.pop(param, None)
             self.model = torchseg.create_model(
                 self.hparams.decoder, **common_params, **optional_params
             )
