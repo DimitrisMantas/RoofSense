@@ -103,7 +103,7 @@ class InferenceEngine:
             (256 * (self.rows + 1), 256 * (self.cols + 1)), dtype=np.uint8
         )
 
-    def run(self,filename:str)->None:
+    def run(self, filename: str) -> None:
         img_idx = 0
         for batch in tqdm.tqdm(
             self.loader,
