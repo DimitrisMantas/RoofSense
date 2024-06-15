@@ -16,6 +16,7 @@ class DistribBasedLoss(Enum):
 @verify(UNIQUE)
 class RegionBasedLoss(Enum):
     DICE = auto()
+    GICE = auto()
     JACC = auto()
 
 
@@ -95,6 +96,10 @@ class CompoundLoss(
             self.that = monai.losses.DiceLoss(
                 jaccard=False, **common_kwargs, **variable_kwargs
             )
+        elif that == RegionBasedLoss.GICE:
+            self.that = monai.losses.GeneralizedDiceLoss(
+                **common_kwargs, **variable_kwargs
+            )
         elif that == RegionBasedLoss.JACC:
             self.that = monai.losses.DiceLoss(
                 jaccard=True, **common_kwargs, **variable_kwargs
@@ -121,7 +126,7 @@ class CompoundLoss(
         that_val = that_val.view(*that_val.shape[:2])
 
         # Apply the class weights.
-        if self.weight is not None:
+        if not isinstance(self.that, monai.losses.GeneralizedDiceLoss) and self.weight is not None:
             that_val *= self.weight[1:]
 
         # Perform the reduction.
