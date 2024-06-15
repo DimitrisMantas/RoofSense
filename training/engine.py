@@ -30,10 +30,10 @@ if __name__ == "__main__":
         model_params={
             # Use the custom model implementation.
             "custom": True,
-            # Add a squeeze-and-excitation module after each atrous convolution as
-            # well as before the feature concatenation stage at the ASPP exit.
+            # Add a squeeze-and-excitation block after each atrous convolution and
+            # the feature concatenation stage in the ASPP module.
             "attention": False,
-            # Use fine feature maps to better parse small objects.
+            # Use larger feature maps to better parse small objects.
             "encoder_output_stride": 16
         },
         # Loss Configuration
