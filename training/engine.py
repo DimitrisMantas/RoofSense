@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     datamodule = TrainingDataModule(root="../dataset/temp")
 
-    logger = TensorBoardLogger(save_dir="../logs", name="training", version="base")
+    logger = TensorBoardLogger(save_dir="../logs", name="training", version="base-customModel")
 
     model_ckpt = lightning.pytorch.callbacks.ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "ckpts"),
