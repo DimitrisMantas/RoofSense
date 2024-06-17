@@ -20,4 +20,4 @@ torchmetrics==1.4.0
 torchseg==0.0.1a4
 tqdm==4.66.3
 typing_extensions==4.9.0
-urllib3==2.2.1
+urllib3==2.2.2
