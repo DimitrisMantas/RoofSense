@@ -28,11 +28,6 @@ if __name__ == "__main__":
         # Decoder Configuration
         decoder="deeplabv3plus",
         model_params={
-            # Use the custom model implementation.
-            "custom": True,
-            # Add a squeeze-and-excitation block after each atrous convolution and
-            # the feature concatenation stage in the ASPP module.
-            "attention": False,
             # Use larger feature maps to better parse small objects.
             "encoder_output_stride": 16
         },
