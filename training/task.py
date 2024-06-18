@@ -178,8 +178,6 @@ class TrainingTask(LightningModule):
                 ),
                 # Micro
                 "MicroAccuracy": MulticlassAccuracy(**micro_params),
-                "MicroPrecision": MulticlassPrecision(**micro_params),
-                "MicroRecall": MulticlassRecall(**micro_params),
                 "MicroSpecificity": MulticlassSpecificity(**micro_params),
                 "MicroIoU": MulticlassJaccardIndex(**micro_params),
             },
