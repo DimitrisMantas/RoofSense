@@ -101,22 +101,17 @@ class TrainingTask(LightningModule):
 
         self._init_model()
         self._loss = CompoundLoss(**loss_params)
+        self.init_model()
 
         self._init_metrics()
 
-    # TODO: Add support for freezing the encoder and or decoder in the supported
-    #  architectures.
-    def _init_model(self) -> None:
-        encoder_weights: str | None
-        try:
-            encoder_weights = self.hparams.encoder_weights
-        except AttributeError:
-            # The encoder is pretrained.
-            encoder_weights = None
-
+    def init_model(self) -> None:
+        """Configure the underlying model."""
         common_params = {
-            "encoder_name": self.hparams.encoder,
-            "encoder_weights": encoder_weights,
+            "arch": self.hparams.decoder,
+            "encoder_name": self.hparams.encoder,  # "encoder_depth":
+            #     self.hparams.encoder_depth,
+            "encoder_weights": self.hparams.get("encoder_weights", None),
             "in_channels": self.hparams.in_channels,
             "classes": self.hparams.num_classes,
         }
@@ -129,18 +124,15 @@ class TrainingTask(LightningModule):
         ) = self.hparams.model_params
         optional_params = optional_params if optional_params is not None else {}
 
-        if self.hparams.decoder == "deeplabv3plus" and optional_params.get(
-            "custom", False
-        ):
-            optional_params.pop("custom")
-            self.model = model.DeepLabV3Plus(**common_params, **optional_params)
-        else:
-            # Sanitize the model parameters.
-            for param in ["attention", "custom", "dropout", "separable"]:
-                optional_params.pop(param, None)
-            self.model = torchseg.create_model(
-                self.hparams.decoder, **common_params, **optional_params
-            )
+        self.model = torchseg.create_model(**common_params, **optional_params)
+
+        if self.hparams["freeze_backbone"]:
+            for param in self.model.encoder.parameters():
+                param.requires_grad = False
+
+        if self.hparams["freeze_decoder"]:
+            for param in self.model.decoder.parameters():
+                param.requires_grad = False
 
     def _init_metrics(self) -> None:
         num_classes: int = self.hparams["num_classes"]
