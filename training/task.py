@@ -12,20 +12,20 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 from torch import Tensor
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
+from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassConfusionMatrix,
+                                         MulticlassF1Score,
                                          MulticlassJaccardIndex,
                                          MulticlassPrecision,
-                                         MulticlassRecall,
-                                         MulticlassSpecificity, )
+                                         MulticlassRecall, )
 from typing_extensions import override
 
-from training import model
 from training.loss import CompoundLoss
+from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
 
@@ -136,62 +136,80 @@ class TrainingTask(LightningModule):
 
     def _init_metrics(self) -> None:
         num_classes: int = self.hparams["num_classes"]
+        ignore_index: int | None = (
+            0 if self.hparams.loss_params["ignore_background"] else None
+        )
 
-        base_params = {
-            "num_classes": num_classes,
-            "ignore_index": 0
-            if self.hparams.loss_params["ignore_background"]
-            else None,
-            # NOTE: Assign NaN to absent and ignored classes so that they can be
-            # identified and excluded from the macroscopic averaging step.
-            "zero_division": torch.nan,
+        common_params = {"num_classes": num_classes, "ignore_index": ignore_index}
+        micro_params = common_params | {"average": "micro"}
+        base_none_params = common_params | {"average": "none"}
+        none_params_div_zero = base_none_params | {
+            # NOTE: Some metrics accept an argument to handle division-by-zero cases
+            # when absent or ignored classes are encountered. See
+            # https://github.com/Lightning-AI/torchmetrics/pull/2198 for more
+            # information.
+            "zero_division": 0
         }
-        macro_params = base_params | {"average": "macro"}
-        micro_params = base_params | {"average": "micro"}
-        none_params = base_params | {"average": "none"}
+        none_params_div_nan = base_none_params | {
+            # NOTE: The valid value range of this parameter varies by metric.
+            "zero_division": torch.nan
+        }
 
         self.tra_metrics = MetricCollection(
-            {
-                # FIXME: Track macro accuracy and specificity.
-                # Macro
-                # "MacroAccuracy": MulticlassAccuracy(**macro_params),
-                "MacroPrecision": MacroAverageWrapper(
-                    MulticlassPrecision(**none_params),
-                    ignore_index=base_params["ignore_index"],
+            {  # Macroscopic Metrics
+                # NOTE: This metric may not account for samplewise absent classes
+                # correctly but is still useful as a lower bound for its actual
+                # value. See https://github.com/Lightning-AI/torchmetrics/pull/2443
+                # for more information.
+                "MacroAccuracy":
+                # NOTE: This wrapper improves the lower bound by properly ignoring
+                # the background class at the reduction step.
+                MacroAverageWrapper(
+                    MulticlassAccuracy(**base_none_params), ignore_index=ignore_index
+                ),
+                "MacroPrecision":
+                # NOTE: This wrapper fixes a bug where the macroscopically reduced
+                # value of the underlying metric would be NaN if one or more
+                # class-wise values where not defined. See
+                # https://github.com/Lightning-AI/torchmetrics/issues/2535 for more
+                # information.
+                MacroAverageWrapper(
+                    MulticlassPrecision(**none_params_div_zero),
+                    ignore_index=ignore_index,
                 ),
                 "MacroRecall": MacroAverageWrapper(
-                    MulticlassRecall(**none_params),
-                    ignore_index=base_params["ignore_index"],
+                    MulticlassRecall(**none_params_div_zero), ignore_index=ignore_index
                 ),
-                # "MacroSpecificity": MulticlassSpecificity(**macro_params),
+                "MacroF1Score": MacroAverageWrapper(
+                    MulticlassF1Score(**none_params_div_zero), ignore_index=ignore_index
+                ),
                 "MacroIoU": MacroAverageWrapper(
-                    MulticlassJaccardIndex(**none_params),
-                    ignore_index=base_params["ignore_index"],
+                    MulticlassJaccardIndex(**none_params_div_nan),
+                    ignore_index=ignore_index,
                 ),
-                # Micro
+                # Microscopic Metrics
                 "MicroAccuracy": MulticlassAccuracy(**micro_params),
-                "MicroSpecificity": MulticlassSpecificity(**micro_params),
                 "MicroIoU": MulticlassJaccardIndex(**micro_params),
             },
             prefix="tra/",
         )
         self.val_metrics = self.tra_metrics.clone(prefix="val/")
         self.val_metrics.add_metrics(
-            {  # None
-                # "Accuracy": ClasswiseWrapper(
-                #     MulticlassAccuracy(**none_params), prefix="Accuracy/"
-                # ),
+            {  # Classwise Metrics
+                "Accuracy": ClasswiseWrapper(
+                    MulticlassAccuracy(**base_none_params), prefix="Accuracy/"
+                ),
                 "Precision": ClasswiseWrapper(
-                    MulticlassPrecision(**none_params), prefix="Precision/"
+                    MulticlassPrecision(**none_params_div_zero), prefix="Precision/"
                 ),
                 "Recall": ClasswiseWrapper(
-                    MulticlassRecall(**none_params), prefix="Recall/"
+                    MulticlassRecall(**none_params_div_zero), prefix="Recall/"
                 ),
-                # "Specificity": ClasswiseWrapper(
-                #     MulticlassSpecificity(**none_params), prefix="Specificity/"
-                # ),
+                "F1Score": ClasswiseWrapper(
+                    MulticlassF1Score(**none_params_div_zero), prefix="F1Score/"
+                ),
                 "IoU": ClasswiseWrapper(
-                    MulticlassJaccardIndex(**none_params), prefix="IoU/"
+                    MulticlassJaccardIndex(**none_params_div_nan), prefix="IoU/"
                 ),
             }
         )
