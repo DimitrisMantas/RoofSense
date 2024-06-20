@@ -46,13 +46,15 @@ class RasterStackBuilder(DataMerger):
             ]
         ]
 
-        out_meta = raster.DefaultProfile()
+        out_meta = raster.DefaultProfile1(dtype=np.float32, nodata=np.nan)
         # NOTE: The RGB image contains 3 bands.
         out_meta.update(count=len(in_paths) + 2)
 
         rgb: rasterio.io.DatasetReader
         with rasterio.open(in_paths[0]) as rgb:
-            out_meta.update(width=rgb.width, height=rgb.height, transform=rgb.transform)
+            out_meta.update(
+                crs=rgb.crs, width=rgb.width, height=rgb.height, transform=rgb.transform
+            )
 
             out_data = np.full((5, rgb.height, rgb.width), fill_value=np.nan)
             out_data[:3, ...] = rgb.read()

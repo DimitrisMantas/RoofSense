@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os.path
 
+import numpy as np
 import rasterio.merge
 from typing_extensions import override
 
@@ -42,5 +43,7 @@ class ImageParser(AssetParser):
             #       constituents.
             target_aligned_pixels=True,
             dst_path=out_path,
-            dst_kwds=raster.MultiBandProfile(),
+            dst_kwds=raster.DefaultProfile1(
+                dtype=np.uint8
+            ),
         )

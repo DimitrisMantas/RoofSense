@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import math
 import os
+import warnings
 from os import PathLike
 from typing import Optional
 
@@ -129,5 +130,58 @@ class DefaultProfile(rasterio.profiles.Profile):
     }
 
 
-class MultiBandProfile(rasterio.profiles.Profile):
-    defaults = {"num_threads": os.cpu_count()}
+class DefaultProfile1(rasterio.profiles.Profile):
+    defaults = {
+        "interleave": "BAND",
+        "tiled": True,
+        "blockxsize": 512,
+        "blockysize": 512,
+        "compress": "LZW",
+        "num_threads": os.cpu_count(),
+    }
+
+    def __init__(
+        self,
+        crs: str | None = None,
+        dtype: np.integer | np.floating | None = None,
+        nodata: float | None = None,
+    ) -> None:
+        """Profile for single- or multi-chanel band-interleaved,
+        512x512-pixel--tiled, LZW-compressed rasters.
+
+        Args:
+            crs:
+                The EPSG identifier of the destination coordinate reference system.
+                Set to ``None`` to inherit the CRS of a source raster when updating
+                its profile or leave this field unspecified.
+            dtype:
+                The destination data type. Set to ``None`` to inherit the data type
+                of a source raster when updating its profile.
+            nodata:
+                The destination no-data value. Set to ``None`` to inherit the no-data
+                value of a source raster when updating its profile or leave this
+                field unspecified.
+        """
+        options = {"crs": crs, "dtype": dtype, "nodata": nodata}
+
+        # copy the dict items to not change dict size during iteration
+        items=tuple(options.items())
+        for name, option in items:
+            if option is None:
+                options.pop(name)
+
+        predictor = (
+            2
+            if np.issubdtype(dtype, np.integer)
+            else 3
+            if np.issubdtype(dtype, np.floating)
+            else 1
+        )
+        if predictor == 1:
+            warnings.warn(
+                f"Could not infer data type: {dtype!r} as 8-, 16-, 32-, or 64-bit "
+                f"integer or floating-point number . Cannot provide compression "
+                f"predictor unless one is inherited from a source raster."
+            )
+
+        super().__init__(predictor=predictor, **options)
