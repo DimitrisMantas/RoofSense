@@ -1,6 +1,7 @@
 import copy
 import os
 import warnings
+from collections.abc import Sequence
 
 import kornia.augmentation as K
 import torch
@@ -11,7 +12,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import MinMaxScaling
+from common.augmentations import AppendHSV, AppendTGI, MinMaxScaling
 from training.dataset import TrainingDataset
 
 
@@ -26,7 +27,10 @@ class TrainingDataModule(NonGeoDataModule):
     def __init__(
         self,
         batch_size: int = 8,
-        lengths=(0.7, 0.15, 0.15),
+        append_hsv: bool = False,
+        append_tgi: bool = False,
+        lengths: Sequence[float] = (0.7, 0.15, 0.15),
+        weights: str | None = None,
         num_workers: int | None = None,
         persistent_workers: bool = True,
         pin_memory: bool = True,
@@ -35,36 +39,56 @@ class TrainingDataModule(NonGeoDataModule):
         super().__init__(
             TrainingDataset, batch_size=batch_size, num_workers=num_workers, **kwargs
         )
+
         self.lengths = lengths
-        max_workers = max(os.cpu_count() // 2, 1)
+        self.weights = weights
+
+        max_num_workers = max(1, os.cpu_count() // 2)
         if num_workers is None:
-            self.num_workers = max_workers
-        elif num_workers > num_workers:
+            self.num_workers = max(batch_size, max_num_workers)
+        elif batch_size < num_workers <= max_num_workers:
             msg = (
-                "The total number of  data loader worker threads may be too large. "
-                "This can result in in abnormally large amount of virtual memory "
-                "being registered, which can in-turn lead to erroneous behavior and "
-                "out-of-memory errors."
-                + "\n"
-                + "Monitor memory consumption during the model fitting stage and "
-                "consider decreasing the total number of  data loader worker "
-                "threads to at most half the count of logical processors on your "
-                "machine."
-                + "\n"
-                + "See https://tinyurl.com/439cb683 and https://tinyurl.com/yc63wxey "
-                "for  more information."
+                f"Number of specified worker processes: {num_workers!r} greater than "
+                f"batch size: {batch_size!r}. Improved performance due to excess "
+                f"workers is not guaranteed."
             )
             warnings.warn(msg, UserWarning)
+        else:
+            msg = (
+                f"Number of specified worker processes: {num_workers!r} greater than "
+                f"half the total number of logical CPUs in the system: "
+                f"{max_num_workers!r}. Windows systems may suffer from erroneous "
+                f"behaviour and out-of-memory errors due to excessive memory paging. "
+                f"See See https://tinyurl.com/439cb683 and "
+                f"https://tinyurl.com/yc63wxey for more information."
+            )
+            warnings.warn(msg, ResourceWarning)
 
-        self.persistent_workers = persistent_workers
+        if self.num_workers == 0 and persistent_workers:
+            msg = (
+                "No worker processes specified to be persisted. Value of "
+                "'persistent_workers' will be set to 'False'."
+            )
+            warnings.warn(msg, UserWarning)
+            self.persistent_workers = False
+        else:
+            self.persistent_workers = persistent_workers
+
         self.pin_memory = pin_memory
 
-        # General Augmentations
-        self.aug = AugmentationSequential(
+        args = [
             # Scaling
-            MinMaxScaling(self.mins, self.maxs),
-            data_keys=["image", "mask"],
-            extra_args={
+            MinMaxScaling(self.mins, self.maxs)
+        ]
+        # Color spaces & Spectral Indices
+        if append_hsv:
+            args.append(AppendHSV())
+        if append_tgi:
+            args.append(AppendTGI())
+
+        kwargs = {
+            "data_keys": ["image", "mask"],
+            "extra_args": {
                 # NOTE: We choose to always resample with bilinear interpolation to
                 # preserve the scaled value range of the stack.
                 # This is important because both reflectance and slope values have a
@@ -76,35 +100,24 @@ class TrainingDataModule(NonGeoDataModule):
                 DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": False},
                 DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": False},
             },
-        )
+        }
 
-        # Training Augmentations
-        # NOTE: This field overwrites the predefined augmentations.
-        self.train_aug = AugmentationSequential(
-            # Scaling
-            MinMaxScaling(self.mins, self.maxs),
+        # Validation & Test/Prediction Augmentations
+        self.aug = AugmentationSequential(*args, **kwargs)
+
+        args += [
             # Geometric Augmentations
-            # NOTE: These augmentations correspond to the D4 dihedral group.
             # Flips
-            K.RandomVerticalFlip(), K.RandomHorizontalFlip(),
+            K.RandomHorizontalFlip(),
+            K.RandomVerticalFlip(),
             # Rotations
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
             K.RandomRotation((90, 90)),
-            data_keys=["image", "mask"],
-            extra_args={
-                # NOTE: We choose to always resample with bilinear interpolation to
-                # preserve the scaled value range of the stack.
-                # This is important because both reflectance and slope values have a
-                # physical interpretation.
-                # NOTE; Interpolation with aligned corners may disturb the spatial
-                # inductive biases of the model.
-                # See https://discuss.pytorch.org/t/what-we-should-use-align-corners
-                # -false/22663/5 for more information.
-                DataKey.IMAGE: {"resample": Resample.BILINEAR, "align_corners": False},
-                DataKey.MASK: {"resample": Resample.NEAREST, "align_corners": False},
-            },
-        )
+        ]
+
+        # Training Augmentations
+        self.train_aug = AugmentationSequential(*args, **kwargs)
 
     @override
     def setup(self, stage: str) -> None:
