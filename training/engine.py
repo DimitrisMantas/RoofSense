@@ -40,7 +40,7 @@ if __name__ == "__main__":
             },
             "that": RegionBasedLoss.DICE,
             "ignore_background": True,
-            "weight": torch.from_numpy(np.load("../dataset/temp/weights.npy")).to(
+            "weight": torch.from_numpy(np.fromfile("../dataset/temp/weights.bin")).to(
                 torch.float32
             ),
         },

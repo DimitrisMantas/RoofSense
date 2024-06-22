@@ -1,13 +1,11 @@
-import copy
 import os
 import warnings
-from collections.abc import Sequence
 
 import kornia.augmentation as K
 import torch
 from kornia.constants import DataKey, Resample
 from torch import Tensor
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
@@ -29,8 +27,6 @@ class TrainingDataModule(NonGeoDataModule):
         batch_size: int = 8,
         append_hsv: bool = False,
         append_tgi: bool = False,
-        lengths: Sequence[float] = (0.7, 0.15, 0.15),
-        weights: str | None = None,
         num_workers: int | None = None,
         persistent_workers: bool = True,
         pin_memory: bool = True,
@@ -39,9 +35,6 @@ class TrainingDataModule(NonGeoDataModule):
         super().__init__(
             TrainingDataset, batch_size=batch_size, num_workers=num_workers, **kwargs
         )
-
-        self.lengths = lengths
-        self.weights = weights
 
         max_num_workers = max(1, os.cpu_count() // 2)
         if num_workers is None:
@@ -121,21 +114,14 @@ class TrainingDataModule(NonGeoDataModule):
 
     @override
     def setup(self, stage: str) -> None:
-        dataset = TrainingDataset(**self.kwargs)
-
-        subsets = random_split(
-            dataset, lengths=self.lengths, generator=torch.Generator().manual_seed(0)
-        )
-
-        datasets = []
-        for subset in subsets:
-            temp = copy.deepcopy(dataset)
-            temp.img_paths = [subset.dataset.img_paths[i] for i in subset.indices]
-            temp.msk_paths = [subset.dataset.msk_paths[i] for i in subset.indices]
-
-            datasets.append(temp)
-
-        self.train_dataset, self.val_dataset, self.test_dataset = datasets
+        if stage in ["fit"]:
+            self.train_dataset = self.dataset_class(split="training", **self.kwargs)
+            x=1
+        if stage in ["fit", "validate"]:
+            self.val_dataset = self.dataset_class(split="validation", **self.kwargs)
+            x=1
+        if stage in ["test"]:
+            self.test_dataset = self.dataset_class(split="test", **self.kwargs)
 
     @override
     def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import glob
 import json
 import os.path
 import warnings
 from collections.abc import Callable, Sequence
 from enum import CONTINUOUS, UNIQUE, IntEnum, auto, verify
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,8 +41,9 @@ class Band(IntEnum):
 
 
 class TrainingDataset(NonGeoDataset):
-    classes_filename = "classes.json"
+    classes_filename = "names.json"
     colors_filename = "colors.json"
+    splits_filename = "splits.json"
 
     classes: list[str] | None = None
     colors: ListedColormap | None = None
@@ -51,6 +51,7 @@ class TrainingDataset(NonGeoDataset):
     def __init__(
         self,
         root: str,
+        split: Literal["training", "validation", "test"],
         download: bool = False,
         checksum: bool = False,
         bands: Band | list[Band] = Band.ALL,
@@ -58,6 +59,7 @@ class TrainingDataset(NonGeoDataset):
     ) -> None:
         # TODO: Initialize class fields lazily.
         self.root = root
+        self.split = split
         self.download = download
         self.checksum = checksum
 
@@ -80,7 +82,9 @@ class TrainingDataset(NonGeoDataset):
         # Verify the dataset.
         self.img_paths: list[str] | None = None
         self.msk_paths: list[str] | None = None
-        if not self._verify():
+        with open(os.path.join(self.root, self.splits_filename)) as splits:
+            names = json.load(splits)[split]
+        if not self._verify(names):
             # TODO: Check whether the dataset is present on disk but not yet
             #  extracted and finally whether it should be downloaded.
             raise RuntimeError("Failed to verify dataset integrity.")
@@ -223,32 +227,30 @@ class TrainingDataset(NonGeoDataset):
         with rasterio.open(filename) as src:
             return torch.from_numpy(src.read()).to(torch.int64)
 
-    def _verify(self) -> bool:
+    def _verify(self, names) -> bool:
+        # The image and mask directories exist.
         img_dir = os.path.join(self.root, "imgs")
         msk_dir = os.path.join(self.root, "msks")
-        if not os.path.exists(img_dir) or not os.path.exists(msk_dir):
+        if not os.path.isdir(img_dir) or not os.path.isdir(msk_dir):
             return False
 
-        self.img_paths = glob.glob(os.path.join(img_dir, "*.tif"))
-        self.img_paths.sort()
-        self.msk_paths = glob.glob(os.path.join(msk_dir, "*.tif"))
-        self.msk_paths.sort()
+        # The image and mask paths exist.
+        self.img_paths = [os.path.join(img_dir, name) for name in names]
+        self.msk_paths = [os.path.join(msk_dir, name) for name in names]
         if len(self.img_paths) == 0 or len(self.msk_paths) == 0:
             return False
+        for path in self.img_paths:
+            if not os.path.isfile(path):
+                return False
+        for path in self.msk_paths:
+            if not os.path.isfile(path):
+                return False
 
+        # The image and mask names are the same.
         img_names = [
             os.path.basename(path).split(".", maxsplit=1)[0] for path in self.img_paths
         ]
         msk_names = [
             os.path.basename(path).split(".", maxsplit=1)[0] for path in self.msk_paths
         ]
-
         return img_names == msk_names
-
-
-if __name__ == "__main__":
-    ds = TrainingDataset("../dataset/temp")
-    print(ds.colors.colors)
-    print(ds.colors.N)
-    # print(np.unique(ds[19]["mask"].numpy().squeeze()))
-    ds.plot(ds[19]).show()
