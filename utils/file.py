@@ -3,8 +3,10 @@ from __future__ import annotations
 import abc
 import concurrent.futures
 import logging
+import os
 import pathlib
 import typing
+import warnings
 from os import PathLike
 from typing import Union
 
@@ -17,6 +19,56 @@ import urllib3
 
 _Timeout = Union[float, tuple[float, float], tuple[float, None]]
 _HookCallback = typing.Callable[[requests.Response], typing.Any]
+
+
+def confirm_write_op(
+    path: str, type: typing.Literal["dir", "file"], overwrite: bool = False
+) -> bool:
+    """Determine whether an upcoming write-to-disk operation should be performed.
+
+    If the path to the destination location exists in the system and points to a
+    resource of the provided type, this function returns the value of the
+    ``overwrite`` flag. Otherwise, if the specified path is of an incorrect ype,
+    a relevant exception is raised. Finally, if the output location does not exist,
+    the value of ``overwrite`` is ignored and ``True`` is always returned. In this
+    case, if ``overwrite == False`` a relevant warning is issued. Required
+    directories are created automatically.
+
+    Args:
+        path:
+            The path to the destination location.
+        type:
+            The resource type at the destination location.
+        overwrite:
+            Whether the resource at the destination location should be overwritten
+            assuming that it already exists.
+
+    Returns:
+        ``True`` if the operation should be performed; ``False`` otherwise.
+    """
+    predicate = os.path.isdir if type == "dir" else os.path.isfile
+
+    if predicate(path):
+        return overwrite
+
+    if os.path.exists(path):
+        msg = (
+            f"The specified path: {path!r} exists in the system but does not point to "
+            f"a valid {dict(dir='directory', file='file')[type]}."
+        )
+        raise ValueError(msg)
+
+    if not overwrite:
+        msg = (
+            f"The specified path: {path!r} does not exist in the system. The value of "
+            f"the 'overwrite' flag will be ignored."
+        )
+        warnings.warn(msg, UserWarning)
+
+    if type == "dir":
+        os.makedirs(path, exist_ok=True)
+
+    return True
 
 
 class FileDownloader(abc.ABC):
