@@ -15,7 +15,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
-from torchgeo.trainers.utils import reinit_initial_conv_layer
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassConfusionMatrix,
@@ -30,6 +29,7 @@ from training.loss import CompoundLoss
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
+from utils.eleos import reinit_initial_conv_layer
 
 
 class TrainingTask(LightningModule):
@@ -108,6 +108,11 @@ class TrainingTask(LightningModule):
         in_channels = self.hparams.in_channels
 
         # --------------------------------------------------------------------------------------------
+
+        # TODO: Ideally, we should init with imagenet, save the weights somewhere
+        #            before loading in the new ones, and then load them back in to
+        #           replace the random inits introduced by the loading process.
+
         # if the weights is a string then a checkpoint path was passed. do random
         # init and then replace the weights with the ones passed.
         encoder_weights = self.hparams.encoder_weights
@@ -148,8 +153,8 @@ class TrainingTask(LightningModule):
             self.model.encoder.model.conv1 = reinit_initial_conv_layer(
                 # todo: infer the original input channels from the weights
                 self.model.encoder.model.conv1,
-                new_in_channels=3,
-                keep_rgb_weights=True,
+                new_in_channels=4,
+                keep_first_n_weights=None,
             )
             # push the weights to the model
             self.model.encoder.load_state_dict(state_dict)
@@ -157,7 +162,7 @@ class TrainingTask(LightningModule):
             self.model.encoder.model.conv1 = reinit_initial_conv_layer(
                 self.model.encoder.model.conv1,
                 new_in_channels=in_channels,
-                keep_rgb_weights=True,
+                keep_first_n_weights=4,
             )
 
         if self.hparams["freeze_backbone"]:

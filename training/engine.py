@@ -32,7 +32,7 @@ if __name__ == "__main__":
         # Instead, we prefer to exploit the inherent inductive biases of CNNs to
         # maintain reasonable predictive performance.
         encoder="resnet18",
-        encoder_weights=r"C:\Documents\RoofSense\logs\pretraining\potsdam\ckpts\best.ckpt",
+        encoder_weights=r"C:\Documents\RoofSense\logs\pretraining\potsdam-rgbir\ckpts\best.ckpt",
         # Decoder Configuration
         decoder="deeplabv3plus",
         model_params={

@@ -25,7 +25,7 @@ from torchgeo.transforms.transforms import _RandomNCrop
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-class Potsdam2DDataset(Potsdam2D):
+class Potsdam2DRBG(Potsdam2D):
     filenames = ["2_Ortho_RGB.zip", "5_Labels_all.zip"]
     image_root = "2_Ortho_RGB"
 
@@ -57,6 +57,7 @@ class Potsdam2DDataset(Potsdam2D):
 class Potsdam2DDataModule(NonGeoDataModule):
     def __init__(
         self,
+        dataset_class: type[Potsdam2D],
         batch_size: int = 64,
         patch_size: tuple[int, int] | int = 64,
         val_split_pct: float = 0.2,
@@ -74,7 +75,7 @@ class Potsdam2DDataModule(NonGeoDataModule):
             **kwargs: Additional keyword arguments passed to
                 :class:`~torchgeo.datasets.Potsdam2D`.
         """
-        super().__init__(Potsdam2DDataset, 1, num_workers, **kwargs)
+        super().__init__(dataset_class, batch_size=1, num_workers=num_workers, **kwargs)
 
         self.patch_size = _to_tuple(patch_size)
         self.val_split_pct = val_split_pct
@@ -92,12 +93,12 @@ class Potsdam2DDataModule(NonGeoDataModule):
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
         if stage in ["fit", "validate"]:
-            self.dataset = Potsdam2DDataset(split="train", **self.kwargs)
+            self.dataset = self.dataset_class(split="train", **self.kwargs)
             self.train_dataset, self.val_dataset = dataset_split(
                 self.dataset, self.val_split_pct
             )
         if stage in ["test"]:
-            self.test_dataset = Potsdam2DDataset(split="test", **self.kwargs)
+            self.test_dataset = self.dataset_class(split="test", **self.kwargs)
 
     def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:
         dataset = self._valid_attribute(f"{split}_dataset", "dataset")
@@ -120,6 +121,7 @@ if __name__ == "__main__":
     lightning.pytorch.seed_everything(42, workers=True)
 
     datamodule = Potsdam2DDataModule(
+        dataset_class=Potsdam2D,
         root=r"C:\Users\Dimit\Downloads\Potsdam",
         batch_size=2,
         patch_size=512,
@@ -128,11 +130,15 @@ if __name__ == "__main__":
 
     # TODO: Replace this task with own.
     task = SemanticSegmentationTask(
-        model="deeplabv3+", backbone="resnet18", weights=True, num_classes=6
+        model="deeplabv3+",
+        backbone="resnet18",
+        weights=True,
+        in_channels=4,
+        num_classes=6,
     )
 
     logger = TensorBoardLogger(
-        save_dir="../logs", name="pretraining", version="potsdam"
+        save_dir="../logs", name="pretraining", version="potsdam-rgbir"
     )
 
     model_ckpt = ModelCheckpoint(
