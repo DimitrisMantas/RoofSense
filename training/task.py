@@ -98,10 +98,8 @@ class TrainingTask(LightningModule):
         self.save_hyperparameters(  # ignore=encoder_weights
         )
 
-        self._init_model()
-        self._loss = CompoundLoss(**loss_params)
         self.init_model()
-
+        self._loss = CompoundLoss(**loss_params)
         self._init_metrics()
 
     def init_model(self) -> None:
