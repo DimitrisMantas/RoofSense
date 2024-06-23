@@ -24,7 +24,8 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassRecall, )
 from typing_extensions import override
 
-from pretraining.utils import get_encoder_params
+from pretraining.utils_i_cant_name_this_utils_or_else_i_get_an_import_error import \
+    get_encoder_params
 from training.loss import CompoundLoss
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from training.wrappers import MacroAverageWrapper
