@@ -76,18 +76,6 @@ if __name__ == "__main__":
         # In fact, this is also why we choose not to freeze any encoder
         # parameters in the transfer learning process.
         callbacks=[
-            # TODO: Check if this hinders training.
-            lightning.pytorch.callbacks.EarlyStopping(
-                monitor="val/loss",
-                verbose=True,
-                # NOTE: We employ high early stopping patience in the exploration
-                # phase to ensure that configurations which are relatively slow train
-                # but still performant overall are not discarded accidentally.
-                # Our patience is reduced to 50 epochs in the exploitation stage to
-                # prune potentially over-optimistic learning rate schedules and thus
-                # promote stable training.
-                patience=100,
-            ),
             lightning.pytorch.callbacks.LearningRateMonitor(),
             model_ckpt,
             lightning.pytorch.callbacks.RichProgressBar(),
