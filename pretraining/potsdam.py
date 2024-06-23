@@ -3,10 +3,8 @@ import warnings
 from collections.abc import Callable
 from typing import Any
 
-import kornia.augmentation as K
 import lightning
 import torch
-from PIL.ImageFile import ImageFile
 from lightning import Trainer
 from lightning.pytorch.callbacks import (LearningRateMonitor,
                                          ModelCheckpoint,
@@ -18,11 +16,12 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.datamodules.utils import dataset_split
 from torchgeo.datasets import Potsdam2D
 from torchgeo.samplers.utils import _to_tuple
-from torchgeo.trainers import SemanticSegmentationTask
 from torchgeo.transforms import AugmentationSequential
 from torchgeo.transforms.transforms import _RandomNCrop
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+from common.augmentations import MinMaxScaling
+from training.loss import DistribBasedLoss, RegionBasedLoss
+from training.task import TrainingTask
 
 
 class Potsdam2DRBG(Potsdam2D):
@@ -81,7 +80,7 @@ class Potsdam2DDataModule(NonGeoDataModule):
         self.val_split_pct = val_split_pct
 
         self.aug = AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std),
+            MinMaxScaling(mins=torch.tensor([0] * 4), maxs=torch.tensor([255] * 4)),
             _RandomNCrop(self.patch_size, batch_size),
             data_keys=["image", "mask"],
         )
@@ -128,13 +127,19 @@ if __name__ == "__main__":
         num_workers=2,
     )
 
-    # TODO: Replace this task with own.
-    task = SemanticSegmentationTask(
-        model="deeplabv3+",
-        backbone="resnet18",
-        weights=True,
+    task = TrainingTask(
+        decoder="deeplabv3plus",
+        encoder="resnet18",
+        encoder_weights="imagenet",
         in_channels=4,
         num_classes=6,
+        loss_params={
+            "this": DistribBasedLoss.CROSS,
+            "this_kwargs": {"label_smoothing": 0.05},
+            "that": RegionBasedLoss.DICE,
+            "that_kwargs": {"squared_pred": True},
+            "ignore_background": True,
+        },
     )
 
     logger = TensorBoardLogger(
@@ -144,7 +149,7 @@ if __name__ == "__main__":
     model_ckpt = ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "ckpts"),
         filename="best",
-        monitor="val_loss",
+        monitor="val/loss",
         save_last=True,
     )
     # Match log and checkpoint version numbers in the case of automatic versioning.
