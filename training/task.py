@@ -15,6 +15,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
+from torchgeo.trainers.utils import reinit_initial_conv_layer
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassConfusionMatrix,
@@ -24,6 +25,7 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassRecall, )
 from typing_extensions import override
 
+from pretraining.utils import get_encoder_params
 from training.loss import CompoundLoss
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from training.wrappers import MacroAverageWrapper
@@ -59,7 +61,7 @@ class TrainingTask(LightningModule):
         # The name of the model encoder.
         encoder: str,
         loss_params: dict[str, Any],
-        encoder_weights: str | None = "imagenet",
+        encoder_weights: str | Literal["imagenet"] | None = "imagenet",
         in_channels: int = 5,
         # TODO: See if we can remove background predictions from the model output.
         num_classes: int = 8 + 1,
@@ -91,12 +93,9 @@ class TrainingTask(LightningModule):
     ):
         super().__init__()
 
-        self.save_hyperparameters(
-            # NOTE: See https://github.com/microsoft/torchgeo/pull/1897 for more
-            # information.
-            ignore=["ignore", "encoder_weights"]
-            if encoder_weights is not None
-            else ["ignore"]
+        # TODO: Should we be doing this?
+        # self.encoder_weights=encoder_weights
+        self.save_hyperparameters(  # ignore=encoder_weights
         )
 
         self._init_model()
@@ -107,12 +106,24 @@ class TrainingTask(LightningModule):
 
     def init_model(self) -> None:
         """Configure the underlying model."""
+        encoder = self.hparams.encoder
+        in_channels = self.hparams.in_channels
+
+        # --------------------------------------------------------------------------------------------
+        # if the weights is a string then a checkpoint path was passed. do random
+        # init and then replace the weights with the ones passed.
+        encoder_weights = self.hparams.encoder_weights
+        if encoder_weights is not None and encoder_weights != "imagenet":
+            # a checkpoint was passed.
+            encoder_weights = None
+        # --------------------------------------------------------------------------------------------
+
         common_params = {
             "arch": self.hparams.decoder,
-            "encoder_name": self.hparams.encoder,  # "encoder_depth":
-            #     self.hparams.encoder_depth,
-            "encoder_weights": self.hparams.get("encoder_weights", None),
-            "in_channels": self.hparams.in_channels,
+            "encoder_name": encoder,
+            # "encoder_depth": self.hparams.encoder_depth,
+            "encoder_weights": encoder_weights,
+            "in_channels": in_channels,
             "classes": self.hparams.num_classes,
         }
 
@@ -125,6 +136,31 @@ class TrainingTask(LightningModule):
         optional_params = optional_params if optional_params is not None else {}
 
         self.model = torchseg.create_model(**common_params, **optional_params)
+
+        # Replace weights with ones passed if passed.
+        encoder_weights = self.hparams.encoder_weights
+        if encoder_weights is not None and encoder_weights != "imagenet":
+            # load the weights
+            encoder_name, state_dict = get_encoder_params(encoder_weights)
+            if encoder_name != encoder:
+                msg = f"Encoder weights: {encoder_weights!r} for encoder: {encoder_name!r} incompatible with specified encoder: {encoder!r}."
+                raise ValueError(msg)
+            # prepare model to accept the weights
+            # todo:infer the name of the first layer from the encoder.
+            self.model.encoder.model.conv1 = reinit_initial_conv_layer(
+                # todo: infer the original input channels from the weights
+                self.model.encoder.model.conv1,
+                new_in_channels=3,
+                keep_rgb_weights=True,
+            )
+            # push the weights to the model
+            self.model.encoder.load_state_dict(state_dict)
+            # adjust model to the specified number of input channels
+            self.model.encoder.model.conv1 = reinit_initial_conv_layer(
+                self.model.encoder.model.conv1,
+                new_in_channels=in_channels,
+                keep_rgb_weights=True,
+            )
 
         if self.hparams["freeze_backbone"]:
             for param in self.model.encoder.parameters():

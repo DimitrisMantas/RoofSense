@@ -23,8 +23,9 @@ if __name__ == "__main__":
         # architectures due to their limited effectiveness with small datasets such
         # as ours.
         # Instead, we prefer to exploit the inherent inductive biases of CNNs to
-        # maintain reasonable performance.
-        encoder="resnet50",
+        # maintain reasonable predictive performance.
+        encoder="resnet18",
+        encoder_weights=r"C:\Documents\RoofSense\logs\pretraining\potsdam\ckpts\best.ckpt",
         # Decoder Configuration
         decoder="deeplabv3plus",
         model_params={
