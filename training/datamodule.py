@@ -38,7 +38,7 @@ class TrainingDataModule(NonGeoDataModule):
 
         max_num_workers = max(1, os.cpu_count() // 2)
         if num_workers is None:
-            self.num_workers = max(batch_size, max_num_workers)
+            self.num_workers = min(batch_size, max_num_workers)
         elif batch_size < num_workers <= max_num_workers:
             msg = (
                 f"Number of specified worker processes: {num_workers!r} greater than "
