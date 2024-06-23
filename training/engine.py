@@ -17,6 +17,13 @@ if __name__ == "__main__":
 
     lightning.pytorch.seed_everything(42, workers=True)
 
+    datamodule = TrainingDataModule(
+        root="../dataset/temp",
+        # Do not use the density band.
+        bands=Band.ALL[:-1],
+        append_hsv=True,
+    )
+
     task = TrainingTask(
         # Architecture Configuration
         # NOTE: We choose to not experiment with any purely transformer-based
@@ -103,7 +110,6 @@ if __name__ == "__main__":
         benchmark=True,
     )
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=UserWarning)
+    with warnings.catch_warnings(action="ignore", category=UserWarning):
         trainer.fit(model=task, datamodule=datamodule)
         trainer.test(model=task, datamodule=datamodule, ckpt_path="best")
