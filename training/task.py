@@ -24,13 +24,12 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassRecall, )
 from typing_extensions import override
 
-from pretraining.utils_i_cant_name_this_utils_or_else_i_get_an_import_error import \
-    get_encoder_params
 from training.loss import CompoundLoss
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
-from utils.eleos import reinit_initial_conv_layer
+from utils.model import get_encoder_params
+from utils.model import reinit_initial_conv_layer
 
 
 class TrainingTask(LightningModule):
@@ -146,7 +145,7 @@ class TrainingTask(LightningModule):
         if encoder_weights is not None and encoder_weights != "imagenet":
             # load the weights
             encoder_name, state_dict = get_encoder_params(encoder_weights)
-            if encoder_name != encoder:
+            if encoder_name is not None and encoder_name != encoder:
                 msg = f"Encoder weights: {encoder_weights!r} for encoder: {encoder_name!r} incompatible with specified encoder: {encoder!r}."
                 raise ValueError(msg)
             # prepare model to accept the weights
