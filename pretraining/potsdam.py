@@ -80,7 +80,7 @@ class Potsdam2DDataModule(NonGeoDataModule):
         self.val_split_pct = val_split_pct
 
         self.aug = AugmentationSequential(
-            MinMaxScaling(mins=torch.tensor([0] * 4), maxs=torch.tensor([255] * 4)),
+            MinMaxScaling(mins=torch.tensor([0] * 3), maxs=torch.tensor([255] * 3)),
             _RandomNCrop(self.patch_size, batch_size),
             data_keys=["image", "mask"],
         )
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     lightning.pytorch.seed_everything(42, workers=True)
 
     datamodule = Potsdam2DDataModule(
-        dataset_class=Potsdam2D,
+        dataset_class=Potsdam2DRBG,
         root=r"C:\Users\Dimit\Downloads\Potsdam",
         batch_size=2,
         patch_size=512,
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         decoder="deeplabv3plus",
         encoder="resnet18",
         encoder_weights="imagenet",
-        in_channels=4,
+        in_channels=3,
         num_classes=6,
         loss_params={
             "this": DistribBasedLoss.CROSS,
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     )
 
     logger = TensorBoardLogger(
-        save_dir="../logs", name="pretraining", version="potsdam-rgbir"
+        save_dir="../logs", name="pretraining", version="potsdam-rgb"
     )
 
     model_ckpt = ModelCheckpoint(
