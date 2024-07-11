@@ -10,9 +10,10 @@ import torchgeo.samplers
 import torchgeo.transforms
 import tqdm
 
-import common.augmentations
 import inference.dataset
 import training.task
+from augmentations.feature import MinMaxScaling
+from augmentations.intensity import AppendHSV
 
 
 # TODO: Add support for changing the current model and tile.
@@ -32,7 +33,7 @@ class InferenceEngine:
 
         self.dataset = inference.dataset.InferenceDataset(data_root)
         self.augmet = torchgeo.transforms.AugmentationSequential(
-            common.augmentations.MinMaxScaling(
+            MinMaxScaling(
                 # TODO: Expose these parameters in the initializer.
                 mins=torch.tensor([0, 0, 0, 0, 0]),
                 maxs=torch.tensor([255, 255, 255, 1, 90]),

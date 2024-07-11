@@ -19,7 +19,7 @@ from torchgeo.samplers.utils import _to_tuple
 from torchgeo.transforms import AugmentationSequential
 from torchgeo.transforms.transforms import _RandomNCrop
 
-from common.augmentations import MinMaxScaling
+from augmentations.feature import MinMaxScaling
 from training.loss import DistribBasedLoss, RegionBasedLoss
 from training.task import TrainingTask
 

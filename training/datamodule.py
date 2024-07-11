@@ -10,7 +10,9 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from common.augmentations import AppendHSV, AppendTGI, MinMaxScaling
+from augmentations.feature import MinMaxScaling
+from augmentations.index import AppendTGI
+from augmentations.intensity import AppendHSV
 from training.dataset import TrainingDataset
 
 
