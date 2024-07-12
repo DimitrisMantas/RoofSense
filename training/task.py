@@ -1,5 +1,6 @@
 import math
-from collections.abc import Sequence
+from collections import OrderedDict
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal, Optional
 
 import torch
@@ -11,6 +12,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 from torch import Tensor
+from torch.nn import Conv2d, Identity
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
@@ -22,14 +24,13 @@ from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassJaccardIndex,
                                          MulticlassPrecision,
                                          MulticlassRecall, )
+from torchseg.base import SegmentationHead
 from typing_extensions import override
 
+from metrics.wrappers.macro import MacroAverageWrapper
 from training.loss import CompoundLoss
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
-from training.wrappers import MacroAverageWrapper
 from utils.color import get_fg_color
-from utils.model import get_encoder_params
-from utils.model import reinit_initial_conv_layer
 
 
 class TrainingTask(LightningModule):
