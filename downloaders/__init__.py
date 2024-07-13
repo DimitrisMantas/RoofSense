@@ -1,3 +1,3 @@
-from _base import _Downloader
-from asset import AssetDownloader
-from bag3d import BAG3DDownloader
+from downloaders._base import _Downloader
+from downloaders.asset import AssetDownloader
+from downloaders.bag3d import BAG3DDownloader
