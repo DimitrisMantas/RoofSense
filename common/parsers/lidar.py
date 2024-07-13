@@ -15,7 +15,7 @@ from geopandas import GeoDataFrame
 from utils import pcloud
 from utils.file import confirm_write_op
 from utils.pcloud import PointCloud
-from utils.raster import Raster
+from utils.raster import DefaultProfile, Raster
 
 AssetManifest = dict[str, dict[str, list[str]]]
 
@@ -152,12 +152,18 @@ class LiDARParser:
             ras = self._rasterize_all_valid(pc, field="z", res=res, bbox=bbox)
             ras.save(dst_path)
         else:
-            ras = Raster(resol=res, bbox=bbox)
             # TODO: Load the DSM only if one or more of its derivatives need to be
             #  computed.
             src: rasterio.io.DatasetReader
             with rasterio.open(dst_path) as src:
-                # Coerce the raster data to a 2D array.
+                ras = Raster(
+                    resol=res,
+                    bbox=bbox,
+                    meta=DefaultProfile(dtype=src.dtypes[0], nodata=src.nodata),
+                )
+                # TODO: Check whether command makes a copy of the DSM.
+                # If it does, move the raster initialization block outside of this
+                # scope.
                 ras.data = src.read(indexes=1)
 
         self._compute_ndrm(tile_id, overwrite, ras)
