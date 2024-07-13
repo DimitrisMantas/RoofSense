@@ -4,7 +4,6 @@ import json
 import os.path
 import warnings
 from collections.abc import Callable, Sequence
-from enum import CONTINUOUS, UNIQUE, IntEnum, auto, verify
 from functools import lru_cache
 from typing import Any, Literal
 
@@ -15,26 +14,11 @@ import torch
 from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
-from torch import Tensor, classproperty
+from torch import Tensor
 from torchgeo.datasets import NonGeoDataset
 from typing_extensions import override
 
-
-@verify(CONTINUOUS, UNIQUE)
-class Band(IntEnum):
-    RED = auto()
-    GRN = auto()
-    BLU = auto()
-    RFL = auto()
-    SLP = auto()
-
-    @classproperty
-    def ALL(cls) -> list[Band]:
-        return list(cls)
-
-    @classproperty
-    def RGB(cls) -> list[Band]:
-        return list(cls)[:3]
+from enums.band import Band
 
 
 # TODO: Plot single bands.
