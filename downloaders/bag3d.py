@@ -8,7 +8,7 @@ from typing_extensions import override
 
 import config
 import utils
-from common.downloaders._base import _Downloader
+from downloaders._base import _Downloader
 
 
 class BAG3DDownloader(_Downloader):

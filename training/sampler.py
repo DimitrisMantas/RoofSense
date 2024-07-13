@@ -5,9 +5,11 @@ import numpy as np
 import shapely
 from overrides import override
 
-import common
 import config
 import training
+from downloaders import BAG3DDownloader, AssetDownloader
+from parsers import BAG3DParser, ImageParser, LiDARParser
+from stack import RasterStackBuilder
 
 
 class DataSampler(ABC):
@@ -22,8 +24,8 @@ class BAG3DSampler(DataSampler):
     def __init__(self) -> None:
         super().__init__()
         # Initialize the data downloaders.
-        self.bag3d_downloader = common.downloaders.BAG3DDownloader()
-        self.asset_downloader = common.downloaders.AssetDownloader()
+        self.bag3d_downloader =BAG3DDownloader()
+        self.asset_downloader = AssetDownloader()
 
         # Initialize the data parsers.
         self.bag3d_parser = common.parsers.BAG3DParser()
