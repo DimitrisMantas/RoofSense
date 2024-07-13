@@ -143,7 +143,7 @@ if __name__ == "__main__":
     )
 
     logger = TensorBoardLogger(
-        save_dir="../logs", name="pretraining", version="potsdam-rgb"
+        save_dir="../../logs", name="pretraining", version="potsdam-rgb_100"
     )
 
     model_ckpt = ModelCheckpoint(
