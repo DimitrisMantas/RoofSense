@@ -14,6 +14,7 @@ import scipy as sp
 import tqdm
 
 from utils import raster
+from utils.raster import DefaultProfile
 from utils.type import BoundingBoxLike
 
 
@@ -188,7 +189,21 @@ class PointCloud:
             self._index = Index(self)
 
         # Initialize the output raster.
-        ras = raster.Raster(res, bbox=bbox, meta=meta)
+        ras = raster.Raster(
+            res,
+            bbox=bbox,
+            meta=meta
+            if meta is not None
+            else DefaultProfile(
+                crs=self.header.parse_crs().to_string(),
+                dtype=np.float32
+                if np.issubdtype(attr.dtype, np.floating)
+                else attr.dtype,
+                nodata=np.nan
+                if np.issubdtype(attr.dtype, np.floating)
+                else np.iinfo(attr.dtype).max,
+            ),
+        )
         cells = ras.xy()
 
         # Query the index.
