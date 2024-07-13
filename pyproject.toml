@@ -1,13 +1,54 @@
-# https://docs.astral.sh/ruff/settings/
+[build-system]
+requires = [
+    # Ensure pyproject.toml support.
+    "setuptools >= 61.0",
+]
+build-backend = "setuptools.build_meta"
+
+# NOTE: See # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/ for more options.
+[project]
+name = "roofsense"
+# TODO: Specifiy the current version.
+version = ""
+description = "An end-to-end solution for general-purpose roofing material identification and mapping of the Dutch building stock using a deep learning approach in combination with aerial imagery and airborne laser scanning data fusion"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Dimitris Mantas", email = "dimitris.mantas@outlook.com" },
+]
+maintainers = [{ name = "Dimitris Mantas", email = "dimitris.mantas@outlook.com" },
+]
+# TODO: Specify the keywords and classifiers.
+keywords = []
+# NOTE: See https://pypi.org/classifiers/ for more options.
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+# TODO: Specify the dependencies.
+dynamic = ["version"]
+
+# NOTE: See https://docs.astral.sh/ruff/settings/ for more options.
 [tool.ruff]
 extend-include = ["*.ipynb"]
 fix = true
+docstring-code-format = true
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true
 
 [tool.ruff.lint]
-extend-select = ["D", "I", "UP"]
+extend-select = ["D", "I", "NPY201", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
