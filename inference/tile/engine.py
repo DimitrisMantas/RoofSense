@@ -10,7 +10,7 @@ import torchgeo.samplers
 import torchgeo.transforms
 import tqdm
 
-import inference.dataset
+import inference.tile.dataset
 import training.task
 from augmentations.feature import MinMaxScaling
 from augmentations.intensity import AppendHSV
@@ -31,13 +31,20 @@ class InferenceEngine:
             torch.set_float32_matmul_precision("high")
             torch.backends.cudnn.allow_tf32 = True
 
-        self.dataset = inference.dataset.InferenceDataset(data_root)
+        self.dataset = inference.tile.dataset.InferenceDataset(
+            data_root
+            # bands=[Band.RED, Band.GRN,
+            #     Band.BLU, Band.RFL,
+            #     Band.SLP, ]
+        )
         self.augmet = torchgeo.transforms.AugmentationSequential(
             MinMaxScaling(
                 # TODO: Expose these parameters in the initializer.
-                mins=torch.tensor([0, 0, 0, 0, 0]),
-                maxs=torch.tensor([255, 255, 255, 1, 90]),
+                mins=torch.tensor([0, 0, 0, 0, 0, -100]),
+                maxs=torch.tensor([255, 255, 255, 1, 90, 100]),
             ),
+            AppendHSV(),
+            # common.augmentations.AppendTGI(),
             data_keys=["image"],
         )
 
@@ -167,7 +174,7 @@ class InferenceEngine:
             tiled=True,
             blockxsize=512,
             blockysize=512,
-            compress="DEFLATE",
+            compress="ZSTD",
             num_threads=os.cpu_count(),
             predictor=2,
         ) as dst:
@@ -176,6 +183,9 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer", model_ckpt="../logs/training/base/ckpts/best.ckpt"
+        data_root="../dataset/infer",
+        model_ckpt="../logs/training/"
+        "base_potsdam-rgb_100_full-pretraining_base-atrous-rate-10"
+        "/ckpts/best.ckpt",
     )
-    engine.run("../dataset/infer/9-284-556.map.base.tif")
+    engine.run("../dataset/infer/9-284-556.map.base_potsdam-rgb_100_full-pretraining_base-atrous-rate-10.tif")

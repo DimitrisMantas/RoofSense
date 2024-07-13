@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from torchgeo.datasets import BoundingBox, RasterDataset
@@ -22,7 +22,6 @@ class InferenceDataset(RasterDataset):
         download: bool = False,
         checksum: bool = False,
         bands: Sequence[str] | None = None,
-        transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         cache: bool = True,
     ) -> None:
         self.root = root
@@ -35,7 +34,7 @@ class InferenceDataset(RasterDataset):
         if download or checksum:
             raise NotImplementedError("The raster stack must already exist.")
 
-        super().__init__(root, bands=bands, transforms=transforms, cache=cache)
+        super().__init__(root, bands=bands, cache=cache)
 
         base_err_msg = (
             f"Expected a single stack at location: {self.root!r},"
@@ -52,6 +51,8 @@ class InferenceDataset(RasterDataset):
         sample: dict[str, Any] = super().__getitem__(query)
         # simulate boundless read
         sample["image"] = sample["image"].nan_to_num(0)
+        # remove density band
+        # sample["image"]=sample["image"][:-1,...]
         return sample
 
 
