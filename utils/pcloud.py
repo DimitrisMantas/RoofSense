@@ -262,57 +262,44 @@ class PointCloud:
             area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
             return len(self) / area
 
-        return self._rasterize_density(res,bbox,meta)
+        return self._rasterize_density(res, bbox, meta)
 
-
-
-    def _rasterize_density(self,
-                           res: float ,
+    def _rasterize_density(
+        self,
+        res: float,
         bbox: Optional[BoundingBoxLike] = None,
-        meta: Optional[rasterio.profiles.Profile] = None)->raster.Raster:
+        meta: Optional[rasterio.profiles.Profile] = None,
+    ) -> raster.Raster:
         # Initialize the index.
         # TODO: Factor this block out to a private method.
         if self.index is None:
             self._index = Index(self)
 
         # Initialize the output raster.
-        ras = raster.Raster(res, bbox=bbox, meta=meta)
+        ras = raster.Raster(
+            res,
+            bbox=bbox,
+            meta=meta
+            if meta is not None
+            else DefaultProfile(
+                crs=self.header.parse_crs().to_string(), dtype=np.uint8, nodata=255
+            ),
+        )
         cells = ras.xy()
 
         # Query the index.
-        neighbors, _ = self.index.query(
+        num_neighbors = self.index.query(
             tuple(map(tuple, cells)),
             r=res / 2,
             # Chebyshev Distance
             p=np.inf,
+            return_distances=False,
+            return_length=True,
         )
 
-        # TODO: Add multithreading.
-        # Interpolate the attribute value at the raster cells.
-        ras_data = np.full_like(neighbors,
-            fill_value=ras.meta["nodata"],
-            dtype=ras.meta["dtype"])
-        for i, neighbor in tqdm.tqdm(enumerate(neighbors),
-                desc="Rasterization",
-                total=len(neighbors),
-                unit="cells", ):
-            if not neighbor:
-                # The cell is empty.
-                continue
-            ras_data[i]=len(neighbor)/(res**2)
-
-
-        # Reshape the raster data into a two-dimensional array.
-        ras_data = ras_data.reshape([ras.height, ras.width])
-
-        # Overwrite the raster data.
-        ras.data = ras_data
-
-        # Fill the empty cells.
-        ras.fill()
+        ras.data = num_neighbors.reshape([ras.height, ras.width])
 
         return ras
-
 
     def remove_duplicates(self) -> Self:
         # Gather the point records.
@@ -371,26 +358,33 @@ class Index:
         x: np._typing._array_like._ArrayLikeFloat_co,
         k: int | Iterable[int] | None = None,
         r: float | Iterable[float] | None = None,
+        return_distances: bool = True,
         **kwargs,
     ):
         common_args = {"x": x, "workers": self.workers}
         if k is not None and r is None:
             distances, neighbors = self._struct.query(k=k, **common_args, **kwargs)
         elif k is None and r is not None:
-            neighbors, distances = self._query_radius(r=r, **common_args, **kwargs)
+            neighbors, distances = self._query_radius(
+                r=r, return_distances=return_distances, **common_args, **kwargs
+            )
         else:
             raise ValueError(
                 f"Could not disambiguate query type. Found non-null values for both "
                 f"{k!r} and {r!r}."
             )
 
-        return neighbors, distances
+        if return_distances:
+            return neighbors, distances
+        else:
+            return neighbors
 
     # noinspection PyProtectedMember
     def _query_radius(
         self,
         x: np._typing._array_like._ArrayLikeFloat_co,
         r: float | Iterable[float],
+        return_distances: bool,
         **kwargs,
     ):
         x = np.asarray(x)
@@ -407,6 +401,9 @@ class Index:
             return_sorted=False,
             **kwargs,
         )
+
+        if not return_distances:
+            return neighbors, None
 
         # Find the distances.
         distances = np.empty_like(neighbors)
