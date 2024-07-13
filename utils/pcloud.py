@@ -227,9 +227,6 @@ class PointCloud:
         # Overwrite the raster data.
         ras.data = ras_data
 
-        # Fill the empty cells.
-        ras.fill()
-
         return ras
 
     def density(
