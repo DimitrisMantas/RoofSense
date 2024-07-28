@@ -1,76 +1,68 @@
-import json
-import os
 import warnings
 from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
-import geopandas as gpd
 import numpy as np
 import rasterio
 import rasterio.features
 import rasterio.merge
-from geopandas import GeoDataFrame
+from typing_extensions import override
 
+from parsers.base import AssetParser
 from utils import pcloud
 from utils.file import confirm_write_op
 from utils.pcloud import PointCloud
 from utils.raster import DefaultProfile, Raster
 
-AssetManifest = dict[str, dict[str, list[str]]]
 
-
-# TODO: Implement a callback system for the various parsing stages.
-# Each callback has the same signature which enables it to access all class fields
-# and can be composed of various subroutines.
-# Example:
-# def merge_images(datapath:str, manifest:AssetManifest, geometry:GeoDataFrame) -> None:
-#     if subroutine1(datapath):
-#       subroutine2(manifest, geometry)
-# The class will call each callback sequentially in registration order.
-
-
-class LiDARParser:
+class LiDARParser(AssetParser):
     """AHN4 Tile Parser."""
 
-    def __init__(self, datapath: str) -> None:
+    def __init__(self, dirpath: str) -> None:
+        # TODO: Check whether the initializer documentation can be copied from the
+        #  parent class.
         """Configure the parser.
 
         Args:
-            datapath:
+            dirpath:
                 The path to the data directory.
         """
-        self._datapath = datapath
+        super().__init__(dirpath)
 
-        # NOTE: These fields are updated at the beginning of each parsing operation.
-        self._manifest: AssetManifest | None
-        self._geometry: GeoDataFrame | None
-
+    @override
     def parse(self, tile_id: str, overwrite: bool = False) -> None:
-        """Parse the AHN4 tiles corresponding to a particular 3DBAG tile.
+        """Parse the AHN4 data corresponding to a particular 3DBAG tile.
 
-        This method first merges the input point clouds to the tile bounds and then
-        rasterizes the output reflectance and elevation fields, as well as the planar
-        point density.
-        The GSD of the resulting rasters is three times that of the respective BM5
-        data while their bounds are the same.
-        See ``roofsense.utils.pcloud.PointCloud.rasterize`` and
-        ``roofsense.utils.pcloud.merge`` for more implementation details.
+        This method first merges the input data to the tile bounds and in turn
+        rasterizes the reflectance and elevation fields as well as the planar point
+        density of the output cloud.
+        The spatial resolution of the resulting rasters is three times that of the
+        respective BM5 data (i.e., 3 × 8 cm = 24 cm) and share the same bounds.
+        See ``roofsense.utils.pcloud.merge`` and
+        ``roofsense.utils.pcloud.PointCloud.rasterize`` for more implementation
+        details on merging and point cloud rasterization, respectively.
 
-        The values of the reflectance raster are scaled from decibels (i.e.,
-        logarithmic scale) to the underlying optical power ratio (i.e., linear scale)
-        to enable its bilinear interpolation during the raster stack generation stage.
-        In addition, reflectance values corresponding to non-Lambertian reflectors
-        are discarded by clipping the output data to [0, 1].
-        Although certain materials of interest (e.g., glass, metal, etc.) can behave
-        as specular reflectors under certain lightning or viewing conditions,
-        their exceedingly high signal can overpower that of neighboring pixels.
-        Furthermore, interpolation using these values may result in erroneous
+        Once rasterized, reflectance values are rescaled from decibels (i.e.,
+        logarithmic scale) to the underlying optical power ratio (i.e., linear scale).
+        This transformation enables bilinear interpolation of the output to a
+        different resolution.
+
+        In addition, values which correspond to non-Lambertian reflectors (i.e.,
+        ≥ 1) are discarded by clipping the resulting data to [0, 1].
+        This correction is performed because although certain materials of interest (
+        e.g., glass, metal, etc.) can behave as specular reflectors under certain
+        lightning or viewing conditions, their exceedingly high signal can overpower
+        that of neighboring pixels in the context of convolution and pooling operations.
+        Furthermore, interpolation to or from these values may result in erroneous
         intermediates being introduced.
 
-        Finally, the elevation raster is used to generate the nDRM and slope rasters.
+        Finally, the elevation raster (DSM) is used to compute the nDRM and slope of
+        the underlying scene.
+
         See ``rasterio.features.rasterize`` and
-        ``roofsense.utils.raster.Raster.slope`` for more implementation details.
+        ``roofsense.utils.raster.Raster.slope`` for more implementation details on
+        vector data rasterization and slope calculations on rasters, respectively.
 
         Warnings:
             This method requires that the BM5 data corresponding to the provided tile
@@ -79,10 +71,9 @@ class LiDARParser:
 
         Args:
             tile_id:
+                The tile ID.
             overwrite:
-
-        Returns:
-
+                A flag indicating whether to overwrite any previous output.
         """
         self._update(tile_id)
 
@@ -93,11 +84,11 @@ class LiDARParser:
 
         self._parse_reflectance(tile_id, overwrite, pc, res, bbox)
         self._parse_elevation_and_compute_derivatives(tile_id, overwrite, pc, res, bbox)
-        self._parse_density(tile_id, overwrite, pc, res, bbox)
+        self._parse_density(tile_id, overwrite, pc, bbox)
 
     # TODO: Refactor this method as a function in a tile utility module.
     def _query_image_meta(self, tile_id: str, attr: str, *attrs: str) -> list[Any]:
-        src_path = self._resolve_filepath(tile_id + ".rgb.tif")
+        src_path = self.resolve_filepath(tile_id + ".rgb.tif")
         src: rasterio.io.DatasetReader
         with rasterio.open(src_path) as src:
             return [getattr(src, attr) for attr in [attr] + list(attrs)]
@@ -106,10 +97,10 @@ class LiDARParser:
         self, tile_id: str, overwrite: bool, bbox: Sequence[float]
     ) -> PointCloud:
         # TODO: Consider refactoring this block into a separate method.
-        dst_path = self._resolve_filepath(tile_id + ".LAZ")
+        dst_path = self.resolve_filepath(tile_id + ".LAZ")
         if confirm_write_op(dst_path, type="file", overwrite=overwrite):
             src_paths = [
-                self._resolve_filepath(id_ + ".LAZ")
+                self.resolve_filepath(id_ + ".LAZ")
                 for id_ in self._manifest["lidar"]["tid"]
             ]
             pcloud.merge(
@@ -131,7 +122,7 @@ class LiDARParser:
         res: float,
         bbox: Sequence[float],
     ) -> None:
-        dst_path = self._resolve_filepath(tile_id + ".rfl.tif")
+        dst_path = self.resolve_filepath(tile_id + ".rfl.tif")
         if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
             return
 
@@ -147,7 +138,7 @@ class LiDARParser:
         res: float,
         bbox: Sequence[float],
     ) -> None:
-        dst_path = self._resolve_filepath(tile_id + ".elev.tif")
+        dst_path = self.resolve_filepath(tile_id + ".elev.tif")
         if confirm_write_op(dst_path, type="file", overwrite=overwrite):
             ras = self._rasterize_all_valid(pc, field="z", res=res, bbox=bbox)
             ras.save(dst_path)
@@ -170,11 +161,11 @@ class LiDARParser:
         self._compute_slope(tile_id, overwrite, ras)
 
     def _compute_ndrm(self, tile_id: str, overwrite: bool, dsm: Raster) -> None:
-        dst_path = self._resolve_filepath(tile_id + ".ndsm.tif")
+        dst_path = self.resolve_filepath(tile_id + ".ndsm.tif")
         if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
             return
 
-        buildings = self._geometry.dissolve(by="id")
+        buildings = self._surfaces.dissolve(by="id")
 
         ras = deepcopy(dsm)
         ras.data -= rasterio.features.rasterize(
@@ -190,21 +181,16 @@ class LiDARParser:
         ras.save(dst_path)
 
     def _compute_slope(self, tile_id: str, overwrite: bool, dsm: Raster) -> None:
-        dst_path = self._resolve_filepath(tile_id + ".slp.tif")
+        dst_path = self.resolve_filepath(tile_id + ".slp.tif")
         if confirm_write_op(dst_path, type="file", overwrite=overwrite):
             dsm.slope().save(dst_path)
 
     def _parse_density(
-        self,
-        tile_id: str,
-        overwrite: bool,
-        pc: PointCloud,
-        res: float,
-        bbox: Sequence[float],
+        self, tile_id: str, overwrite: bool, pc: PointCloud, bbox: Sequence[float]
     ) -> None:
-        dst_path = self._resolve_filepath(tile_id + ".den.tif")
+        dst_path = self.resolve_filepath(tile_id + ".den.tif")
         if confirm_write_op(dst_path, type="file", overwrite=overwrite):
-            pc.density(res, bbox).save(dst_path)
+            pc.density(bbox).save(dst_path)
 
     # TODO: Add optional fill in ``pcloud.PointCloud,rasterize``.
     def _rasterize_all_valid(
@@ -213,27 +199,11 @@ class LiDARParser:
         ras = pc.rasterize(field, res, bbox=bbox)
         while (num_invalid := np.count_nonzero(~np.isfinite(ras.data))) != 0:
             msg = (
-                f"Encountered {num_invalid} invalid (NaN or ±∞) values in output raster."
+                f"Encountered {num_invalid} invalid (NaN or ±∞) values in output"
+                f"raster."
                 f" "
                 f"Filling until all valid..."
             )
             warnings.warn(msg, RuntimeWarning)
             ras.fill()
         return ras
-
-    # TODO: Refactor this method as a function in a tile utility module.
-    def _resolve_filepath(self, filename: str) -> str:
-        return os.path.join(self._datapath, filename)
-
-    def _update(self, tile_id: str) -> None:
-        self._update_imanifest(tile_id)
-        self._update_geometry(tile_id)
-
-    def _update_imanifest(self, tile_id: str) -> None:
-        filepath = self._resolve_filepath(tile_id + ".info.json")
-        with open(filepath) as f:
-            self._manifest = json.load(f)
-
-    def _update_geometry(self, tile_id: str) -> None:
-        filepath = self._resolve_filepath(tile_id + ".surf.gpkg")
-        self._geometry = gpd.read_file(filepath)

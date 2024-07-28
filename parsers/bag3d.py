@@ -1,25 +1,20 @@
-from typing import Optional
-
 import cjio.cityjson
 import cjio.cjio
 # noinspection PyDeprecation
 import cjio.models
 import geopandas as gpd
 import shapely
-from overrides import override
 
 import config
-import utils.file
-from common.parsers.base import DataParser
+import utils
 
 
-class BAG3DParser(DataParser):
+class BAG3DParser:
     def __init__(self) -> None:
         super().__init__()
-        self._data: Optional[cjio.cityjson.CityJSON] = None
-        self._surfs: Optional[dict[str, list[shapely.Polygon]]] = None
+        self._data: cjio.cityjson.CityJSON | None = None
+        self._surfs: dict[str, list[shapely.Polygon]] | None = None
 
-    @override
     def parse(self, obj_id: str) -> None:
         out_path = (
             f"{config.env('TEMP_DIR')}"
@@ -44,6 +39,8 @@ class BAG3DParser(DataParser):
         )
         self._surfs = {
             config.var("DEFAULT_ID_FIELD_NAME"): [],
+            # Median roof elevation.
+            "b3_h_dak_50p": [],
             config.var("DEFAULT_GM_FIELD_NAME"): [],
         }
 
@@ -73,4 +70,5 @@ class BAG3DParser(DataParser):
             # Parse the exterior surface boundary.
             surf = shapely.force_2d(shapely.Polygon(surf[0]))
             self._surfs[config.var("DEFAULT_ID_FIELD_NAME")].append(building.id)
+            self._surfs["b3_h_dak_50p"].append(building.attributes["b3_h_dak_50p"])
             self._surfs[config.var("DEFAULT_GM_FIELD_NAME")].append(surf)
