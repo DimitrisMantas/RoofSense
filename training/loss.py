@@ -41,7 +41,7 @@ class CompoundLoss1(torch.nn.modules.loss._Loss):
         names: Loss | Iterable[Loss],
         lambdas: float | Iterable[float] | None = None,
         weight: Tensor | None = None,
-        include_background: bool = False,
+        include_background: bool = True,
         reduction: Literal["mean", "sum"] = "mean",
         label_smoothing: float = 0,
         **kwargs,
@@ -101,7 +101,7 @@ def init_monai_loss(
     loss: type[
         DiceLoss | GeneralizedDiceLoss | FocalLoss | TverskyLoss | HausdorffDTLoss
     ],
-    include_background: bool = False,
+    include_background: bool = True,
     reduction: Literal["mean", "sum"] = "mean",
     **kwargs,
 ) -> DiceLoss | GeneralizedDiceLoss | FocalLoss | TverskyLoss | HausdorffDTLoss:
