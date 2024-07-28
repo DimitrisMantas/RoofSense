@@ -19,10 +19,28 @@ from training.dataset import TrainingDataset
 class TrainingDataModule(NonGeoDataModule):
     # TODO: Move these to TrainingDataset so that they can be constructed according
     #  to the specified band list. The minimum cell value of each raster stack layer.
-    mins = torch.tensor([0, 0, 0, 0, 0])
+    mins = torch.tensor(
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -100,  # 0
+        ]
+    )
 
     # The maximum cell value of each raster stack layer.
-    maxs = torch.tensor([255, 255, 255, 1, 90])
+    maxs = torch.tensor(
+        [
+            255,
+            255,
+            255,
+            1,
+            90,
+            100,  # 100
+        ]
+    )
 
     def __init__(
         self,
@@ -118,10 +136,8 @@ class TrainingDataModule(NonGeoDataModule):
     def setup(self, stage: str) -> None:
         if stage in ["fit"]:
             self.train_dataset = self.dataset_class(split="training", **self.kwargs)
-            x=1
         if stage in ["fit", "validate"]:
             self.val_dataset = self.dataset_class(split="validation", **self.kwargs)
-            x=1
         if stage in ["test"]:
             self.test_dataset = self.dataset_class(split="test", **self.kwargs)
 
