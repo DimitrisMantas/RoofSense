@@ -246,7 +246,6 @@ class PointCloud:
 
     def density(
         self,
-        res: float | None,
         bbox: Optional[BoundingBoxLike] = None,
         meta: Optional[rasterio.profiles.Profile] = None,
     ) -> float | raster.Raster:
@@ -258,15 +257,14 @@ class PointCloud:
         # Disambiguate the input.
         bbox = bbox if bbox is not None else self.bbox
 
-        if res is None:
-            area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
-            return len(self) / area
+        # if res is None:
+        #     area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+        #     return len(self) / area
 
-        return self._rasterize_density(res, bbox, meta)
+        return self._rasterize_density(bbox, meta)
 
     def _rasterize_density(
         self,
-        res: float,
         bbox: Optional[BoundingBoxLike] = None,
         meta: Optional[rasterio.profiles.Profile] = None,
     ) -> raster.Raster:
@@ -277,12 +275,12 @@ class PointCloud:
 
         # Initialize the output raster.
         ras = raster.Raster(
-            res,
+            resol=1,
             bbox=bbox,
             meta=meta
             if meta is not None
             else DefaultProfile(
-                crs=self.header.parse_crs().to_string(), dtype=np.uint8, nodata=255
+                crs=self.header.parse_crs().to_string(), dtype=np.uint16, nodata=np.iinfo(np.uint16).max
             ),
         )
         cells = ras.xy()
@@ -290,7 +288,7 @@ class PointCloud:
         # Query the index.
         num_neighbors = self.index.query(
             tuple(map(tuple, cells)),
-            r=res / 2,
+            r=0.5,
             # Chebyshev Distance
             p=np.inf,
             return_distances=False,

@@ -5,7 +5,6 @@ import math
 import os
 import warnings
 from os import PathLike
-from typing import Optional
 
 import numpy as np
 import rasterio.fill
@@ -13,12 +12,64 @@ import rasterio.mask
 import rasterio.merge
 import rasterio.windows
 
-import config
 from utils.type import BoundingBoxLike
 
-# TODO: Find a way to not rely on the configuration file being initialised for this
-#       module to be imported.
-config.config()
+
+class DefaultProfile(rasterio.profiles.Profile):
+    defaults = {
+        "interleave": "BAND",
+        "tiled": True,
+        "blockxsize": 512,
+        "blockysize": 512,
+        "compress": "LZW",
+        "num_threads": os.cpu_count(),
+    }
+
+    def __init__(
+        self,
+        crs: str | None = None,
+        dtype: np.integer | np.floating | None = None,
+        nodata: float | None = None,
+    ) -> None:
+        """Profile for single- or multi-chanel band-interleaved,
+        512x512-pixel--tiled, LZW-compressed rasters.
+
+        Args:
+            crs:
+                The EPSG identifier of the destination coordinate reference system.
+                Set to ``None`` to inherit the CRS of a source raster when updating
+                its profile or leave this field unspecified.
+            dtype:
+                The destination data type. Set to ``None`` to inherit the data type
+                of a source raster when updating its profile.
+            nodata:
+                The destination no-data value. Set to ``None`` to inherit the no-data
+                value of a source raster when updating its profile or leave this
+                field unspecified.
+        """
+        options = {"crs": crs, "dtype": dtype, "nodata": nodata}
+
+        # copy the dict items to not change dict size during iteration
+        items = tuple(options.items())
+        for name, option in items:
+            if option is None:
+                options.pop(name)
+
+        predictor = (
+            2
+            if np.issubdtype(dtype, np.integer)
+            else 3
+            if np.issubdtype(dtype, np.floating)
+            else 1
+        )
+        if predictor == 1:
+            warnings.warn(
+                f"Could not infer data type: {dtype!r} as 8-, 16-, 32-, or 64-bit "
+                f"integer or floating-point number . Cannot provide compression "
+                f"predictor unless one is inherited from a source raster."
+            )
+
+        super().__init__(predictor=predictor, **options)
 
 
 class Raster:
@@ -26,16 +77,23 @@ class Raster:
         self,
         resol: float,
         bbox: BoundingBoxLike,
-        meta: Optional[rasterio.profiles.Profile] = None,
+        meta: rasterio.profiles.Profile = DefaultProfile(),
     ) -> None:
         self._resol = resol
         self._bbox = bbox
         self._lenx = math.ceil((self._bbox[2] - self._bbox[0]) / self._resol)
         self._leny = math.ceil((self._bbox[3] - self._bbox[1]) / self._resol)
-        self._meta = meta if meta is not None else DefaultProfile()
+        self._meta = meta
         self.data = np.full(
             (self._leny, self._lenx), self._meta["nodata"], dtype=self._meta["dtype"]
         )
+        self._transform = rasterio.transform.from_origin(
+            self._bbox[0], self._bbox[3], self._resol, self._resol
+        )
+
+    @property
+    def transform(self):
+        return self._transform
 
     def __len__(self) -> int:
         return self.data.size
@@ -83,15 +141,24 @@ class Raster:
             r.data = np.degrees(r.data)
         return r
 
-    def fill(self, radius: float = 100, smoothing_iters: int = 0) -> None:
-        # TODO: Check whether there is a more general-purpose method of computing the
-        #       no-data mask.
-        mask = np.logical_not(np.ma.getmaskarray(np.ma.masked_invalid(self.data)))
+    def fill(self, radius: int = 100, smoothing_iters: int = 0) -> None:
+        nodata = self.meta["nodata"]
+
+        if nodata is None:
+            msg = (
+                "Unable to identify valid cells when the no-data value is "
+                "unspecified. Missing values cannot be filled."
+            )
+            warnings.warn(msg,UserWarning)
+            return
+
         self.data = rasterio.fill.fillnodata(
             self.data,
-            mask,
-            max_search_distance=radius,
-            smoothing_iterations=smoothing_iters,
+            ~np.isclose(self.data, nodata)
+            if np.isfinite(nodata)
+            else np.isfinite(self.data),
+            radius,
+            smoothing_iters,
         )
 
     def save(self, path: str | PathLike) -> None:
@@ -99,9 +166,6 @@ class Raster:
         # TODO: Check whether this statement is true.
         # NOTE: The default output transform is overriden if included in the raster
         #       metadata.
-        transform = rasterio.transform.from_origin(
-            self._bbox[0], self._bbox[3], self._resol, self._resol
-        )
         f: rasterio.io.DatasetWriter
         with rasterio.open(
             path,
@@ -109,79 +173,7 @@ class Raster:
             width=self._lenx,
             height=self._leny,
             count=num_bands,
-            transform=transform,
+            transform=self.transform,
             **self._meta,
         ) as f:
             f.write(self.data, indexes=1 if num_bands == 1 else None)
-
-
-class DefaultProfile(rasterio.profiles.Profile):
-    defaults = {
-        "dtype": np.float32,
-        "nodata": np.nan,
-        "crs": config.var("CRS"),
-        # NOTE: Tiled rasters can be efficiently split into patches by exploiting their
-        #       internal data block structure.
-        "tiled": True,
-        "blockxsize": config.var("BLOCK_SIZE"),
-        "blockysize": config.var("BLOCK_SIZE"),
-        "compress": config.var("COMPRESSION"),
-        "num_threads": os.cpu_count(),
-    }
-
-
-class DefaultProfile1(rasterio.profiles.Profile):
-    defaults = {
-        "interleave": "BAND",
-        "tiled": True,
-        "blockxsize": 512,
-        "blockysize": 512,
-        "compress": "LZW",
-        "num_threads": os.cpu_count(),
-    }
-
-    def __init__(
-        self,
-        crs: str | None = None,
-        dtype: np.integer | np.floating | None = None,
-        nodata: float | None = None,
-    ) -> None:
-        """Profile for single- or multi-chanel band-interleaved,
-        512x512-pixel--tiled, LZW-compressed rasters.
-
-        Args:
-            crs:
-                The EPSG identifier of the destination coordinate reference system.
-                Set to ``None`` to inherit the CRS of a source raster when updating
-                its profile or leave this field unspecified.
-            dtype:
-                The destination data type. Set to ``None`` to inherit the data type
-                of a source raster when updating its profile.
-            nodata:
-                The destination no-data value. Set to ``None`` to inherit the no-data
-                value of a source raster when updating its profile or leave this
-                field unspecified.
-        """
-        options = {"crs": crs, "dtype": dtype, "nodata": nodata}
-
-        # copy the dict items to not change dict size during iteration
-        items=tuple(options.items())
-        for name, option in items:
-            if option is None:
-                options.pop(name)
-
-        predictor = (
-            2
-            if np.issubdtype(dtype, np.integer)
-            else 3
-            if np.issubdtype(dtype, np.floating)
-            else 1
-        )
-        if predictor == 1:
-            warnings.warn(
-                f"Could not infer data type: {dtype!r} as 8-, 16-, 32-, or 64-bit "
-                f"integer or floating-point number . Cannot provide compression "
-                f"predictor unless one is inherited from a source raster."
-            )
-
-        super().__init__(predictor=predictor, **options)
