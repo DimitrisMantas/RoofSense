@@ -1,140 +1,122 @@
-import warnings
-from enum import UNIQUE, Enum, auto, verify
+from collections.abc import Iterable
 from typing import Literal
 
-import monai.losses
 import torch
+from monai.losses import (DiceLoss,
+                          FocalLoss,
+                          GeneralizedDiceLoss,
+                          HausdorffDTLoss,
+                          TverskyLoss, )
 from torch import Tensor
+from torch.nn import CrossEntropyLoss
+
+Loss = (
+    CrossEntropyLoss
+    | DiceLoss
+    | GeneralizedDiceLoss
+    | FocalLoss
+    | TverskyLoss
+    | HausdorffDTLoss
+)
 
 
-@verify(UNIQUE)
-class DistribBasedLoss(Enum):
-    CROSS = auto()
-    FOCAL = auto()
+class CompoundLoss1(torch.nn.modules.loss._Loss):
+    """Compound loss function."""
 
+    losses = {
+        loss.__name__.lower(): loss
+        for loss in [
+            CrossEntropyLoss,
+            DiceLoss,
+            GeneralizedDiceLoss,
+            FocalLoss,
+            TverskyLoss,
+            HausdorffDTLoss,
+        ]
+    }
+    """The supported loss constituents."""
 
-@verify(UNIQUE)
-class RegionBasedLoss(Enum):
-    DICE = auto()
-    GICE = auto()
-    JACC = auto()
-
-
-# TODO: Add single-component loss support.
-class CompoundLoss(
-    # NOTE: This is technically a weighted loss, but inheriting from the
-    # corresponding parent class avoids registering an unnecessary weight buffer.
-    # This is because MONAI losses maintain their own weight buffers.
-    torch.nn.modules.loss._WeightedLoss
-):
     def __init__(
         self,
-        this: DistribBasedLoss,
-        that: RegionBasedLoss,
-        ignore_background: bool = True,
+        names: Loss | Iterable[Loss],
+        lambdas: float | Iterable[float] | None = None,
         weight: Tensor | None = None,
+        include_background: bool = False,
         reduction: Literal["mean", "sum"] = "mean",
-        this_kwargs: dict[str, bool | float] | None = None,
-        that_kwargs: dict[str, bool | float] | None = None,
-        this_lambda: float = 1,
-        that_lambda: float = 1,
-    ):
-        if weight is not None:
-            # NOTE: MONAI does not normalize class weights.
-            weight: Tensor
-            weight /= weight.sum()
+        label_smoothing: float = 0,
+        **kwargs,
+    ) -> None:
+        super().__init__(reduction=reduction)
 
-        super().__init__(weight=weight, reduction=reduction)
+        self.names: Iterable[Loss] = [names] if isinstance(names, str) else names
+        for name in names:
+            name = name.lower()
+            loss = self.losses.get(name, None)
+            if loss is None:
+                raise ValueError(
+                    f"Expected name in {list(self.losses.keys())!r}, but got {name!r}."
+                )
+            if loss.__module__.split(".", maxsplit=1)[0] == "torch":
+                # Cross-Entropy Loss
+                setattr(
+                    self,
+                    name,
+                    loss(
+                        weight=weight,
+                        ignore_index=-100 if include_background else 0,
+                        reduction=reduction,
+                        label_smoothing=label_smoothing,
+                    ),
+                )
+            else:
+                setattr(
+                    self,
+                    name,
+                    init_monai_loss(loss, include_background, reduction, **kwargs),
+                )
 
-        common_kwargs = {
-            "include_background": not ignore_background,
-            "to_onehot_y": True,
-        }
-        variable_kwargs = this_kwargs if this_kwargs is not None else {}
-
-        if this == DistribBasedLoss.CROSS:
-            self.this = torch.nn.CrossEntropyLoss(
-                # NOTE: PyTorch expects the ignored index to always be specified.
-                ignore_index=0 if ignore_background else -100,
-                # NOTE: PyTorch works as expected regarding class weights and loss
-                # reductions.
-                weight=weight,
-                reduction=reduction,
-                **variable_kwargs,
-            )
-        elif this == DistribBasedLoss.FOCAL:
-            # TODO: Adjust FocalLoss to return the same results as CrossEntropyLoss when
-            #  the corresponding modulating factor is equal to one.
-            warnings.warn(
-                "This loss is experimental and its implementation may not "
-                "be correct!",
-                UserWarning,
-            )
-            self.this = monai.losses.FocalLoss(
-                reduction=reduction,
-                use_softmax=True,
-                **common_kwargs,
-                **variable_kwargs,
-            )
-        else:
-            raise ValueError
-
-        common_kwargs |= {
-            # NOTE: This activation function is more numerically stable than standard
-            # softmax in that it helps avoid vanishing gradients.
-            "other_act": lambda pred: pred.log_softmax(dim=1).exp(),
-            # NOTE: MONAI expects the weight tensor to not include the background
-            # class when it is excluded.
-            # "weight": weight if weight is None else weight[1:],
-            # NOTE: MONAI computes weighted loss sums instead of averages, so any
-            # reduction must be applied manually to the classwise results.
-            "reduction": "none",
-        }
-        variable_kwargs = that_kwargs if that_kwargs is not None else {}
-
-        if that == RegionBasedLoss.DICE:
-            self.that = monai.losses.DiceLoss(
-                jaccard=False, **common_kwargs, **variable_kwargs
-            )
-        elif that == RegionBasedLoss.GICE:
-            self.that = monai.losses.GeneralizedDiceLoss(
-                **common_kwargs, **variable_kwargs
-            )
-        elif that == RegionBasedLoss.JACC:
-            self.that = monai.losses.DiceLoss(
-                jaccard=True, **common_kwargs, **variable_kwargs
-            )
-        else:
-            raise ValueError
-
-        self.this_lambda = this_lambda
-        self.that_lambda = that_lambda
+        self.lambdas = lambdas if lambdas is not None else [1] * len(names)
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        # NOTE: Target tensors are of shape BxHxW be MONAI requires it to be Bx1xHxW.
+        # NOTE: Target tensors are of shape BxHxW but MONAI requires it to be BxCxHxW.
         target = torch.unsqueeze(target, dim=1)
 
-        this_val: Tensor = self.this(
-            input,
-            torch.squeeze(target, dim=1)
-            if isinstance(self.this, torch.nn.CrossEntropyLoss)
-            else target,
-        )
+        loss = torch.tensor([0], dtype=input.dtype, device=input.device)
+        for name, lambda_ in zip(self.names, self.lambdas, strict=True):
+            component = getattr(self, name)
+            loss += (
+                component(
+                    input,
+                    torch.squeeze(target, dim=1)
+                    if isinstance(component, torch.nn.CrossEntropyLoss)
+                    else target,
+                )
+                * lambda_
+            )
 
-        that_val: Tensor = self.that(input, target)
-        # Broadcast to BxC.
-        that_val = that_val.view(*that_val.shape[:2])
+        return loss
 
-        # Apply the class weights.
-        if not isinstance(self.that, monai.losses.GeneralizedDiceLoss) and self.weight is not None:
-            that_val *= self.weight[1:]
 
-        # Perform the reduction.
-        if self.reduction == "mean":
-            # Sum along the class dimension to take the weighted loss mean and
-            # average the result across all batches.
-            that_val = that_val.sum(dim=1).mean()
+def init_monai_loss(
+    loss: type[
+        DiceLoss | GeneralizedDiceLoss | FocalLoss | TverskyLoss | HausdorffDTLoss
+    ],
+    include_background: bool = False,
+    reduction: Literal["mean", "sum"] = "mean",
+    **kwargs,
+) -> DiceLoss | GeneralizedDiceLoss | FocalLoss | TverskyLoss | HausdorffDTLoss:
+    params = {
+        "include_background": include_background,
+        "to_onehot_y": True,
+        "other_act": lambda x: x.log_softmax(dim=1).exp(),
+        "reduction": reduction,
+    }
+    try:
+        out = loss(**params, **kwargs)
+    except TypeError as e:
+        if loss.__name__ == "FocalLoss":
+            params["use_softmax"] = params.pop("other_act")
+            out = loss(**params, **kwargs)
         else:
-            that_val = that_val.sum()
-
-        return self.this_lambda * this_val + self.that_lambda * that_val
+            raise e
+    return out

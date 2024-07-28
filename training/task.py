@@ -1,7 +1,7 @@
 import math
 from collections import OrderedDict
-from collections.abc import Iterable, Sequence
-from typing import Any, Literal, Optional
+from collections.abc import Sequence
+from typing import Any, Literal
 
 import torch
 import torchseg
@@ -28,7 +28,7 @@ from torchseg.base import SegmentationHead
 from typing_extensions import override
 
 from metrics.wrappers.macro import MacroAverageWrapper
-from training.loss import CompoundLoss
+from training.loss import CompoundLoss1
 from training.scheduler import CosineAnnealingWarmRestartsWithDecay
 from utils.color import get_fg_color
 
