@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os.path
 import warnings
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Iterable
 from functools import lru_cache
 from typing import Any, Literal
 
@@ -38,7 +38,7 @@ class TrainingDataset(NonGeoDataset):
         split: Literal["training", "validation", "test"],
         download: bool = False,
         checksum: bool = False,
-        bands: Band | list[Band] = Band.ALL,
+        bands: Band | Iterable[Band] = Band.ALL,
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
     ) -> None:
         # TODO: Initialize class fields lazily.
@@ -47,7 +47,7 @@ class TrainingDataset(NonGeoDataset):
         self.download = download
         self.checksum = checksum
 
-        self.bands = bands if isinstance(bands, list) else [bands]
+        self.bands = bands if isinstance(bands, Iterable) else [bands]
         # Verify the band list.
         self.has_plt = len(self.bands) == 1 or len(self.bands) >= 3
         self.has_rgb = False
