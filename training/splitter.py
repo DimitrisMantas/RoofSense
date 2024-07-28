@@ -13,11 +13,11 @@ import config
 import utils.geom
 
 
-def split(obj_id: str, background_cutoff: float,limit:int) -> int:
+def split(obj_id: str, background_cutoff: float, limit: int) -> int:
     # Dissolve the surfaces so that only their edges are buffered.
     surfs = utils.geom.read_surfaces(obj_id).dissolve()
-    rng=np.random.default_rng(seed=0)
-    num_accepted_in_a_row=0
+    rng = np.random.default_rng(seed=0)
+    num_accepted_in_a_row = 0
     stack_path = pathlib.Path(
         f"{config.env('TEMP_DIR')}"
         f"{obj_id}"
@@ -37,18 +37,18 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> int:
         # NOTE: This ensures indexing notation ensures that all bands share the
         #       same internal data block structure.
         for (row, col), block in stack.block_windows(-1):
-            if blocks==limit:
+            if blocks == limit:
                 return limit
             if block.width != block.height:
                 continue
             # Flip coin
-            if rng.binomial(1,p=0.5)==0:
+            if rng.binomial(1, p=0.5) == 0:
                 continue
             # Selected
-            if num_accepted_in_a_row==3:
-                num_accepted_in_a_row=0
+            if num_accepted_in_a_row == 3:
+                num_accepted_in_a_row = 0
                 continue
-            num_accepted_in_a_row+=1
+            num_accepted_in_a_row += 1
             original_patch_path = pathlib.Path(
                 f"{config.env('ORIGINAL_DATA_DIR')}"
                 f"{config.var('TRAINING_IMAG_DIRNAME')}"
@@ -61,7 +61,7 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> int:
                 f"{stack_path.suffix}"
             )
             if original_patch_path.is_file():
-                blocks+=1
+                blocks += 1
                 continue
             # TODO: Document this block.
             original_patch_data = stack.read(window=block, masked=True)
@@ -111,5 +111,5 @@ def split(obj_id: str, background_cutoff: float,limit:int) -> int:
             )
             cv2.imwrite(rgb_patch_path.absolute().as_posix(), rgb_data)
 
-            blocks+=1
+            blocks += 1
         return blocks

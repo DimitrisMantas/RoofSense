@@ -11,7 +11,7 @@ def generate_pretraining_data(size: int = 300, background_cutoff: float = 0.8) -
     # Initialize the program runtime.
     config.config(training=True)
     # Fake a random sample.
-    samples = training.sampler.BAG3DSampler().sample(size,background_cutoff)
+    samples = training.sampler.BAG3DSampler().sample(size, background_cutoff)
 
 
 def train() -> None:
