@@ -72,13 +72,16 @@ def split(obj_id: str, background_cutoff: float, limit: int) -> int:
                     block.col_off : block.col_off + block.width,
                 ]
             )
-            original_patch_data = original_patch_data.filled(0)
 
-            act_zeros = original_patch_data.size - np.count_nonzero(original_patch_data)
-            max_zeros = original_patch_data.size * background_cutoff
-            if act_zeros > max_zeros:
-                # print("skipping")
+            num_band_cells = np.size(original_patch_data, axis=1) * np.size(
+                original_patch_data, axis=2
+            )
+            num_back_cells = original_patch_data.mask[0, ...].sum()
+            if num_back_cells > num_band_cells * background_cutoff:
                 continue
+
+            # Mask Background
+            original_patch_data = original_patch_data.filled(0)
 
             patch_meta = stack.meta
             patch_meta.update(
