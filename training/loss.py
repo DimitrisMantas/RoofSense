@@ -84,7 +84,8 @@ class CompoundLoss1(torch.nn.modules.loss._Loss):
         loss = torch.tensor([0], dtype=input.dtype, device=input.device)
         for name, lambda_ in zip(self.names, self.lambdas, strict=True):
             component = getattr(self, name)
-            loss += (
+
+            temp = (
                 component(
                     input,
                     torch.squeeze(target, dim=1)
@@ -93,6 +94,7 @@ class CompoundLoss1(torch.nn.modules.loss._Loss):
                 )
                 * lambda_
             )
+            loss += temp
 
         return loss
 
