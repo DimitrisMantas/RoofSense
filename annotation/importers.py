@@ -16,6 +16,7 @@ import pandas as pd
 import rasterio.errors
 import rasterio.mask
 
+import config
 from utils.geom import read_surfaces
 
 
@@ -383,3 +384,10 @@ class RoboflowDatasetImporter:
 
         self.class_weights: np.ndarray[tuple[Any], np.dtype[np.float64]]
         self.class_weights.tofile(class_weights_filepath)
+
+
+if __name__ == "__main__":
+    config.config()
+    RoboflowDatasetImporter(
+        r"C:\Users\Dimit\Downloads\RoofSense.v2-batch-2-unchecked-.png-mask-semantic\train"
+    ).import_("../dataset/temp")
