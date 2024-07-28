@@ -28,9 +28,9 @@ class BAG3DSampler(DataSampler):
         self.asset_downloader = AssetDownloader()
 
         # Initialize the data parsers.
-        self.bag3d_parser = common.parsers.BAG3DParser()
-        self.image_parser = common.parsers.ImageParser()
-        self.lidar_parser = common.parsers.LiDARParser()
+        self.bag3d_parser = BAG3DParser()
+        self.image_parser = ImageParser(dirpath=config.env("TEMP_DIR"))
+        self.lidar_parser = LiDARParser(dirpath=config.env("TEMP_DIR"))
 
         # Initialize the sheet indices.
         self._index = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
@@ -90,7 +90,7 @@ class BAG3DSampler(DataSampler):
                 self.lidar_parser.parse(tile_id)
 
                 # Create the raster stack.
-                common.merger.RasterStackBuilder().merge(tile_id)
+                RasterStackBuilder().merge(tile_id)
 
                 # Prepare the stacks for annotation.
                 print(f"Requesting at most {size-num_im} chips.")
