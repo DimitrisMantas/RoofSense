@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from typing import Optional
 
 import geopandas as gpd
 import numpy as np
@@ -15,7 +14,7 @@ from utils import raster
 
 class DataMerger:
     def __init__(self) -> None:
-        self._surfs: Optional[gpd.GeoDataFrame] = None
+        self._surfs: gpd.GeoDataFrame | None = None
 
     @abstractmethod
     def merge(self, obj_id: str) -> None: ...
@@ -63,7 +62,7 @@ class RasterStackBuilder(DataMerger):
 
         stack: rasterio.io.DatasetWriter
         with rasterio.open(out_path, mode="w", **out_meta) as stack:
-            for band_id, path in enumerate(in_paths[1:], start=3):
+            for band_id, path in enumerate(in_paths[1:-1], start=3):
                 tmp: rasterio.io.DatasetReader
                 with rasterio.open(path) as tmp:
                     tmp_data: np.ndarray = tmp.read(
@@ -79,15 +78,33 @@ class RasterStackBuilder(DataMerger):
                     # dsm
                     if band_id == 5:
                         tmp_data = tmp_data.clip(
-                            min=np.percentile(tmp_data, 1),
-                            max=np.percentile(tmp_data, 99),
+                            min=np.percentile(tmp_data, 2),
+                            max=np.percentile(tmp_data, 98),
                         )
-                    # density
-                    if band_id == 6:
-                        # limit erroneously high density values along building edges.
-                        tmp_data = tmp_data.clip(max=np.percentile(tmp_data, 99))
-
                     out_data[band_id, ...] = tmp_data
+
+            # ------------------------------
+            # Parse Density
+            with rasterio.open(in_paths[-1]) as tmp:
+                original_sum = tmp.read().sum()
+
+            with rasterio.open(in_paths[-1]) as tmp:
+                tmp_data: np.ndarray = tmp.read(
+                    indexes=1,
+                    out_shape=(out_meta["height"], out_meta["width"]),
+                    resampling=rasterio.enums.Resampling.nearest,
+                )
+
+            # Resample
+            tmp_data = tmp_data * (original_sum / tmp_data.sum())
+
+            # Clip
+            tmp_data = tmp_data.clip(max=np.percentile(tmp_data, 98))
+
+            # Merge
+            out_data[band_id+1, ...] = tmp_data
+            # ------------------------------
+
             stack.write(out_data)
 
             # TODO: Mask the stack here
