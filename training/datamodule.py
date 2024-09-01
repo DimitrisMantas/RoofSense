@@ -2,6 +2,7 @@ import os
 import warnings
 
 import kornia.augmentation as K
+import numpy as np
 import torch
 from kornia.constants import DataKey, Resample
 from torch import Tensor
@@ -17,31 +18,6 @@ from training.dataset import TrainingDataset
 
 
 class TrainingDataModule(NonGeoDataModule):
-    # TODO: Move these to TrainingDataset so that they can be constructed according
-    #  to the specified band list. The minimum cell value of each raster stack layer.
-    mins = torch.tensor(
-        [
-            0,
-            0,
-            0,
-            0,
-            0,
-            -100,  # 0
-        ]
-    )
-
-    # The maximum cell value of each raster stack layer.
-    maxs = torch.tensor(
-        [
-            255,
-            255,
-            255,
-            1,
-            90,
-            100,  # 100
-        ]
-    )
-
     def __init__(
         self,
         batch_size: int = 8,
@@ -91,7 +67,18 @@ class TrainingDataModule(NonGeoDataModule):
 
         args = [
             # Scaling
-            MinMaxScaling(self.mins, self.maxs)
+            MinMaxScaling(
+                *torch.tensor_split(
+                    torch.from_numpy(
+                        np.fromfile(
+                            os.path.join(
+                                kwargs["root"], TrainingDataset.scales_filename
+                            )
+                        )
+                    ),
+                    2,
+                )
+            )
         ]
         # Color spaces & Spectral Indices
         if append_hsv:

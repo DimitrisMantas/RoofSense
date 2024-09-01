@@ -28,6 +28,7 @@ class TrainingDataset(NonGeoDataset):
     classes_filename = "names.json"
     colors_filename = "colors.json"
     splits_filename = "splits.json"
+    scales_filename="scales.bin"
 
     classes: list[str] | None = None
     colors: ListedColormap | None = None
@@ -91,7 +92,7 @@ class TrainingDataset(NonGeoDataset):
                 )
         except FileNotFoundError:
             warnings.warn(
-                f"Failed to locate class names: {self.classes_filename!r} in dataset root folder: {self.root!r}. The file does not exist.",
+                f"Failed to locate class names: {self.colors_filename!r} in dataset root folder: {self.root!r}. The file does not exist.",
                 RuntimeWarning,
             )
 
