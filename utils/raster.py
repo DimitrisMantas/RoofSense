@@ -28,7 +28,7 @@ class DefaultProfile(rasterio.profiles.Profile):
     def __init__(
         self,
         crs: str | None = None,
-        dtype: np.integer | np.floating | None = None,
+        dtype: type[np.integer] | type[np.floating] | None = None,
         nodata: float | None = None,
     ) -> None:
         """Profile for single- or multi-chanel band-interleaved,
