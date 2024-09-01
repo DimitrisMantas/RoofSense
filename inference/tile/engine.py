@@ -13,7 +13,6 @@ import tqdm
 import inference.tile.dataset
 import training.task
 from augmentations.feature import MinMaxScaling
-from augmentations.intensity import AppendHSV
 
 
 # TODO: Add support for changing the current model and tile.
@@ -31,20 +30,16 @@ class InferenceEngine:
             torch.set_float32_matmul_precision("high")
             torch.backends.cudnn.allow_tf32 = True
 
-        self.dataset = inference.tile.dataset.InferenceDataset(
-            data_root
-            # bands=[Band.RED, Band.GRN,
-            #     Band.BLU, Band.RFL,
-            #     Band.SLP, ]
-        )
-        self.augmet = torchgeo.transforms.AugmentationSequential(
+        self.dataset = inference.tile.dataset.InferenceDataset(data_root)
+        self.augment = torchgeo.transforms.AugmentationSequential(
             MinMaxScaling(
-                # TODO: Expose these parameters in the initializer.
-                mins=torch.tensor([0, 0, 0, 0, 0, -100]),
-                maxs=torch.tensor([255, 255, 255, 1, 90, 100]),
+                *torch.tensor_split(
+                    torch.from_numpy(
+                        np.fromfile(r"C:\Documents\RoofSense\dataset\temp\scales.bin")
+                    ),
+                    2,
+                )
             ),
-            AppendHSV(),
-            # common.augmentations.AppendTGI(),
             data_keys=["image"],
         )
 
@@ -57,10 +52,15 @@ class InferenceEngine:
 
         self.model: training.task.TrainingTask = (
             training.task.TrainingTask.load_from_checkpoint(
-                model_ckpt, map_location=self.trainer.strategy.root_device.type
+                model_ckpt,
+                model_params={
+                    "decoder_atrous_rates": (6, 12, 18),
+                    "encoder_output_stride": 8,
+                    "encoder_params": {"block_args": {"attn_layer": "eca"}},
+                },
+                map_location=self.trainer.strategy.root_device.type,
             )
         )
-        self.model.eval()
         self.model.freeze()
 
         self.sampler = torchgeo.samplers.GridGeoSampler(
@@ -72,7 +72,7 @@ class InferenceEngine:
         self.loader = torch.utils.data.DataLoader(
             self.dataset,
             # TODO: Expose these parameters in the initializer.
-            batch_size=16,
+            batch_size=8,
             sampler=self.sampler,
             num_workers=max(os.cpu_count() // 2, 1),
             collate_fn=torchgeo.datasets.stack_samples,
@@ -126,7 +126,7 @@ class InferenceEngine:
                 list[rasterio.crs.CRS]
                 | list[torchgeo.datasets.BoundingBox]
                 | torch.Tensor,
-            ] = self.augmet(batch)
+            ] = self.augment(batch)
             images: torch.Tensor = batch["image"].to(
                 self.trainer.strategy.root_device.type
             )
@@ -183,9 +183,7 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     engine = InferenceEngine(
-        data_root="../dataset/infer",
-        model_ckpt="../logs/training/"
-        "base_potsdam-rgb_100_full-pretraining_base-atrous-rate-10"
-        "/ckpts/best.ckpt",
+        data_root=r"C:\Documents\RoofSense\dataset\infer",
+        model_ckpt=r"C:\Documents\RoofSense\logs\baseline_random_search_2_updated\version_2\ckpts\best.ckpt",
     )
-    engine.run("../dataset/infer/9-284-556.map.base_potsdam-rgb_100_full-pretraining_base-atrous-rate-10.tif")
+    engine.run(r"C:\Documents\RoofSense\dataset\infer/9-284-556.map.updated.tif")

@@ -51,11 +51,4 @@ class InferenceDataset(RasterDataset):
         sample: dict[str, Any] = super().__getitem__(query)
         # simulate boundless read
         sample["image"] = sample["image"].nan_to_num(0)
-        # remove density band
-        # sample["image"]=sample["image"][:-1,...]
         return sample
-
-
-if __name__ == "__main__":
-    dataset = InferenceDataset("../dataset/infer")
-    x = 1
