@@ -1,10 +1,12 @@
 import os
 import warnings
+from collections.abc import Iterable
 
 import lightning
 import torch
 from lightning import Trainer
-from lightning.pytorch.callbacks import (LearningRateMonitor,
+from lightning.pytorch.callbacks import (Callback,
+                                         LearningRateMonitor,
                                          ModelCheckpoint,
                                          RichProgressBar, )
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -20,9 +22,10 @@ def train_supervised(
     experiment_name: int | str | None = None,
     ckpt_dirname: str | None = "ckpts",
     ckpt_filename: str | None = "best",
+    callbacks: Callback|Iterable[Callback]|None = None,
     test: bool = True,
     **kwargs,
-) -> None:
+) -> Trainer:
     torch.set_float32_matmul_precision("high")
     torch.backends.cudnn.allow_tf32 = True
 
@@ -42,17 +45,19 @@ def train_supervised(
     # Match log and checkpoint version numbers in the case of automatic versioning.
     model_ckpt.STARTING_VERSION = 0
 
-    trainer = Trainer(
-        logger=logger,
-        callbacks=[LearningRateMonitor(), model_ckpt, RichProgressBar()],
-        benchmark=True,
-        **kwargs,
-    )
+    cbs = [LearningRateMonitor(), model_ckpt, RichProgressBar()]
+    if callbacks is not None:
+        callbacks = [callbacks] if isinstance(callbacks, Callback) else callbacks
+        for cb in callbacks:
+            cbs.append(cb)
+    trainer = Trainer(logger=logger, callbacks=cbs, benchmark=True, **kwargs)
 
     with warnings.catch_warnings(action="ignore", category=UserWarning):
         trainer.fit(model=task, datamodule=datamodule)
         if test:
             trainer.test(model=task, datamodule=datamodule, ckpt_path="best")
+
+    return trainer
 
 
 def train_unsupervised(task, dataloader) -> None:
