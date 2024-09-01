@@ -48,8 +48,8 @@ class CompoundLoss1(torch.nn.modules.loss._Loss):
     ) -> None:
         super().__init__(reduction=reduction)
 
-        self.names: Iterable[Loss] = [names] if isinstance(names, str) else names
-        for name in names:
+        self.names: list[Loss] = [names] if isinstance(names, str) else names
+        for name in self.names:
             name = name.lower()
             loss = self.losses.get(name, None)
             if loss is None:
@@ -75,7 +75,7 @@ class CompoundLoss1(torch.nn.modules.loss._Loss):
                     init_monai_loss(loss, include_background, reduction, **kwargs),
                 )
 
-        self.lambdas = lambdas if lambdas is not None else [1] * len(names)
+        self.lambdas = lambdas if lambdas is not None else [1] * len(self.names)
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         # NOTE: Target tensors are of shape BxHxW but MONAI requires it to be BxCxHxW.
