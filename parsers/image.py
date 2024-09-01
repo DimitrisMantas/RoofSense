@@ -52,12 +52,12 @@ class ImageParser(AssetParser):
         if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
             return
 
-        src_paths = [self.resolve_filepath(id_ + ".tif")
-            for id_ in self._manifest["image"]["tid"]
+        src_paths = [
+            self.resolve_filepath(id_ + ".tif") for id_ in self.manifest["image"]["tid"]
         ]
         rasterio.merge.merge(
             src_paths,
-            bounds=self._surfaces.total_bounds.tolist(),
+            bounds=self.surfaces.total_bounds.tolist(),
             target_aligned_pixels=True,
             dst_path=dst_path,
             dst_kwds=raster.DefaultProfile(
