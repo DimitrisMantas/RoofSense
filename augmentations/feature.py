@@ -20,7 +20,7 @@ class MinMaxScaling(IntensityAugmentationBase2D):
             eps:
                 A small floating-point value to avoid division-by-zero errors.
 
-        Warnings:
+        Notes:
             The input tensors are transferred to the batch device and cast to the
             corresponding data type upon applying the transformation.
         """
@@ -41,4 +41,5 @@ class MinMaxScaling(IntensityAugmentationBase2D):
     ) -> Tensor:
         mins = torch.as_tensor(flags["mins"], device=input.device, dtype=input.dtype)
         maxs = torch.as_tensor(flags["maxs"], device=input.device, dtype=input.dtype)
+
         return (input - mins) / (maxs - mins + flags["eps"])

@@ -1,221 +1,46 @@
-from __future__ import annotations
+from typing import Any
 
-from typing import Optional
-
-import kornia.augmentation as K
 import torch
+from kornia.augmentation import IntensityAugmentationBase2D
 from torch import Tensor
+from typing_extensions import override
 
 
-class AppendEXG(K.IntensityAugmentationBase2D):
-    """Basically NDVI for RGB (https://research.tudelft.nl/files/96224757/1_s2.0_S0924271621001854_main.pdf). rgb data must be 0..1"""
+class AppendTGI(IntensityAugmentationBase2D):
+    """Compute and append the triangular greenness index to each batch sample."""
 
-    def __init__(
-        self, index_red: int = 0, index_green: int = 1, index_blue: int = 2
-    ) -> None:
-        """Initialize a new transform instance.
+    def __init__(self, red_idx: int = 0, green_idx: int = 1, blue_idx: int = 2) -> None:
+        r"""Configure the appender.
 
         Args:
-            index_red: reference band channel index
-            index_green: difference band channel index of component 1
-            index_blue: difference band channel index of component 2
+            red_idx:
+                The index of the red input channel.
+            green_idx:
+                The index of the green input channel.
+            blue_idx:
+                The index of the blue input channel.
+
+        Notes:
+            Tje RGB values are expected to be in the interval :math:`\left[0, 1\right]`.
         """
         super().__init__(p=1)
-        self.flags = {
-            "index_red": index_red,
-            "index_green": index_green,
-            "index_blue": index_blue,
-        }
+        self.flags = {"red_idx": red_idx, "green_idx": green_idx, "blue_idx": blue_idx}
 
+    @override
     def apply_transform(
         self,
         input: Tensor,
         params: dict[str, Tensor],
-        flags: dict[str, int],
-        transform: Optional[Tensor] = None,
+        flags: dict[str, Any],
+        transform: Tensor | None = None,
     ) -> Tensor:
-        """Apply the transform.
+        red = input[:, flags["red_idx"], ...]
+        green = input[:, flags["green_idx"], ...]
+        blue = input[:, flags["blue_idx"], ...]
 
-        Args:
-            input: the input tensor
-            params: generated parameters
-            flags: static parameters
-            transform: the geometric transformation tensor
+        tgi = green - 0.39 * red - 0.61 * blue
+        # Rescale band from [-1, 1] to [0, 1].
+        tgi = 0.5 * (tgi + 1)
+        tgi = tgi.unsqueeze(dim=1)
 
-        Returns:
-            the augmented input
-        """
-        band_red = input[..., flags["index_red"], :, :]
-        band_green = input[..., flags["index_green"], :, :]
-        band_blue = input[..., flags["index_blue"], :, :]
-
-        ag = 2 * band_green - band_blue - band_red
-        # NOTE: This is [-1,1] (the range is known because the index is computed after the scaling step) so we need to scale it to [0,1]
-        ag = (ag + 2) / 4
-
-        # add the channel dim to be able to cat
-        ag = ag.unsqueeze(dim=1)
-
-        input = torch.cat((input, ag), dim=1)
-        return input
-
-
-class AppendNDRGI(K.IntensityAugmentationBase2D):
-    """Basically NDVI for RGB (https://research.tudelft.nl/files/96224757/1_s2.0_S0924271621001854_main.pdf). rgb data must be 0..1"""
-
-    def __init__(
-        self, index_red: int = 0, index_green: int = 1, index_blue: int = 2
-    ) -> None:
-        """Initialize a new transform instance.
-
-        Args:
-            index_red: reference band channel index
-            index_green: difference band channel index of component 1
-            index_blue: difference band channel index of component 2
-        """
-        super().__init__(p=1)
-        self.flags = {
-            "index_red": index_red,
-            "index_green": index_green,
-            "index_blue": index_blue,
-        }
-
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, int],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Apply the transform.
-
-        Args:
-            input: the input tensor
-            params: generated parameters
-            flags: static parameters
-            transform: the geometric transformation tensor
-
-        Returns:
-            the augmented input
-        """
-        band_red = input[..., flags["index_red"], :, :]
-        band_green = input[..., flags["index_green"], :, :]
-        band_blue = input[..., flags["index_blue"], :, :]
-
-        ag = (band_red - band_green) / (band_red + band_green)
-        # NOTE: This is [-1,1] (the range is known because the index is computed after the scaling step) so we need to scale it to [0,1]
-        ag = (ag + 1) / 2
-
-        # add the channel dim to be able to cat
-        ag = ag.unsqueeze(dim=1)
-
-        input = torch.cat((input, ag), dim=1)
-        return input
-
-
-class AppendTGI(K.IntensityAugmentationBase2D):
-    """Basically NDVI for RGB (https://research.tudelft.nl/files/96224757/1_s2.0_S0924271621001854_main.pdf). rgb data must be 0..1"""
-
-    def __init__(
-        self, index_red: int = 0, index_green: int = 1, index_blue: int = 2
-    ) -> None:
-        """Initialize a new transform instance.
-
-        Args:
-            index_red: reference band channel index
-            index_green: difference band channel index of component 1
-            index_blue: difference band channel index of component 2
-        """
-        super().__init__(p=1)
-        self.flags = {
-            "index_red": index_red,
-            "index_green": index_green,
-            "index_blue": index_blue,
-        }
-
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, int],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Apply the transform.
-
-        Args:
-            input: the input tensor
-            params: generated parameters
-            flags: static parameters
-            transform: the geometric transformation tensor
-
-        Returns:
-            the augmented input
-        """
-        band_red = input[..., flags["index_red"], :, :]
-        band_green = input[..., flags["index_green"], :, :]
-        band_blue = input[..., flags["index_blue"], :, :]
-
-        ag = band_green - 0.39 * band_red - 0.61 * band_blue
-        # NOTE: This is [-1,1] (the range is known because the index is computed after the scaling step) so we need to scale it to [0,1]
-        ag = (ag + 1) / 2
-
-        # add the channel dim to be able to cat
-        ag = ag.unsqueeze(dim=1)
-
-        input = torch.cat((input, ag), dim=1)
-        return input
-
-
-class AppendVIDVI(K.IntensityAugmentationBase2D):
-    """Basically NDVI for RGB (https://research.tudelft.nl/files/96224757/1_s2.0_S0924271621001854_main.pdf). rgb data must be 0..1"""
-
-    def __init__(
-        self, index_red: int = 0, index_green: int = 1, index_blue: int = 2
-    ) -> None:
-        """Initialize a new transform instance.
-
-        Args:
-            index_red: reference band channel index
-            index_green: difference band channel index of component 1
-            index_blue: difference band channel index of component 2
-        """
-        super().__init__(p=1)
-        self.flags = {
-            "index_red": index_red,
-            "index_green": index_green,
-            "index_blue": index_blue,
-        }
-
-    def apply_transform(
-        self,
-        input: Tensor,
-        params: dict[str, Tensor],
-        flags: dict[str, int],
-        transform: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Apply the transform.
-
-        Args:
-            input: the input tensor
-            params: generated parameters
-            flags: static parameters
-            transform: the geometric transformation tensor
-
-        Returns:
-            the augmented input
-        """
-        band_red = input[..., flags["index_red"], :, :]
-        band_green = input[..., flags["index_green"], :, :]
-        band_blue = input[..., flags["index_blue"], :, :]
-
-        ag = (2 * band_green - band_blue - band_red) / (
-            2 * band_green + band_blue + band_red
-        )
-        # NOTE: This is [-1,1] (the range is known because the index is computed after the scaling step) so we need to scale it to [0,1]
-        ag = (ag + 1) / 2
-
-        # add the channel dim to be able to cat
-        ag = ag.unsqueeze(dim=1)
-
-        input = torch.cat((input, ag), dim=1)
-        return input
+        return torch.cat((input, tgi), dim=1)
