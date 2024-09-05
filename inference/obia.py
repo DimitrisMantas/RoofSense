@@ -72,7 +72,7 @@ class MaskGeneralizer:
             transform=src.transform,
         )
         for i, label in enumerate(surf_labels):
-            print(f"{i}/{len(valid_surfs)}")
+            # print(f"{i}/{len(valid_surfs)}")
             query = mask == label
             if preserve_background:
                 query = np.logical_and(query, data != 0)
@@ -87,11 +87,12 @@ class MaskGeneralizer:
         with rasterio.open(dst_filepath, mode="w", **meta) as dst:
             dst.write(data, indexes=1)
 
-
     def _resolve_tile_id(self, filepath: str) -> str:
         match = self.TILE_ID_REGEX.findall(filepath)
         if not match:
-            raise ValueError(f"Filepath {filepath} does not contain valid 3DBAG tile ID.")
+            raise ValueError(
+                f"Filepath {filepath} does not contain valid 3DBAG tile ID."
+            )
         return match[0]
 
 
@@ -164,12 +165,8 @@ if __name__ == "__main__":
 
     gen = MaskGeneralizer(dirpath=config.env("TEMP_DIR"))
     for name, lod in zip(
-        [
-            # "lod12",
-            "lod13", "lod22"],
-        [
-            # LevelOfDetail.LOD_12,
-            LevelOfDetail.LOD_13, LevelOfDetail.LOD_22],
+        ["lod12", "lod13", "lod22"],
+        [LevelOfDetail.LOD_12, LevelOfDetail.LOD_13, LevelOfDetail.LOD_22],
     ):
         gen.generalize(
             src_filepath=r"C:\Documents\RoofSense\dataset\9-284-556.map.mask.tif",
