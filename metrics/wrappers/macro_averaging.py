@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -33,7 +33,7 @@ class MacroAverageWrapper(WrapperMetric):
         """Update the underlying metric."""
         self._base_metric.update(*args, **kwargs)
 
-    def compute(self) -> Dict[str, Tensor]:
+    def compute(self) -> dict[str, Tensor]:
         """Compute the underlying metric as well as max and min values for this metric.
 
         Returns a dictionary that consists of the computed value (``raw``), as well as the minimum (``min``) and maximum
@@ -60,7 +60,7 @@ class MacroAverageWrapper(WrapperMetric):
         self._base_metric.reset()
 
     @staticmethod
-    def _is_suitable_val(val: Union[float, Tensor]) -> bool:
+    def _is_suitable_val(val: float | Tensor) -> bool:
         """Check whether min/max is a scalar value."""
         if isinstance(val, (int, float)):
             return False
@@ -69,9 +69,7 @@ class MacroAverageWrapper(WrapperMetric):
         return False
 
     def plot(
-        self,
-        val: Optional[Union[Tensor, Sequence[Tensor]]] = None,
-        ax: Optional[_AX_TYPE] = None,
+        self, val: Tensor | Sequence[Tensor] | None = None, ax: _AX_TYPE | None = None
     ) -> _PLOT_OUT_TYPE:
         """Plot a single or multiple values from the metric.
 
