@@ -298,11 +298,36 @@ class TrainingTask(LightningModule):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tra/" + "loss", loss)
-        self.log_dict(self.tra_metrics(preds, target))
 
-        self._plot_confmat(preds, target, step="tra")
+        # https: // lightning.ai / docs / torchmetrics / stable / pages / lightning.html  # common-pitfalls
+        # self.tra_metrics(mask, target)
+        # self.log_dict(self.tra_metrics)
+
+        # https://github.com/Lightning-AI/torchmetrics/issues/2683
+        self.tra_metrics.update(mask, target)
+        self.log_dict(self.tra_metrics.compute(), on_step=True, on_epoch=False)
+
+        self.tra_confmat.update(mask, target)
+        # self._plot_confmat(step="tra")
+        self.tra_confmat.plot(cmap="Blues")
+
+        # self._plot_confmat(mask, target, step="tra")
 
         return loss
+
+    @override
+    def on_validation_epoch_end(self) -> None:
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
+
+        # self._plot_confmat(
+        #     step="val"
+        # )
+        tboard = self._get_tboard()
+        if tboard is not None:
+            fig, _ = self.val_confmat.plot(cmap="Blues")
+            tboard.add_figure("val/ConfusionMatrix", fig, global_step=self.global_step)
+        self.val_confmat.reset()
 
     @override
     def validation_step(
@@ -312,9 +337,16 @@ class TrainingTask(LightningModule):
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("val/" + "loss", loss)
-        self.log_dict(self.val_metrics(preds, target))
 
-        self._plot_confmat(preds, target, step="val")
+        # # https: // lightning.ai / docs / torchmetrics / stable / pages / lightning.html  # common-pitfalls
+        # self.val_metrics(mask, target)
+        # self.log_dict(self.val_metrics)
+
+        # https://github.com/Lightning-AI/torchmetrics/issues/2683
+        self.val_metrics.update(mask, target)
+        self.val_confmat.update(mask, target)
+
+        # self._plot_confmat(mask, target, step="val")
 
         # TODO: Clean up this block.
         if (
@@ -345,14 +377,35 @@ class TrainingTask(LightningModule):
                 plt.close()
 
     @override
+    def on_test_epoch_end(self) -> None:
+        self.log_dict(self.tst_metrics.compute())
+        self.tst_metrics.reset()
+
+        # self._plot_confmat(
+        #     step="tst"
+        # )
+        tboard = self._get_tboard()
+        if tboard is not None:
+            fig, _ = self.tst_confmat.plot(cmap="Blues")
+            tboard.add_figure("tst/ConfusionMatrix", fig, global_step=self.global_step)
+        self.tst_confmat.reset()
+
+    @override
     def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
         preds, target, loss = self._update_loss(batch)
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tst/" + "loss", loss)
-        self.log_dict(self.tst_metrics(preds, target))
 
-        self._plot_confmat(preds, target, step="tst")
+        # # https: // lightning.ai / docs / torchmetrics / stable / pages / lightning.html  # common-pitfalls
+        # self.tra_metrics(mask, target)
+        # self.log_dict(self.tra_metrics)
+
+        # https://github.com/Lightning-AI/torchmetrics/issues/2683
+        self.tst_metrics.update(mask, target)
+        self.tst_confmat.update(mask, target)
+
+        # self._plot_confmat(mask, target, step="tst")
 
     @override
     def predict_step(
