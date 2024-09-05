@@ -1,36 +1,37 @@
-import math
 from collections import OrderedDict
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
+import optuna
 import torch
-import torchseg
+import torchseg  # type: ignore[import-untyped]
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.text import Text
 from torch import Tensor
 from torch.nn import Conv2d, Identity
-from torch.optim import AdamW
-from torch.optim.lr_scheduler import LinearLR, SequentialLR
+from torch.optim import Adam, AdamW, Optimizer
+from torch.optim.lr_scheduler import (CosineAnnealingLR,
+                                      LinearLR,
+                                      LRScheduler,
+                                      PolynomialLR,
+                                      SequentialLR, )
 from torch.utils.tensorboard import SummaryWriter
 from torchgeo.datasets import RGBBandsMissingError, unbind_samples
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (MulticlassAccuracy,
-                                         MulticlassConfusionMatrix,
                                          MulticlassF1Score,
                                          MulticlassJaccardIndex,
                                          MulticlassPrecision,
                                          MulticlassRecall, )
-from torchseg.base import SegmentationHead
+from torchseg.base import SegmentationHead  # type: ignore[import-untyped]
 from typing_extensions import override
 
-from metrics.wrappers.macro import MacroAverageWrapper
+from metrics.classification.confusion_matrix import MulticlassConfusionMatrix
+from metrics.wrappers.macro_averaging import MacroAverageWrapper
 from training.loss import CompoundLoss1
-from training.scheduler import CosineAnnealingWarmRestartsWithDecay
-from utils.color import get_fg_color
+from utils.type import MetricKwargs
 
 
 class TrainingTask(LightningModule):
@@ -378,55 +379,34 @@ class TrainingTask(LightningModule):
         input = batch["image"]
         target = batch["mask"]
         preds = self(input)
-        loss = self._loss(preds, target)
 
-        return preds, target, loss
+        model_params = self.hparams.model_params
+        model_params = model_params if model_params is not None else {}
+        if "aux_params" in model_params:
+            # The auxiliary classification head is active.
+            mask, label = preds
 
-    def _plot_confmat(self, preds, target, step: Literal["tra", "val", "tst"]):
-        tboard = self._get_tboard()
-        if tboard is not None:
-            confmat: MulticlassConfusionMatrix = getattr(self, f"{step}_confmat")
-            confmat(preds, target)
-
-            fig: Figure
-            cax: Axes
-
-            # NOTE: The color map must be set before plotting.
-            cmap = plt.get_cmap("Blues")
-            plt.set_cmap(cmap)
-
-            fig, cax = confmat.plot()
-            fig.set_size_inches(5, 5)
-
-            # NOTE: The axis labels must be changed before searching for text artists
-            # to ensure that it is version invariant.
-            plt.xlabel("Predicted Class")
-            plt.ylabel("True Class")
-
-            # Change the value color to either black or white according to the
-            # luminance of the underlying cell.
-            vals: list[Text] = cax.findobj(
-                lambda artist: isinstance(artist, Text)
-                and artist.get_text() not in {"Predicted Class", "True Class"}
-                and math.isclose(artist.get_rotation(), 0)
+            # Build the target label tensor.
+            label_target = torch.zeros(
+                (label.shape[0], self.hparams.num_classes),
+                dtype=label.dtype,
+                device=label.device,
             )
-            for val in vals:
-                txt = val.get_text()
-                val.set_color(get_fg_color(cmap(0 if txt == "" else float(txt))))
+            item: Tensor
+            for i, item in enumerate(target.view(target.shape[0], -1)):
+                label_target[i, item.unique()] = 1
 
-            # NOTE: The axis labels must be changed after searching for text artists
-            # to ensure that it is version invariant.
-            plt.xticks(rotation=0)
-            plt.yticks(rotation=0)
+            # Compute the auxiliary loss.
+            aux_loss = self.cls_loss(label, label_target)[:, 1:] * self._loss.weight[1:]
+            aux_loss = aux_loss.sum(dim=1).mean()
+        else:
+            mask, label = preds, None
+            aux_loss = 0
 
-            plt.minorticks_off()
 
-            tboard.add_figure(
-                f"{step}/ConfusionMatrix", fig, global_step=self.global_step
-            )
 
-        # todo: is this needded? tboard automatically closes figs...
-        plt.close()
+        return mask, label, target, loss + 0.4 * aux_loss
+
 
     def _get_tboard(self) -> SummaryWriter | None:
         return (
