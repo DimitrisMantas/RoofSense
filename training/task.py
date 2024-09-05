@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import OrderedDict
 from collections.abc import Sequence
-from typing import Any, Final, Literal, cast
+from enum import StrEnum
+from typing import Any, Final, Literal, cast, TypedDict, Required
 
 import optuna
 import torch
@@ -9,6 +12,7 @@ from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
+from rasterio import CRS
 from torch import Tensor
 from torch.nn import Conv2d, Identity
 from torch.optim import Adam, AdamW, Optimizer
@@ -18,8 +22,8 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR,
                                       PolynomialLR,
                                       SequentialLR, )
 from torch.utils.tensorboard import SummaryWriter
-from torchgeo.datasets import RGBBandsMissingError, unbind_samples
-from torchmetrics import ClasswiseWrapper, MetricCollection
+from torchgeo.datasets import RGBBandsMissingError, unbind_samples, BoundingBox
+from torchmetrics import ClasswiseWrapper, MetricCollection, Metric
 from torchmetrics.classification import (MulticlassAccuracy,
                                          MulticlassF1Score,
                                          MulticlassJaccardIndex,
@@ -345,7 +349,7 @@ class TrainingTask(LightningModule):
         }
 
     def _configure_optimizer(self) -> Optimizer:
-        optimizer: str = self.hparams.optimizer
+        optimizer: str = self.hparams["optimizer"]
 
         if optimizer == "adam":
             cls = Adam
@@ -358,11 +362,11 @@ class TrainingTask(LightningModule):
 
         return cls(
             self.parameters(),
-            self.hparams.lr,
-            self.hparams.betas,
-            self.hparams.eps,
-            self.hparams.weight_decay,
-            self.hparams.amsgrad,
+            self.hparams["lr"],
+            self.hparams["betas"],
+            self.hparams["eps"],
+            self.hparams["weight_decay"],
+            self.hparams["amsgrad"],
         )
 
     def _configure_lr_scheduler(self, optimizer: Optimizer) -> LRScheduler:
@@ -388,7 +392,7 @@ class TrainingTask(LightningModule):
                 schedulers=[
                     LinearLR(
                         optimizer,
-                        start_factor=self.hparams.warmup_lr_pct,
+                        start_factor=self.hparams["warmup_lr_pct"],
                         total_iters=warmup_epochs,
                     ),
                     annealing_scheduler,
@@ -413,7 +417,7 @@ class TrainingTask(LightningModule):
                 PolynomialLR(
                     optimizer,
                     total_iters=max_epochs - warmup_epochs,
-                    power=self.hparams.poly_decay_exp,
+                    power=self.hparams["poly_decay_exp"],
                 ),
             )
         else:
@@ -438,7 +442,7 @@ class TrainingTask(LightningModule):
         self.tra_confmat.update(mask, target)
         confmat = self.tra_confmat.compute()
         if self._should_log():
-            tboard = self._get_tboard()
+            tboard = self._get_tensorboard()
             if tboard is not None:
                 fig, _ = self.tra_confmat.plot(confmat, cmap="Blues")
                 tboard.add_figure(
@@ -453,10 +457,12 @@ class TrainingTask(LightningModule):
         self.tra_metrics.reset()
         self.tra_confmat.reset()
 
-    def _should_log(self):
-        return ((self.global_step + 1) >= self.trainer.log_every_n_steps) and (
-            (self.global_step + 1) % self.trainer.log_every_n_steps
-        ) == 0
+    def _should_log(self)->bool:
+        logging_freq:int=self.trainer.log_every_n_steps  # type: ignore[attr-defined]
+        # Start counting from 1 to match Lightning.
+        global_step=self.global_step+1
+
+        return (global_step >= logging_freq) and (global_step % logging_freq) == 0
 
     @override
     def on_validation_epoch_end(self) -> None:
@@ -466,7 +472,7 @@ class TrainingTask(LightningModule):
         # self._plot_confmat(
         #     step="val"
         # )
-        tboard = self._get_tboard()
+        tboard = self._get_tensorboard()
         if tboard is not None:
             fig, _ = self.val_confmat.plot(cmap="Blues")
             tboard.add_figure("val/ConfusionMatrix", fig, global_step=self.global_step)
@@ -529,7 +535,7 @@ class TrainingTask(LightningModule):
         # self._plot_confmat(
         #     step="tst"
         # )
-        tboard = self._get_tboard()
+        tboard = self._get_tensorboard()
         if tboard is not None:
             fig, _ = self.tst_confmat.plot(cmap="Blues")
             tboard.add_figure("tst/ConfusionMatrix", fig, global_step=self.global_step)
@@ -555,21 +561,11 @@ class TrainingTask(LightningModule):
 
     @override
     def predict_step(
-        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+        self, batch: Batch, batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
-        """Compute the predicted class probabilities.
-
-        Args:
-            batch: The output of your DataLoader.
-            batch_idx: Integer displaying index of this batch.
-            dataloader_idx: Index of the current dataloader.
-
-        Returns:
-            Output predicted probabilities.
-        """
-        x = batch["image"]
-        y_hat: Tensor = self(x).softmax(dim=1)
-        return y_hat
+        image = batch["image"]
+        probs = self.forward(image).softmax(dim=1)
+        return probs
 
     def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
         input: Tensor = batch["image"]
@@ -604,21 +600,40 @@ class TrainingTask(LightningModule):
 
         return mask, label, target, loss + 0.4 * aux_loss
 
-    def _get_tboard(self) -> SummaryWriter | None:
+    def _get_tensorboard(self) -> SummaryWriter | None:
+        # TODO: Type hint this variable.
+        experiment=self.logger.experiment # type: ignore[attr-defined]
         return (
-            self.logger.experiment
-            if hasattr(self.logger.experiment, "add_figure")
+            experiment
+            # TODO: A more complete check would look at the type of experiment.
+            if hasattr(experiment, "add_figure")
             else None
         )
 
-    def forward(self, *args: Any, **kwargs: Any) -> Any:
-        """Forward pass of the model.
+    @override
+    def forward(self, image:Tensor) -> Tensor:
+        return self.model(
+            image
+        )
 
-        Args:
-            args: Arguments to pass to model.
-            kwargs: Keyword arguments to pass to model.
+class Sample(TypedDict, total=False):
+    image\
+        : Required[Tensor]
+    mask\
+        : Required[Tensor]
+    # GeoDataset
+    crs\
+        : CRS
+    bounds\
+        : BoundingBox
+    # Model -> Plot
+    prediction\
+        : Tensor
 
-        Returns:
-            Output of the model.
-        """
-        return self.model(*args, **kwargs)
+class Batch(Sample):
+    pass
+
+class TrainingStage(StrEnum):
+    TRA = "tra"
+    VAL = "val"
+    TST = "tst"
