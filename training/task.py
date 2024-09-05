@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from collections.abc import Sequence
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, cast
 
 import optuna
 import torch
@@ -35,17 +35,24 @@ from utils.type import MetricKwargs
 
 
 class TrainingTask(LightningModule):
-    #: Model to train.
-    model: Any
+    """Task used for training and performance evaluation purposes."""
 
-    #: Performance metric to monitor in learning rate scheduler and callbacks.
     # TODO: See if renaming the loss messes up something.
     monitor = "val/loss"
+    monitor_train: Final[str] = "val/loss"
+    """The performance metric to monitor when using certain learning rate schedulers 
+    (e.g., `ReduceLROnPlateau`) during training"""
+    monitor_optim: Final[str] = "val/mIoU"
+    """The performance metric to monitor when performing hyperparameter optimization."""
+    monitor_train_direction: Final[Literal["max", "min"]] = "min"
+    """The optimization direction of the training process with respect to the 
+    corresponding performance metric to monitor."""
+    monitor_optim_direction: Final[optuna.study.StudyDirection] = (
+        optuna.study.StudyDirection.MAXIMIZE
+    )
+    """The optimization direction of the hyperparameter optimization process with 
+    respect to the corresponding performance metric to monitor."""
 
-    #: Whether the goal is to minimize or maximize the performance metric to monitor.
-    mode = "min"
-
-    # noinspection PyUnusedLocal
     def __init__(
         self,
         # The name of the model decoder.
@@ -64,50 +71,47 @@ class TrainingTask(LightningModule):
         encoder: str,
         loss_params: dict[str, Any],
         encoder_weights: str | Literal["imagenet"] | None = "imagenet",
-        in_channels: int = 5,
+        in_channels: int = 7,
         # TODO: See if we can remove background predictions from the model output.
         num_classes: int = 8 + 1,
         model_params: dict[
-            str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
+            str,
+            dict[str, float | str | Sequence[float]] | float | str | Sequence[float],
         ]
         | None = None,
-        ignore_index: Optional[int] = None,
+        ignore_index: int | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
-        # The total number of warmup epochs.
-        warmup_epochs: int = 15,
-        # The total number of epochs constituting the period of the first cycle of the
-        # annealing phase.
-        T_0: int = 60,
-        # The period ratio `Ti+1/Ti` of two consecutive cycles `i` of the annealing
-        # phase.
-        T_mult: int = 2,
-        # The learning rate at the end of the warmup and each new cycle of the
-        # subsequent annealing phases. This parameter is henceforth referred to
-        # as the "nominal learning rate".
-        lr: float = 1e-4,
-        # The learning rate at the start of the warmup phase, expressed as a
-        # percentage of the nominal learning rate.
-        init_lr_pct: float = 1 / 3,
-        # The minimum learning rate at the annealing phase, expressed as a percentage
-        # of the nominal learning rate.
-        min_lr_pct: float = 0,
+        # encoder_depth:int=5,
+        # Optimizer
+        optimizer: Literal["adam", "adamw"] = "adam",
+        lr: float = 1e-3,
+        betas: tuple[float, float] = (0.9, 0.999),
+        # Match the Keras defaults.
+        eps: float = 1e-7,
+        weight_decay: float = 0,
+        amsgrad: bool = False,
+        # Scheduler
+        # Warmup
+        warmup_lr_pct: float = 1e-6,
+        warmup_epochs: int = 0,
+        # Annealing
+        annealing: Literal["cos", "poly"] = "poly",
+        poly_decay_exp: float = 0.9,
     ):
         super().__init__()
-
-        # TODO: Should we be doing this?
-        # self.encoder_weights=encoder_weights
-        self.save_hyperparameters(  # ignore=encoder_weights
-        )
+        self.save_hyperparameters()
 
         self.init_model()
-        self._loss = CompoundLoss(**loss_params)
-        self._init_metrics()
+        self._loss = CompoundLoss1(**loss_params)
+        self.cls_loss = torch.nn.BCEWithLogitsLoss(reduction="none")
+        self.init_metrics()
 
     def init_model(self) -> None:
         """Configure the underlying model."""
         encoder = self.hparams.encoder
         in_channels = self.hparams.in_channels
+        num_classes = self.hparams.num_classes
 
         # --------------------------------------------------------------------------------------------
 
@@ -125,11 +129,10 @@ class TrainingTask(LightningModule):
 
         common_params = {
             "arch": self.hparams.decoder,
-            "encoder_name": encoder,
-            # "encoder_depth": self.hparams.encoder_depth,
+            "encoder_name": encoder,  # "encoder_depth": self.hparams.encoder_depth,
             "encoder_weights": encoder_weights,
             "in_channels": in_channels,
-            "classes": self.hparams.num_classes,
+            "classes": num_classes,
         }
 
         optional_params: (
@@ -140,32 +143,94 @@ class TrainingTask(LightningModule):
         ) = self.hparams.model_params
         optional_params = optional_params if optional_params is not None else {}
 
+        # NOTE: This needs to be here because otherwise the model is not initialized.
         self.model = torchseg.create_model(**common_params, **optional_params)
 
         # Replace weights with ones passed if passed.
         encoder_weights = self.hparams.encoder_weights
         if encoder_weights is not None and encoder_weights != "imagenet":
-            # load the weights
-            encoder_name, state_dict = get_encoder_params(encoder_weights)
-            if encoder_name is not None and encoder_name != encoder:
-                msg = f"Encoder weights: {encoder_weights!r} for encoder: {encoder_name!r} incompatible with specified encoder: {encoder!r}."
-                raise ValueError(msg)
-            # prepare model to accept the weights
-            # todo:infer the name of the first layer from the encoder.
-            self.model.encoder.model.conv1 = reinit_initial_conv_layer(
-                # todo: infer the original input channels from the weights
-                self.model.encoder.model.conv1,
-                new_in_channels=4,
-                keep_first_n_weights=None,
+            # Load the pretrained weights.
+            ckpt = torch.load(encoder_weights)
+
+            weights: OrderedDict[str, Tensor] = ckpt["state_dict"]
+            weights = OrderedDict(
+                {name: value for name, value in weights.items() if "model." in name}
             )
-            # push the weights to the model
-            self.model.encoder.load_state_dict(state_dict)
-            # adjust model to the specified number of input channels
-            self.model.encoder.model.conv1 = reinit_initial_conv_layer(
-                self.model.encoder.model.conv1,
-                new_in_channels=in_channels,
-                keep_first_n_weights=4,
+            weights = OrderedDict(
+                {
+                    name.replace("model.", "", 1): value
+                    for name, value in weights.items()
+                }
             )
+
+            # Prepare to accept the weights.
+            temp_common_params = common_params.copy()
+            # TODO: Infer this parameter automatically.
+            temp_common_params["in_channels"] = weights[
+                "encoder.model.conv1.0.weight"
+            ].size(dim=1)
+            temp_common_params["classes"] = weights["segmentation_head.0.weight"].size(
+                dim=0
+            )
+
+            self.model = torchseg.create_model(**temp_common_params, **optional_params)
+
+            if "aux_params" in optional_params:
+                # Copy the classifier weights to the pretrained state dictionary.
+                weights["classification_head.3.weight"] = (
+                    self.model.classification_head[3].weight.data.clone()
+                )
+                weights["classification_head.3.bias"] = self.model.classification_head[
+                    3
+                ].bias.data.clone()
+
+            # Push the weights to the model.
+            self.model.load_state_dict(weights)
+
+            # Configure the model input and output to match the current task.
+            # Replace the entry point.
+            conv1_name: str = self.model.encoder.model.pretrained_cfg["first_conv"]
+            # strip extra info in case conv1 is a list
+            conv1_name = conv1_name.split(".", maxsplit=1)[0]
+            old_conv1: Conv2d = getattr(self.model.encoder.model, conv1_name)
+            con1_is_seq = False
+            if isinstance(old_conv1, torch.nn.modules.container.Sequential):
+                # conv1 is a list
+                con1_is_seq = True
+                old_conv1 = old_conv1[0]
+            new_conv1 = Conv2d(
+                in_channels=in_channels,
+                out_channels=old_conv1.out_channels,
+                kernel_size=old_conv1.kernel_size,
+                stride=old_conv1.stride,
+                padding=old_conv1.padding,
+                dilation=old_conv1.dilation,
+                groups=old_conv1.groups,
+                bias=old_conv1.bias,
+                padding_mode=old_conv1.padding_mode,
+            )
+
+            new_conv1.weight.data[:, : old_conv1.weight.shape[1], ...] = (
+                old_conv1.weight.data.clone()
+            )
+            if con1_is_seq:
+                # conv1 is a list
+                self.model.encoder.model.conv1[0] = new_conv1
+            else:
+                self.model.encoder.model.conv1 = new_conv1
+
+            # if "aux_params" in optional_params:
+            # Replace the segmentation head.
+            old_head: SegmentationHead = self.model.segmentation_head
+            new_head = SegmentationHead(
+                in_channels=self.model.decoder.out_channels,
+                out_channels=num_classes,
+                activation=Identity(),
+                kernel_size=1,
+                upsampling=4,
+            )
+
+            self.model.segmentation_head = new_head
 
         if self.hparams["freeze_backbone"]:
             for param in self.model.encoder.parameters():
@@ -175,23 +240,32 @@ class TrainingTask(LightningModule):
             for param in self.model.decoder.parameters():
                 param.requires_grad = False
 
-    def _init_metrics(self) -> None:
+    def _freeze_component(self, name: Literal["encoder", "decoder"]) -> None:
+        component: torch.nn.Module = getattr(self.model, name)
+        for param in component.parameters():
+            param.requires_grad = False
+
+    def init_metrics(self) -> None:
+        """Initialize the performance metrics for each stage."""
         num_classes: int = self.hparams["num_classes"]
         ignore_index: int | None = (
-            0 if self.hparams.loss_params["ignore_background"] else None
+            None if self.hparams.loss_params.get("include_background", True) else 0
         )
 
-        common_params = {"num_classes": num_classes, "ignore_index": ignore_index}
-        micro_params = common_params | {"average": "micro"}
-        base_none_params = common_params | {"average": "none"}
-        none_params_div_zero = base_none_params | {
+        common_params: MetricKwargs = {
+            "num_classes": num_classes,
+            "ignore_index": ignore_index,
+        }
+        micro_params: MetricKwargs = common_params | {"average": "micro"}
+        base_none_params: MetricKwargs = common_params | {"average": "none"}
+        none_params_div_zero: MetricKwargs = base_none_params | {
             # NOTE: Some metrics accept an argument to handle division-by-zero cases
             # when absent or ignored classes are encountered. See
             # https://github.com/Lightning-AI/torchmetrics/pull/2198 for more
             # information.
             "zero_division": 0
         }
-        none_params_div_nan = base_none_params | {
+        none_params_div_nan: MetricKwargs = base_none_params | {
             # NOTE: The valid value range of this parameter varies by metric.
             "zero_division": torch.nan
         }
@@ -202,14 +276,12 @@ class TrainingTask(LightningModule):
                 # correctly but is still useful as a lower bound for its actual
                 # value. See https://github.com/Lightning-AI/torchmetrics/pull/2443
                 # for more information.
-                "MacroAccuracy":
-                # NOTE: This wrapper improves the lower bound by properly ignoring
+                "MacroAccuracy":  # NOTE: This wrapper improves the lower bound by properly ignoring
                 # the background class at the reduction step.
                 MacroAverageWrapper(
                     MulticlassAccuracy(**base_none_params), ignore_index=ignore_index
                 ),
-                "MacroPrecision":
-                # NOTE: This wrapper fixes a bug where the macroscopically reduced
+                "MacroPrecision":  # NOTE: This wrapper fixes a bug where the macroscopically reduced
                 # value of the underlying metric would be NaN if one or more
                 # class-wise values where not defined. See
                 # https://github.com/Lightning-AI/torchmetrics/issues/2535 for more
@@ -227,8 +299,7 @@ class TrainingTask(LightningModule):
                 "MacroIoU": MacroAverageWrapper(
                     MulticlassJaccardIndex(**none_params_div_nan),
                     ignore_index=ignore_index,
-                ),
-                # Microscopic Metrics
+                ),  # Microscopic Metrics
                 "MicroAccuracy": MulticlassAccuracy(**micro_params),
                 "MicroIoU": MulticlassJaccardIndex(**micro_params),
             },
@@ -253,7 +324,10 @@ class TrainingTask(LightningModule):
         )
         self.tst_metrics = self.val_metrics.clone(prefix="tst/")
 
-        # Initialize the confusion matrix.
+        self.init_confusion_matrix()
+
+    def init_confusion_matrix(self) -> None:
+        num_classes: int = self.hparams.num_classes
         self.tra_confmat = MulticlassConfusionMatrix(
             num_classes=num_classes, normalize="true"
         )
@@ -262,58 +336,127 @@ class TrainingTask(LightningModule):
 
     @override
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
-        optimizer = AdamW(self.parameters(), lr=self.hparams["lr"])
-
-        warmup_epochs: int = self.hparams.warmup_epochs
-        scheduler = SequentialLR(
-            optimizer,
-            schedulers=[
-                LinearLR(
-                    optimizer,
-                    start_factor=self.hparams["init_lr_pct"],
-                    total_iters=warmup_epochs,
-                ),
-                # TODO: Check whether having a decaying restart learning rate is
-                #  possible.
-                CosineAnnealingWarmRestarts(
-                    optimizer,
-                    T_0=self.hparams["T_0"],
-                    T_mult=self.hparams["T_mult"],
-                    eta_min=self.hparams["lr"] * self.hparams["min_lr_pct"],
-                ),
-            ],
-            milestones=[warmup_epochs],
-        )
+        optimizer = self._configure_optimizer()
+        scheduler = self._configure_lr_scheduler(optimizer)
 
         return {
             "optimizer": optimizer,
             "lr_scheduler": {"scheduler": scheduler, "monitor": self.monitor},
         }
 
+    def _configure_optimizer(self) -> Optimizer:
+        optimizer: str = self.hparams.optimizer
+
+        if optimizer == "adam":
+            cls = Adam
+        elif optimizer == "adamw":
+            cls = AdamW
+        else:
+            raise ValueError(
+                f"Expected either 'adam' or 'adamw' as value of 'optimizer', but got {optimizer}."
+            )
+
+        return cls(
+            self.parameters(),
+            self.hparams.lr,
+            self.hparams.betas,
+            self.hparams.eps,
+            self.hparams.weight_decay,
+            self.hparams.amsgrad,
+        )
+
+    def _configure_lr_scheduler(self, optimizer: Optimizer) -> LRScheduler:
+        max_epochs: int = self.trainer.max_epochs
+        # TODO: Try to infer the epoch limit from 'max_steps' first if it has been specified.
+        max_epochs = max_epochs if max_epochs > 1 else 1000
+
+        warmup_epochs: int = self.hparams["warmup_epochs"]
+        if warmup_epochs > max_epochs:
+            raise ValueError(
+                f"Specified warmup length ({warmup_epochs} epochs) cannot be larger than training duration {max_epochs} epochs)."
+            )
+
+        annealing_scheduler = self._configure_lr_annealing_scheduler(
+            max_epochs, optimizer, warmup_epochs
+        )
+
+        if warmup_epochs == 0:
+            return annealing_scheduler
+        else:
+            return SequentialLR(
+                optimizer,
+                schedulers=[
+                    LinearLR(
+                        optimizer,
+                        start_factor=self.hparams.warmup_lr_pct,
+                        total_iters=warmup_epochs,
+                    ),
+                    annealing_scheduler,
+                ],
+                milestones=[warmup_epochs],
+            )
+
+    def _configure_lr_annealing_scheduler(
+        self, max_epochs: int, optimizer: Optimizer, warmup_epochs: int
+    ) -> LRScheduler:
+        annealing: str = self.hparams["annealing"]
+
+        scheduler: CosineAnnealingLR | PolynomialLR
+        if annealing == "cos":
+            scheduler = cast(
+                CosineAnnealingLR,
+                CosineAnnealingLR(optimizer, T_max=max_epochs - warmup_epochs),
+            )
+        elif annealing == "poly":
+            scheduler = cast(
+                PolynomialLR,
+                PolynomialLR(
+                    optimizer,
+                    total_iters=max_epochs - warmup_epochs,
+                    power=self.hparams.poly_decay_exp,
+                ),
+            )
+        else:
+            raise ValueError(
+                f"Expected either 'cos' or 'poly' as value of 'annealing', but got {annealing}."
+            )
+        return scheduler
+
     @override
     def training_step(
         self, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
-        preds, target, loss = self._update_loss(batch)
+        mask, label, target, loss = self._update_loss(batch)
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tra/" + "loss", loss)
-
-        # https: // lightning.ai / docs / torchmetrics / stable / pages / lightning.html  # common-pitfalls
-        # self.tra_metrics(mask, target)
-        # self.log_dict(self.tra_metrics)
 
         # https://github.com/Lightning-AI/torchmetrics/issues/2683
         self.tra_metrics.update(mask, target)
         self.log_dict(self.tra_metrics.compute(), on_step=True, on_epoch=False)
 
         self.tra_confmat.update(mask, target)
-        # self._plot_confmat(step="tra")
-        self.tra_confmat.plot(cmap="Blues")
-
-        # self._plot_confmat(mask, target, step="tra")
+        confmat = self.tra_confmat.compute()
+        if self._should_log():
+            tboard = self._get_tboard()
+            if tboard is not None:
+                fig, _ = self.tra_confmat.plot(confmat, cmap="Blues")
+                tboard.add_figure(
+                    "tra/ConfusionMatrix", fig, global_step=self.global_step
+                )
+                plt.close()
 
         return loss
+
+    @override
+    def on_train_epoch_end(self) -> None:
+        self.tra_metrics.reset()
+        self.tra_confmat.reset()
+
+    def _should_log(self):
+        return ((self.global_step + 1) >= self.trainer.log_every_n_steps) and (
+            (self.global_step + 1) % self.trainer.log_every_n_steps
+        ) == 0
 
     @override
     def on_validation_epoch_end(self) -> None:
@@ -327,13 +470,14 @@ class TrainingTask(LightningModule):
         if tboard is not None:
             fig, _ = self.val_confmat.plot(cmap="Blues")
             tboard.add_figure("val/ConfusionMatrix", fig, global_step=self.global_step)
+            plt.close()
         self.val_confmat.reset()
 
     @override
     def validation_step(
         self, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
-        preds, target, loss = self._update_loss(batch)
+        mask, label, target, loss = self._update_loss(batch)
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("val/" + "loss", loss)
@@ -349,6 +493,7 @@ class TrainingTask(LightningModule):
         # self._plot_confmat(mask, target, step="val")
 
         # TODO: Clean up this block.
+        # TODO: Plot only when specified by the trainer.
         if (
             batch_idx < 10
             and hasattr(self.trainer, "datamodule")
@@ -358,7 +503,7 @@ class TrainingTask(LightningModule):
             and hasattr(self.logger.experiment, "add_figure")
         ):
             datamodule = self.trainer.datamodule
-            batch["prediction"] = preds.argmax(dim=1)
+            batch["prediction"] = mask.argmax(dim=1)
             for key in ["image", "mask", "prediction"]:
                 batch[key] = batch[key].cpu()
             sample = unbind_samples(batch)[0]
@@ -388,11 +533,12 @@ class TrainingTask(LightningModule):
         if tboard is not None:
             fig, _ = self.tst_confmat.plot(cmap="Blues")
             tboard.add_figure("tst/ConfusionMatrix", fig, global_step=self.global_step)
+            plt.close()
         self.tst_confmat.reset()
 
     @override
     def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
-        preds, target, loss = self._update_loss(batch)
+        mask, label, target, loss = self._update_loss(batch)
 
         # TODO: Store step prefixes in an StrEnum.
         self.log("tst/" + "loss", loss)
@@ -426,8 +572,9 @@ class TrainingTask(LightningModule):
         return y_hat
 
     def _update_loss(self, batch: Any) -> tuple[Tensor, Tensor, Tensor]:
-        input = batch["image"]
-        target = batch["mask"]
+        input: Tensor = batch["image"]
+        target: Tensor = batch["mask"]
+
         preds = self(input)
 
         model_params = self.hparams.model_params
@@ -455,9 +602,7 @@ class TrainingTask(LightningModule):
 
         loss = self._loss(mask, target)
 
-
         return mask, label, target, loss + 0.4 * aux_loss
-
 
     def _get_tboard(self) -> SummaryWriter | None:
         return (
