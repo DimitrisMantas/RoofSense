@@ -243,9 +243,6 @@ class TrainingTask(LightningModule):
                 "Precision": ClasswiseWrapper(
                     MulticlassPrecision(**none_params_div_zero), prefix="Precision/"
                 ),
-                "Recall": ClasswiseWrapper(
-                    MulticlassRecall(**none_params_div_zero), prefix="Recall/"
-                ),
                 "F1Score": ClasswiseWrapper(
                     MulticlassF1Score(**none_params_div_zero), prefix="F1Score/"
                 ),
