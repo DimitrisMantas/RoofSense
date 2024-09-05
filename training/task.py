@@ -403,6 +403,7 @@ class TrainingTask(LightningModule):
             mask, label = preds, None
             aux_loss = 0
 
+        loss = self._loss(mask, target)
 
 
         return mask, label, target, loss + 0.4 * aux_loss
