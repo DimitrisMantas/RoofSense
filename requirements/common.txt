@@ -16,7 +16,7 @@ scipy==1.13.0
 shapely==2.0.3
 torch==2.2.2+cu121
 torchgeo==0.6.0.dev0
-torchmetrics==1.4.0
+torchmetrics==1.4.1
 torchseg==0.0.1a4
 tqdm==4.66.3
 typing_extensions==4.9.0
