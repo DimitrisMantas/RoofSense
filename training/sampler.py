@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 import geopandas as gpd
 import numpy as np
 import shapely
-from overrides import override
+from typing_extensions import override
 
 import config
 import training
-from downloaders import BAG3DDownloader, AssetDownloader
+from downloaders import AssetDownloader, BAG3DDownloader
 from parsers import BAG3DParser, ImageParser, LiDARParser
 from stack import RasterStackBuilder
 

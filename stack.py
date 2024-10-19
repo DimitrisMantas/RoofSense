@@ -5,7 +5,7 @@ import numpy as np
 import rasterio
 import rasterio.mask
 import rasterio.warp
-from overrides import override
+from typing_extensions import override
 
 import config
 import utils
