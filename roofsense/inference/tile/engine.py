@@ -34,10 +34,7 @@ class InferenceEngine:
         self.augment = torchgeo.transforms.AugmentationSequential(
             MinMaxScaling(
                 *torch.tensor_split(
-                    torch.from_numpy(
-                        np.fromfile(r"/dataset/temp/scales.bin")
-                    ),
-                    2,
+                    torch.from_numpy(np.fromfile(r"/dataset/temp/scales.bin")), 2
                 )
             ),
             data_keys=["image"],

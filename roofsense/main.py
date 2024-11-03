@@ -20,7 +20,7 @@ def generate_pretraining_data(size: int = 300, background_cutoff: float = 0.8) -
 
     tile_ids = [
         # "10-284-560",
-        "10-280-560",
+        "10-280-560"
         # "10-282-560",
         # "10-286-560",
         # "9-280-552",

@@ -97,9 +97,7 @@ class BAG3DSampler(DataSampler):
 
                 # Prepare the stacks for annotation.
                 print(f"Requesting at most {size-num_im} chips.")
-                new = split(
-                    tile_id, background_cutoff, limit=size - num_im
-                )
+                new = split(tile_id, background_cutoff, limit=size - num_im)
                 print(f"Got {new} chips.")
                 num_im += new
                 # -----

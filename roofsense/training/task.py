@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import Any, Final, Literal, cast, TypedDict, Required
+from typing import Any, Final, Literal, Required, TypedDict, cast
 
 import optuna
 import torch
