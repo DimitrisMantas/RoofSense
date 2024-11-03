@@ -1,6 +1,21 @@
+<h1>RoofSense</h1>
+
 ![](docs/logo.png)
 
-![](https://app.roboflow.com/images/download-dataset-badge.svg)
+<style>
+  table#badges td {
+    border: none;
+  }
+</style>
+<table id="badges">
+  <tbody>
+    <tr>
+      <td><img src="https://app.roboflow.com/images/download-dataset-badge.svg" alt="" /></td>
+      <td><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md.svg" alt="" /></td>
+    </tr>
+  </tbody>
+</table>
+
 
 <h2>Table of Contents</h2>
 
@@ -10,6 +25,7 @@
     * [Developers](#developers)
     * [Important (Training & Inference)](#important-training--inference)
   * [Documentation](#documentation)
+    * [End Use](#end-use)
     * [Reproducibility](#reproducibility)
   * [Citation](#citation)
   * [Contributing](#contributing)
@@ -57,9 +73,13 @@ on your terminal of choice *after* RoofSense has been installed.
 
 The various functions of RoofSense are presented in relevant [implementation examples](implementation).
 
+### End Use
+
+If you are only interested in using RoofSense for inference on your own data, simply download the default model [checkpoint](https://huggingface.co/DimitrisMantas/RoofSense) and then follow the relevant inference example.
+
 ### Reproducibility
 
-To reproduce the experimental results presented in Mantas ([2024](#citation)), simply execute the desired examples without modification.
+To reproduce the experimental results presented in the work of Mantas [(2014)](#citation), simply execute the desired examples without modification.
 
 [//]: # ([//]: # &#40;TODO: Fill this in.&#41;)
 [//]: # (- To generate the dataset,)
@@ -77,17 +97,23 @@ To reproduce the experimental results presented in Mantas ([2024](#citation)), s
 [//]: # (- To use the model for inference)
 
 ## Citation
-If you use this software in your work, please cite the following work:
+If you use this software in your work, please cite the following [thesis](https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549).
 
 ```bibtex
-@article{Mantas2024,
-   author = {Dimitris Mantas},
-   city = {Delft, The Netherlands},
-   institution = {Delft University of Technology},
-   month = {10},
-   title = {CNN-based Roofing Material Segmentation using Aerial Imagery and LiDAR Data Fusion},
-   year = {2024},
+@MastersThesis{Mantas2024,
+    author      = {Mantas, Dimitris},
+    school      = {Delft University of Technology},
+    title       = {{CNN-based Roofing Material Segmentation using Aerial Imagery and LiDAR Data Fusion}},
+    year        = {2024},
+    address     = {Delft, The Netherlands},
+    month       = oct,
+    type        = {mathesis},
+    date        = {2024-10-31},
+    institution = {Delft University of Technology},
+    location    = {Delft, The Netherlands},
+    url         = {https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549},
 }
+
 ```
 
 ## Contributing
