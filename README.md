@@ -1,48 +1,38 @@
-![](colors.png)
+![](docs/logo.png)
 
-<a href="https://universe.roboflow.com/my-workspace-lg4pq/roofsense">
-    <img src="https://app.roboflow.com/images/download-dataset-badge.svg"></img>
-</a>
+![](https://app.roboflow.com/images/download-dataset-badge.svg)
 
-# Installation
+## Installation
 
-## End Users
+### End Users
 
-To install RoofSense for end use on your local machine, clone this repository, navigate to its root directory, and
-execute
-the following command:
+To install RoofSense for end use on your local machine, first clone this repository, then navigate to its root directory, and finally execute the following command:
 
 ```txt
-pip install -r requirements/common.txt
+pip install .
 ```
 
 on your terminal of choice.
 *Please note that only Windows platforms are currently supported.*
 
-## Developers & Contributors
+### Contributors
 
-To install RoofSense for development use on your local machine, first follow
-the [corresponding end-user procedure](#end-users) and
-then install the additionally relevant dependencies:
+To install RoofSense for end use on your local machine, first clone this repository, then navigate to its root directory, and finally execute the following command:
 
 ```txt
-pip install -r requirements/dev.txt
+pip install -e .[dev]
 ```
 
-[//]: # (TODO -  Link to CONTRIBUTING.md.)
-If you are planning to contribute to RoofSense, please see the pertinent guidelines.
+This will install an editable version of RoofSense along with any additional development requirements.
 
-## Important (Training & Inference)
+RoofSense welcomes contributions and suggestions via GitHub pull requests.
+If you would like to submit a pull request, please see our [Contribution Guide](CONTRIBUTING.md) for more information.
 
-RoofSense relies on `torchseg` to build its models because `torchgeo`, its other relevant
-dependency, uses `segmentation_models_pytorch`, which does not fully support `timm` encoders.
-However, this
-functionality is required for
-specifying additional
-encoder configuration parameters, such as stochastic depth and attention.
-*Please note that `torchseg` is *not* installed
-automatically due dependency clashes between `torchseg` and `torchgeo`* and must hence be
-must be installed manually by executing the following command:
+### Important (Training & Inference)
+
+RoofSense relies on [TorchSeg](https://github.com/isaaccorley/torchseg) to build its models because [TorchGeo](https://github.com/microsoft/torchgeo/blob/main/pyproject.toml), its other relevant dependency, uses [Segmentation Models Pytorch (SMP)](https://github.com/qubvel-org/segmentation_models.pytorch), which does not fully support [PyTorch Image Models (timm)](https://github.com/huggingface/pytorch-image-models) encoders.
+However, this functionality is required for specifying additional configuration parameters, such as stochastic depth and attention.
+*Please note that TorchSeg is *not* installed automatically due dependency clashes between itself and TorchGeo, and must hence be must be installed manually by executing the following command:
 
 ```txt
 pip install torchseg
@@ -50,22 +40,18 @@ pip install torchseg
 
 on your terminal of choice *after* RoofSense has been installed.
 
-# Sample Data
+## Documentation
 
-# Mess with the Stack Creation Options
+## Citation
+If you use this software in your work, please cite the following work:
 
-# Import Annotations
-
-# Train
-
-# Test
-
-# Perform HPO
-
-# Infer
-
-# Legal
-
-Copyright © 2024 Dimitris Mantas
-
-Except where otherwise noted, this work is licensed under the [MIT License](LICENSE).
+```bibtex
+@article{Mantas2024,
+   author = {Dimitris Mantas},
+   city = {Delft, The Netherlands},
+   institution = {Delft University of Technology},
+   month = {10},
+   title = {CNN-based Roofing Material Segmentation using Aerial Imagery and LiDAR Data Fusion},
+   year = {2024},
+}
+```

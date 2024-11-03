@@ -1,13 +1,13 @@
 import os
 import re
-import typing
 
 import geopandas as gpd
 import requests
 import shapely
 
-import config
-import utils
+from roofsense import config
+from roofsense.utils.file import exists
+from roofsense.utils.type import BAG3DTileIndexJSON, BAG3TileData, BAG3DTileIndexData
 
 # TODO - Reformat, finalize function and variable names, and add documentation.
 
@@ -17,8 +17,8 @@ ID_FMT = re.compile(r"[^\d/]+", re.IGNORECASE)
 
 
 class TileIndex(gpd.GeoDataFrame):
-    def __init__(self, overwrite: typing.Optional[bool] = False) -> None:
-        if utils.file.exists(config.env("BAG3D_SHEET_INDEX")) and not overwrite:
+    def __init__(self, overwrite: bool | None = False) -> None:
+        if exists(config.env("BAG3D_SHEET_INDEX")) and not overwrite:
             super().__init__(gpd.read_file(config.env("BAG3D_SHEET_INDEX")))
         else:
             super().__init__(_reconstruct(), crs=os.environ["CRS"])
@@ -28,7 +28,7 @@ class TileIndex(gpd.GeoDataFrame):
 #         module but fetching *and* writing to disk in another.
 #
 # TODO: Come up with a common.txt terminology.
-def _download() -> utils.type.BAG3DTileIndexJSON:
+def _download() -> BAG3DTileIndexJSON:
     # TODO: Include this variable in the runtime configuration file.
     path = f"{os.environ['BAG3D_WFS_BASE_URL']}&version={os.environ['BAG3D_WFS_VERSION']}&request={os.environ['BAG3D_WFS_REQUEST']}&typeNames={os.environ['BAG3D_WFS_TYPENAMES']}&outputFormat={os.environ['BAG3D_WFS_OUTPUT_FORMAT']}"
 
@@ -40,11 +40,11 @@ def _download() -> utils.type.BAG3DTileIndexJSON:
     return response.json()
 
 
-def _parse_tile_id(tile: utils.type.BAG3TileData) -> str:
+def _parse_tile_id(tile: BAG3TileData) -> str:
     return ID_FMT.sub("", tile[os.environ["DEFAULT_ID_FIELD_NAME"]]).replace("/", "-")
 
 
-def _parse_tile_gm(tile: utils.type.BAG3TileData) -> shapely.Polygon:
+def _parse_tile_gm(tile: BAG3TileData) -> shapely.Polygon:
     return shapely.Polygon(
         tile[os.environ["DEFAULT_GM_FIELD_NAME"]][os.environ["BAG3D_TILE_COORDINATES"]][
             0
@@ -53,18 +53,18 @@ def _parse_tile_gm(tile: utils.type.BAG3TileData) -> shapely.Polygon:
 
 
 def _pase_tile(
-    tile: utils.type.BAG3TileData, data: utils.type.BAG3DTileIndexData
+    tile: BAG3TileData, data: BAG3DTileIndexData
 ) -> None:
     data[os.environ["DEFAULT_ID_FIELD_NAME"]].append(_parse_tile_id(tile))
     data[os.environ["DEFAULT_GM_FIELD_NAME"]].append(_parse_tile_gm(tile))
 
 
-def _parse(js: utils.type.BAG3DTileIndexJSON) -> utils.type.BAG3DTileIndexData:
+def _parse(js: BAG3DTileIndexJSON) -> BAG3DTileIndexData:
     data = config.default_data_dict()
     for tile in js[os.environ["BAG3D_TILE_FEATURES"]]:
         _pase_tile(tile, data)
     return data
 
 
-def _reconstruct() -> utils.type.BAG3DTileIndexData:
+def _reconstruct() -> BAG3DTileIndexData:
     return _parse(_download())

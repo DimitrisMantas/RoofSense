@@ -1,17 +1,16 @@
 # Project Configuration
 /.idea/
 
-# TODO: Remove all following entries after making the program pip-installable and moving
-#       non-essential files to an external location.
-
 # Dataset
 /dataset/
 
-# Runtime-Generated Files
-/temp/
-/logs/
+# Thesis Stuff
+/internal/
 
-# Test Data
-/utils/*.laz
-/utils/*.npy
-/utils/*.tif
+# Runtime-Generated Files
+/logs/
+/temp/
+/roofsense/temp/
+
+# Under Construction
+/tools/
