@@ -21,8 +21,18 @@ _Timeout = Union[float, tuple[float, float], tuple[float, None]]
 _HookCallback = typing.Callable[[requests.Response], typing.Any]
 
 
+def get_default_data_dir(version: str) -> str:
+    path = (
+            pathlib.Path.home() / ".roofsense" / version
+    ).as_posix()
+    os.makedirs(
+        path, exist_ok=True
+    )
+    return path
+
+
 def confirm_write_op(
-    path: str, type: typing.Literal["dir", "file"], overwrite: bool = False
+        path: str, type: typing.Literal["dir", "file"], overwrite: bool = False
 ) -> bool:
     """Determine whether an upcoming write-to-disk operation should be performed.
 
@@ -73,14 +83,14 @@ def confirm_write_op(
 
 class FileDownloader(abc.ABC):
     def __init__(
-        self,
-        session: requests.Session,
-        overwrite: bool = False,
-        timeout: _Timeout | None = (3.05, None),
-        callbacks: _HookCallback | typing.Collection[_HookCallback] | None = None,
-        # FIXME - Find a way to turn progress reporting on and off automatically instead of leaving it up to
-        #         the user to decide.
-        report_progress: bool = True,
+            self,
+            session: requests.Session,
+            overwrite: bool = False,
+            timeout: _Timeout | None = (3.05, None),
+            callbacks: _HookCallback | typing.Collection[_HookCallback] | None = None,
+            # FIXME - Find a way to turn progress reporting on and off automatically instead of leaving it up to
+            #         the user to decide.
+            report_progress: bool = True,
     ) -> None:
         self._session = session
         # FIXME - Expose these options to the user.
@@ -106,7 +116,7 @@ class FileDownloader(abc.ABC):
             return
 
         with self._session.get(
-            url, timeout=self._timeout, hooks=self._callbacks, stream=True, verify=False
+                url, timeout=self._timeout, hooks=self._callbacks, stream=True, verify=False
         ) as response:
             self._handle(response)
 
@@ -143,12 +153,12 @@ class FileDownloader(abc.ABC):
         content_length = response.headers["content-length"]
         # FIXME - Color the entire progress bar white.
         with tqdm.tqdm(
-            desc="Download Progress",
-            total=int(content_length) if content_length is not None else None,
-            disable=not self._preport,
-            unit="iB",
-            unit_scale=True,
-            unit_divisor=1024,
+                desc="Download Progress",
+                total=int(content_length) if content_length is not None else None,
+                disable=not self._preport,
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
         ) as progress_bar:
             # NOTE - Write the response as it arrives instead of splitting it into possibly smaller-than-received chunks
             #        resulting in additional I/O operations.
@@ -170,11 +180,11 @@ class BlockingFileDownloader(FileDownloader):
 
 class ThreadedFileDownloader(FileDownloader):
     def __init__(
-        self,
-        urls: typing.Collection[str],
-        filenames: typing.Collection[str | bytes | PathLike],
-        max_conns: int | None = None,
-        **kwargs,
+            self,
+            urls: typing.Collection[str],
+            filenames: typing.Collection[str | bytes | PathLike],
+            max_conns: int | None = None,
+            **kwargs,
     ) -> None:
         super().__init__(report_progress=False, **kwargs)
 
@@ -185,7 +195,7 @@ class ThreadedFileDownloader(FileDownloader):
 
     def download(self) -> None:
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_conns
+                max_workers=self._max_conns
         ) as executor:
             futures = {
                 executor.submit(self._fetch, url, filename): (url, filename)
@@ -193,7 +203,7 @@ class ThreadedFileDownloader(FileDownloader):
             }
             # FIXME - Color the entire progress bar white.
             with tqdm.tqdm(
-                desc="Download Progress", total=len(futures), unit="File"
+                    desc="Download Progress", total=len(futures), unit="File"
             ) as progress_bar:
                 for task in concurrent.futures.as_completed(futures):
                     address, filename = futures[task]
