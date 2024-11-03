@@ -1,16 +1,15 @@
 [build-system]
 requires = [
-    # Ensure pyproject.toml support.
-    "setuptools >= 61.0",
+    # Ensure pyproject.toml and dynamic requirements file support.
+    "setuptools >= 62.6.0",
 ]
 build-backend = "setuptools.build_meta"
 
 # NOTE: See # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/ for more options.
 [project]
 name = "roofsense"
-# TODO: Specifiy the current version.
-version = ""
-description = "An end-to-end solution for general-purpose roofing material identification and mapping of the Dutch building stock using a deep learning approach in combination with aerial imagery and airborne laser scanning data fusion"
+version = "0.0.1"
+description = "RoofSense: Tools and utilities for building and using semantic segmentation models for roofing material mapping."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -36,19 +35,23 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
 ]
 # TODO: Specify the dependencies.
-dynamic = ["version"]
+dynamic = ["dependencies", "optional-dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements/common.txt"] }
+optional-dependencies = { dev = { file = ["requirements/dev.txt"] } }
 
 # NOTE: See https://docs.astral.sh/ruff/settings/ for more options.
 [tool.ruff]
 extend-include = ["*.ipynb"]
 fix = true
-docstring-code-format = true
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true
 
 [tool.ruff.lint]
-extend-select = ["D", "I", "NPY201", "UP"]
+extend-select = ["ANN", "D", "I", "RUF", "UP"]
+ignore = ["ANN101", "ANN102", "ANN401"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -58,3 +61,9 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.setuptools.package-data]
+roofsense = ["py.typed"]
+
+[tool.setuptools.packages.find]
+include = ["roofsense*"]

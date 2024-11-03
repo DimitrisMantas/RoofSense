@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu121
+# --extra-index-url https://download.pytorch.org/whl/cu121
 
 cjio==0.9.0
 geopandas==1.0.1
@@ -17,15 +17,15 @@ requests==2.32.3
 scipy==1.13.0
 shapely==2.0.6
 # pin to ==2.2.2 to allow mypy
-torch==2.2.2+cu121
+# torch==2.2.2+cu121
+torch==2.2.2
 torchgeo==0.6.1
 torchmetrics==1.4.1
 # torchseg==0.0.1a4
 tqdm==4.66.5
 typing_extensions==4.12.2
 urllib3==2.2.3
-# pin to ==0.9.7 to allow torchgeo & torchseg
-timm==1.0.11
+timm==0.9.7
 optuna==3.6.1
 pandas==2.2.2
 SciencePlots==2.1.1
@@ -33,4 +33,4 @@ SciencePlots==2.1.1
 pyarrow==17.0.0
 # read laszip files
 lazrs==0.6.2
-torchseg==0.0.1a4
+# torchseg==0.0.1a4
