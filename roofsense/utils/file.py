@@ -27,9 +27,7 @@ def get_default_data_dir(version: str) -> str:
     return path
 
 
-def confirm_write_op(
-    path: str, type: typing.Literal["dir", "file"], overwrite: bool = False
-) -> bool:
+def confirm_write_op(path: str, overwrite: bool = False) -> bool:
     """Determine whether an upcoming write-to-disk operation should be performed.
 
     If the path to the destination location exists in the system and points to a
@@ -43,8 +41,6 @@ def confirm_write_op(
     Args:
         path:
             The path to the destination location.
-        type:
-            The resource type at the destination location.
         overwrite:
             Whether the resource at the destination location should be overwritten
             assuming that it already exists.
@@ -52,15 +48,16 @@ def confirm_write_op(
     Returns:
         ``True`` if the operation should be performed; ``False`` otherwise.
     """
-    predicate = os.path.isdir if type == "dir" else os.path.isfile
+    res_type = "f" if pathlib.Path(path).suffix else "d"
 
+    predicate = os.path.isdir if res_type == "d" else os.path.isfile
     if predicate(path):
         return overwrite
 
     if os.path.exists(path):
         msg = (
             f"The specified path: {path!r} exists in the system but does not point to "
-            f"a valid {dict(dir='directory', file='file')[type]}."
+            f"a valid directory or regular file."
         )
         raise ValueError(msg)
 
@@ -71,7 +68,7 @@ def confirm_write_op(
         )
         warnings.warn(msg, UserWarning)
 
-    if type == "dir":
+    if res_type == "d":
         os.makedirs(path, exist_ok=True)
 
     return True
@@ -163,15 +160,15 @@ class FileDownloader(abc.ABC):
                 progress_bar.update(len(chunk))
 
 
-class BlockingFileDownloader(FileDownloader):
-    def __init__(self, url: str, filename: str | bytes | PathLike, **kwargs) -> None:
-        super().__init__(**kwargs)
-
-        self._url = url
-        self._filename = filename
-
-    def download(self) -> None:
-        self._fetch(self._url, self._filename)
+# class BlockingFileDownloader(FileDownloader):
+#     def __init__(self, url: str, filename: str | bytes | PathLike, **kwargs) -> None:
+#         super().__init__(**kwargs)
+#
+#         self._url = url
+#         self._filename = filename
+#
+#     def download(self) -> None:
+#         self._fetch(self._url, self._filename)
 
 
 class ThreadedFileDownloader(FileDownloader):

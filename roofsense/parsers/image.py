@@ -49,7 +49,7 @@ class ImageParser(AssetParser):
 
         # TODO: Consider refactoring this block into a separate method.
         dst_path = self.resolve_filepath(tile_id + ".rgb.tif")
-        if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if not confirm_write_op(dst_path, overwrite=overwrite):
             return
 
         src_paths = [

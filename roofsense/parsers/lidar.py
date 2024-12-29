@@ -98,7 +98,7 @@ class LiDARParser(AssetParser):
     ) -> PointCloud:
         # TODO: Consider refactoring this block into a separate method.
         dst_path = self.resolve_filepath(tile_id + ".LAZ")
-        if confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if confirm_write_op(dst_path, overwrite=overwrite):
             src_paths = [
                 self.resolve_filepath(id_ + ".LAZ")
                 for id_ in self._manifest["lidar"]["tid"]
@@ -123,7 +123,7 @@ class LiDARParser(AssetParser):
         bbox: Sequence[float],
     ) -> None:
         dst_path = self.resolve_filepath(tile_id + ".rfl.tif")
-        if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if not confirm_write_op(dst_path, overwrite=overwrite):
             return
 
         ras = self._rasterize_all_valid(pc, field="Reflectance", res=res, bbox=bbox)
@@ -139,7 +139,7 @@ class LiDARParser(AssetParser):
         bbox: Sequence[float],
     ) -> None:
         dst_path = self.resolve_filepath(tile_id + ".elev.tif")
-        if confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if confirm_write_op(dst_path, overwrite=overwrite):
             ras = self._rasterize_all_valid(pc, field="z", res=res, bbox=bbox)
             ras.save(dst_path)
         else:
@@ -162,7 +162,7 @@ class LiDARParser(AssetParser):
 
     def _compute_ndrm(self, tile_id: str, overwrite: bool, dsm: Raster) -> None:
         dst_path = self.resolve_filepath(tile_id + ".ndsm.tif")
-        if not confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if not confirm_write_op(dst_path, overwrite=overwrite):
             return
 
         buildings = self._surfaces.dissolve(by="id")
@@ -182,14 +182,14 @@ class LiDARParser(AssetParser):
 
     def _compute_slope(self, tile_id: str, overwrite: bool, dsm: Raster) -> None:
         dst_path = self.resolve_filepath(tile_id + ".slp.tif")
-        if confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if confirm_write_op(dst_path, overwrite=overwrite):
             dsm.slope().save(dst_path)
 
     def _parse_density(
         self, tile_id: str, overwrite: bool, pc: PointCloud, bbox: Sequence[float]
     ) -> None:
         dst_path = self.resolve_filepath(tile_id + ".den.tif")
-        if confirm_write_op(dst_path, type="file", overwrite=overwrite):
+        if confirm_write_op(dst_path, overwrite=overwrite):
             pc.density(bbox).save(dst_path)
 
     # TODO: Add optional fill in ``pcloud.PointCloud,rasterize``.
