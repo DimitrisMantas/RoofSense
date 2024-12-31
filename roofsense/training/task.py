@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Sequence
 from enum import StrEnum
 from typing import Any, Final, Literal, Required, TypedDict, cast
@@ -14,7 +13,6 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from rasterio import CRS
 from torch import Tensor
-from torch.nn import Conv2d, Identity
 from torch.optim import Adam, AdamW, Optimizer
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR,
@@ -120,21 +118,10 @@ class TrainingTask(LightningModule):
         encoder = self.hparams.encoder
         in_channels = self.hparams.in_channels
         num_classes = self.hparams.num_classes
-
-        # --------------------------------------------------------------------------------------------
-
-        # TODO: Ideally, we should init with imagenet, save the weights somewhere
-        #            before loading in the new ones, and then load them back in to
-        #           replace the random inits introduced by the loading process.
-
-        # if the weights is a string then a checkpoint path was passed. do random
-        # init and then replace the weights with the ones passed.
         encoder_weights = self.hparams.encoder_weights
         if encoder_weights is not None and encoder_weights != "imagenet":
             # a checkpoint was passed.
             encoder_weights = None
-        # --------------------------------------------------------------------------------------------
-
         common_params = {
             "arch": self.hparams.decoder,
             "encoder_name": encoder,  # "encoder_depth": self.hparams.encoder_depth,
@@ -142,7 +129,6 @@ class TrainingTask(LightningModule):
             "in_channels": in_channels,
             "classes": num_classes,
         }
-
         optional_params: (
             dict[
                 str, dict[float | str | Sequence[float]] | float | str | Sequence[float]
@@ -150,95 +136,7 @@ class TrainingTask(LightningModule):
             | None
         ) = self.hparams.model_params
         optional_params = optional_params if optional_params is not None else {}
-
-        # NOTE: This needs to be here because otherwise the model is not initialized.
         self.model = torchseg.create_model(**common_params, **optional_params)
-
-        # Replace weights with ones passed if passed.
-        encoder_weights = self.hparams.encoder_weights
-        if encoder_weights is not None and encoder_weights != "imagenet":
-            # Load the pretrained weights.
-            ckpt = torch.load(encoder_weights)
-
-            weights: OrderedDict[str, Tensor] = ckpt["state_dict"]
-            weights = OrderedDict(
-                {name: value for name, value in weights.items() if "model." in name}
-            )
-            weights = OrderedDict(
-                {
-                    name.replace("model.", "", 1): value
-                    for name, value in weights.items()
-                }
-            )
-
-            # Prepare to accept the weights.
-            temp_common_params = common_params.copy()
-            # TODO: Infer this parameter automatically.
-            temp_common_params["in_channels"] = weights[
-                "encoder.model.conv1.0.weight"
-            ].size(dim=1)
-            temp_common_params["classes"] = weights["segmentation_head.0.weight"].size(
-                dim=0
-            )
-
-            self.model = torchseg.create_model(**temp_common_params, **optional_params)
-
-            if "aux_params" in optional_params:
-                # Copy the classifier weights to the pretrained state dictionary.
-                weights["classification_head.3.weight"] = (
-                    self.model.classification_head[3].weight.data.clone()
-                )
-                weights["classification_head.3.bias"] = self.model.classification_head[
-                    3
-                ].bias.data.clone()
-
-            # Push the weights to the model.
-            self.model.load_state_dict(weights)
-
-            # Configure the model input and output to match the current task.
-            # Replace the entry point.
-            conv1_name: str = self.model.encoder.model.pretrained_cfg["first_conv"]
-            # strip extra info in case conv1 is a list
-            conv1_name = conv1_name.split(".", maxsplit=1)[0]
-            old_conv1: Conv2d = getattr(self.model.encoder.model, conv1_name)
-            con1_is_seq = False
-            if isinstance(old_conv1, torch.nn.modules.container.Sequential):
-                # conv1 is a list
-                con1_is_seq = True
-                old_conv1 = old_conv1[0]
-            new_conv1 = Conv2d(
-                in_channels=in_channels,
-                out_channels=old_conv1.out_channels,
-                kernel_size=old_conv1.kernel_size,
-                stride=old_conv1.stride,
-                padding=old_conv1.padding,
-                dilation=old_conv1.dilation,
-                groups=old_conv1.groups,
-                bias=old_conv1.bias,
-                padding_mode=old_conv1.padding_mode,
-            )
-
-            new_conv1.weight.data[:, : old_conv1.weight.shape[1], ...] = (
-                old_conv1.weight.data.clone()
-            )
-            if con1_is_seq:
-                # conv1 is a list
-                self.model.encoder.model.conv1[0] = new_conv1
-            else:
-                self.model.encoder.model.conv1 = new_conv1
-
-            # if "aux_params" in optional_params:
-            # Replace the segmentation head.
-            old_head: SegmentationHead = self.model.segmentation_head
-            new_head = SegmentationHead(
-                in_channels=self.model.decoder.out_channels,
-                out_channels=num_classes,
-                activation=Identity(),
-                kernel_size=1,
-                upsampling=4,
-            )
-
-            self.model.segmentation_head = new_head
 
         if self.hparams["freeze_backbone"]:
             for param in self.model.encoder.parameters():

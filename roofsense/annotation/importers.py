@@ -32,18 +32,18 @@ class RoboflowDatasetImporter:
     # TODO: Read this from the dataset.
     class_names = {
         0: "Background",
-        1: "Asphalt Shingles",
-        2: "Bituminous Coating / Membranes",
-        3: "Ceramic Tiles",
-        4: "Concrete",
+        1: "Asphalt Shingle",
+        2: "Ceramic Tile",
+        3: "Concrete",
+        4: "Dark-coloured Membrane",
         5: "Gravel",
         6: "Invalid",
-        7: "Light-permitting Opening",
-        8: "Metal",
-        9: "Non-bituminous Coating / Membranes",
+        7: "Light-coloured Membrane",
+        8: "Light-permitting Surface",
+        9: "Metal",
         10: "Other",
-        11: "Solar Panel Installation",
-        12: "Superstructure",
+        11: "Solar Panel",
+        12: "Stone Shingle",
         13: "Vegetation",
     }
 
@@ -342,20 +342,20 @@ class RoboflowDatasetImporter:
             w = (class_counts.sum(axis=0) / class_counts.sum()) ** -1
         else:
             # Compute the term frequency.
-            tf = class_counts / class_counts.sum(axis=1)[:, None]
+            tf = class_counts[:, None]
 
             # Compute the inverse document frequency.
             idf = class_counts.astype(np.bool_)
             # NOTE: The denominator does not require smoothing because all classes
             # are guaranteed to appear in at least one mask.
-            idf = len(idf) / idf.sum(axis=0)
+            idf = (len(idf) + 1) / (idf.sum(axis=0) + 1)
             # NOTE: This scale assumes class equiprobability.
             idf = np.log(idf) / np.log(len(idf))
             # Enforce non-zero weights for classes with are present in every mask.
             idf += 1
 
             # Reduce the TF-IDF matrix.
-            w = (tf.mean(axis=0) * idf) ** -1
+            w = tf.mean(axis=0) ** -1 * idf
 
         # Normalize the weights.
         w /= w.sum()

@@ -60,16 +60,3 @@ def train_supervised(
             trainer.test(model=task, datamodule=datamodule, ckpt_path="best")
 
     return trainer
-
-
-def train_unsupervised(task, dataloader) -> None:
-    """Train a supervised model.
-
-    Args:
-        task:
-        datamodule:
-
-    Returns:
-
-    """
-    raise NotImplementedError
