@@ -9,12 +9,17 @@ from roofsense.training.splitter import split
 
 
 class BAG3DSampler:
-    def __init__(self) -> None:
-        self.bag3d_store = BAG3DTileStore()
-        self.image_parser = ImageParser(store=self.bag3d_store)
-        self.lidar_parser = LiDARParser(store=self.bag3d_store)
-
-        self._seeds = gpd.read_file(config.env("CITIES"))
+    def __init__(
+        self,
+        bag3d_store: BAG3DTileStore = BAG3DTileStore(),
+        image_parser_cls: type[ImageParser] = ImageParser,
+        lidar_parser_cls: type[LiDARParser] = LiDARParser,
+        seeds: gpd.GeoDataFrame | None = gpd.read_file(config.env("CITIES")),
+    ) -> None:
+        self.bag3d_store = bag3d_store
+        self.image_parser = image_parser_cls(store=self.bag3d_store)
+        self.lidar_parser = lidar_parser_cls(store=self.bag3d_store)
+        self._seeds = seeds
 
     def sample(self, size: int, background_cutoff: float) -> list[str]:
         num_im = 0

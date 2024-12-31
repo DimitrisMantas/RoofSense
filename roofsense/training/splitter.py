@@ -97,6 +97,7 @@ def split(
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
             if confirm_write_op(png_path, overwrite=overwrite):
+                # TODO: expose exporter to user
                 to_png(chip_data, png_path)
 
             num_total_processed_chips += 1
