@@ -1,50 +1,27 @@
-from abc import abstractmethod
+import os
 
-import geopandas as gpd
 import numpy as np
 import rasterio
 import rasterio.mask
 import rasterio.warp
-from typing_extensions import override
 
-import config
+from roofsense.bag3d import BAG3DTileStore
 from roofsense.utils import raster
-from roofsense.utils.file import exists
+from roofsense.utils.file import confirm_write_op
 
 
-class DataMerger:
-    def __init__(self) -> None:
-        self._surfs: gpd.GeoDataFrame | None = None
+class RasterStackBuilder:
+    def __init__(self, store: BAG3DTileStore) -> None:
+        self.dirpath = store.dirpath
 
-    @abstractmethod
-    def merge(self, obj_id: str) -> None: ...
-
-
-class RasterStackBuilder(DataMerger):
-    def __init__(self) -> None:
-        super().__init__()
-
-    @override
-    def merge(self, obj_id: str) -> None:
-        out_path = (
-            f"{config.env('TEMP_DIR')}"
-            f"{obj_id}"
-            f"{config.var('RASTER_STACK')}"
-            f"{config.var('TIF')}"
-        )
-
-        if exists(out_path):
+    def merge(self, tile_id: str, overwrite: bool = False) -> None:
+        out_path = os.path.join(self.dirpath, f"{tile_id}.stack.tif")
+        if not confirm_write_op(out_path, overwrite=overwrite):
             return
 
         in_paths = [
-            f"{config.env('TEMP_DIR')}{obj_id}{img_tp}{config.var('TIF')}"
-            for img_tp in [
-                config.var("RGB"),
-                config.var("REFLECTANCE"),
-                config.var("SLOPE"),
-                ".ndsm",
-                ".den",
-            ]
+            os.path.join(self.dirpath, f"{tile_id}{img_tp}.tif")
+            for img_tp in [".rgb", ".rfl", ".slp", ".ndsm", ".den"]
         ]
 
         out_meta = raster.DefaultProfile(dtype=np.float32, nodata=np.nan)

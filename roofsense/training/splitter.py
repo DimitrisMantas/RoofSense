@@ -1,118 +1,103 @@
-from __future__ import annotations
-
+import os.path
 import pathlib
 
-import cv2
 import numpy as np
 import rasterio
 import rasterio.mask
 import rasterio.plot
 import rasterio.windows
 
-from roofsense import config
-from roofsense.utils.geom import read_surfaces
+from roofsense.annotation.exporters import to_png
+from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
+from roofsense.utils.file import confirm_write_op
 
 
-def split(obj_id: str, background_cutoff: float, limit: int) -> int:
-    # Dissolve the surfaces so that only their edges are buffered.
-    surfs = read_surfaces(obj_id).dissolve()
+def split(
+    store: BAG3DTileStore,
+    tile_id: str,
+    background_cutoff: float,
+    limit: int,
+    overwrite: bool = False,
+) -> int:
+    surfs = store.read_tile(
+        tile_id, lod=LevelOfDetail.LoD22
+    ).dissolve()  # todo: does this speed up masking?
+
     rng = np.random.default_rng(seed=0)
-    num_accepted_in_a_row = 0
-    stack_path = pathlib.Path(
-        f"{config.env('TEMP_DIR')}"
-        f"{obj_id}"
-        f"{config.var('RASTER_STACK')}"
-        f"{config.var('TIF')}"
-    )
-    blocks = 0
+
+    num_local_processed_chips = 0
+    num_total_processed_chips = 0
+
+    stack_path = os.path.join(store.dirpath, f"{tile_id}.stack.tif")
     stack: rasterio.io.DatasetReader
     with rasterio.open(stack_path) as stack:
-        # TODO: Check whether masking the whole stack twice can be avoided.
-        original_surf_mask, *_ = rasterio.mask.raster_geometry_mask(
-            stack, shapes=surfs[config.var("DEFAULT_GM_FIELD_NAME")]
+        stack_data, *_ = rasterio.mask.mask(
+            stack, shapes=surfs["geometry"], filled=False
         )
 
-        block: rasterio.windows.Window
+        win: rasterio.windows.Window
         # Use the data blocks of the first band.
         # NOTE: This ensures indexing notation ensures that all bands share the
-        #       same internal data block structure.
-        for (row, col), block in stack.block_windows(-1):
-            if blocks == limit:
+        #       same internal data chip structure.
+        for (row, col), win in stack.block_windows(-1):
+            if num_total_processed_chips == limit:
                 return limit
-            if block.width != block.height:
+
+            if win.width != win.height:
                 continue
-            # Flip coin
+
             if rng.binomial(1, p=0.5) == 0:
                 continue
-            # Selected
-            if num_accepted_in_a_row == 3:
-                num_accepted_in_a_row = 0
+
+            if num_local_processed_chips == 3:
+                num_local_processed_chips = 0
                 continue
-            num_accepted_in_a_row += 1
-            original_patch_path = pathlib.Path(
-                f"{config.env('ORIGINAL_DATA_DIR')}"
-                f"{config.var('TRAINING_IMAG_DIRNAME')}"
-            ).joinpath(
-                f"{stack_path.stem.replace(config.var('RASTER_STACK'), '')}"
-                f"{config.var('SEPARATOR')}"
-                f"{row}"
-                f"{config.var('SEPARATOR')}"
-                f"{col}"
-                f"{stack_path.suffix}"
-            )
-            if original_patch_path.is_file():
-                blocks += 1
-                continue
-            # TODO: Document this block.
-            original_patch_data = stack.read(window=block, masked=True)
-            original_patch_data.mask = (
-                original_patch_data.mask
-                | original_surf_mask[
-                    block.row_off : block.row_off + block.height,
-                    block.col_off : block.col_off + block.width,
-                ]
+
+            num_local_processed_chips += 1
+
+            chip_path = os.path.join(
+                "dataset",
+                "imgs",
+                f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
 
-            num_band_cells = np.size(original_patch_data, axis=1) * np.size(
-                original_patch_data, axis=2
-            )
-            num_back_cells = original_patch_data.mask[0, ...].sum()
+            if not confirm_write_op(chip_path, overwrite=overwrite):
+                num_total_processed_chips += 1
+                continue
+
+            chip_data = stack_data[
+                :,
+                win.row_off : win.row_off + win.height,
+                win.col_off : win.col_off + win.width,
+            ]
+
+            num_band_cells = chip_data.shape[1] * chip_data.shape[2]
+            num_back_cells = chip_data.mask[0, ...].sum()
             if num_back_cells > num_band_cells * background_cutoff:
                 continue
 
-            # Mask Background
-            original_patch_data = original_patch_data.filled(0)
+            chip_data = chip_data.filled(0)
 
-            patch_meta = stack.meta
-            patch_meta.update(
-                width=block.width,
-                height=block.height,
-                transform=rasterio.windows.transform(block, stack.transform),
+            chip_meta = stack.meta
+            chip_meta.update(
+                width=win.width,
+                height=win.height,
+                transform=rasterio.windows.transform(win, stack.transform),
                 # Disable tiling since it is no longer required.
                 tiled=False,
             )
 
-            original_patch: rasterio.io.DatasetWriter
-            with rasterio.open(
-                original_patch_path, "w", **patch_meta
-            ) as original_patch:
-                original_patch.write(original_patch_data)
+            chip: rasterio.io.DatasetWriter
+            with rasterio.open(chip_path, "w", **chip_meta) as chip:
+                chip.write(chip_data)
 
-            # Move this block to a seperate module
-            rgb_data = rasterio.plot.reshape_as_image(original_patch_data[:3, ...])
-            rgb_data = cv2.cvtColor(rgb_data, cv2.COLOR_BGR2RGB)
-            rgb_patch_path = pathlib.Path(
-                f"{config.env('ORIGINAL_DATA_DIR')}"
-                f"{config.var('TRAINING_CHIP_DIRNAME')}"
-            ).joinpath(
-                f"{stack_path.stem.replace(config.var('RASTER_STACK'), '')}"
-                f"{config.var('SEPARATOR')}"
-                f"{row}"
-                f"{config.var('SEPARATOR')}"
-                f"{col}"
-                f".png"
+            png_path = os.path.join(
+                "dataset",
+                "chps",
+                f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
-            cv2.imwrite(rgb_patch_path.absolute().as_posix(), rgb_data)
+            if confirm_write_op(png_path, overwrite=overwrite):
+                to_png(chip_data, png_path)
 
-            blocks += 1
-        return blocks
+            num_total_processed_chips += 1
+        return num_total_processed_chips

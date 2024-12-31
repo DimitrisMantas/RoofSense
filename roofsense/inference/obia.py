@@ -17,17 +17,6 @@ import rasterio.mask
 import shapely
 from geopandas import GeoDataFrame
 
-# See https://github.com/pangeo-data/cog-best-practices for more information.
-os.environ.update(
-    {
-        "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
-        "AWS_NO_SIGN_REQUEST": "YES",
-        "GDAL_MAX_RAW_BLOCK_CACHE_SIZE": "200000000",
-        "GDAL_SWATH_SIZE": "200000000",
-        "VSI_CURL_CACHE_SIZE": "200000000",
-    }
-)
-
 
 class LevelOfDetail(IntEnum):
     LOD_12 = 0

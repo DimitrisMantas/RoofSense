@@ -10,17 +10,6 @@ from roofsense.utils.file import confirm_write_op
 class ImageParser(AssetParser):
     """BM5 Tile Parser."""
 
-    def __init__(self, dirpath: str) -> None:
-        # TODO: Check whether the initializer documentation can be copied from the
-        #  parent class.
-        """Configure the parser.
-
-        Args:
-            dirpath:
-                The path to the data directory.
-        """
-        super().__init__(dirpath)
-
     @override
     def parse(self, tile_id: str, overwrite: bool = False) -> None:
         """Parse the BM5 data corresponding to a particular 3DBAG tile.
@@ -53,7 +42,7 @@ class ImageParser(AssetParser):
             return
 
         src_paths = [
-            self.resolve_filepath(id_ + ".tif") for id_ in self.manifest["image"]["tid"]
+            self.resolve_filepath(id_ + ".tif") for id_ in self.manifest.image.tid
         ]
         rasterio.merge.merge(
             src_paths,

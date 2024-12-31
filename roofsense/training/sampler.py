@@ -1,64 +1,26 @@
-from abc import ABC, abstractmethod
-
 import geopandas as gpd
-import numpy as np
-import shapely
-from typing_extensions import override
 
 from roofsense import config
-from roofsense.downloaders.asset import AssetDownloader
-from roofsense.downloaders.bag3d import BAG3DDownloader
-from roofsense.parsers.bag3d import BAG3DParser
+from roofsense.bag3d import BAG3DTileStore
 from roofsense.parsers.image import ImageParser
 from roofsense.parsers.lidar import LiDARParser
 from roofsense.stack import RasterStackBuilder
 from roofsense.training.splitter import split
 
 
-class DataSampler(ABC):
+class BAG3DSampler:
     def __init__(self) -> None:
-        self._rng = np.random.default_rng(int(config.var("SEED")))
+        self.bag3d_store = BAG3DTileStore()
+        self.image_parser = ImageParser(store=self.bag3d_store)
+        self.lidar_parser = LiDARParser(store=self.bag3d_store)
 
-    @abstractmethod
-    def sample(self, size: int, background_cutoff: float): ...
-
-
-class BAG3DSampler(DataSampler):
-    def __init__(self) -> None:
-        super().__init__()
-        # Initialize the data downloaders.
-        self.bag3d_downloader = BAG3DDownloader()
-        self.asset_downloader = AssetDownloader()
-
-        # Initialize the data parsers.
-        self.bag3d_parser = BAG3DParser()
-        self.image_parser = ImageParser(dirpath=config.env("TEMP_DIR"))
-        self.lidar_parser = LiDARParser(dirpath=config.env("TEMP_DIR"))
-
-        # Initialize the sheet indices.
-        self._index = gpd.read_file(config.env("BAG3D_SHEET_INDEX"))
         self._seeds = gpd.read_file(config.env("CITIES"))
 
-    @override
     def sample(self, size: int, background_cutoff: float) -> list[str]:
         num_im = 0
         sample = []
         while num_im < size:
-            seed_pt = self._seeds.sample(random_state=self._rng)[
-                config.var("DEFAULT_GM_FIELD_NAME")
-            ]
-            tile_pt = gpd.GeoDataFrame(
-                {
-                    config.var("DEFAULT_ID_FIELD_NAME"): [0],
-                    config.var("DEFAULT_GM_FIELD_NAME"): [
-                        self._gen_random_point(seed_pt)
-                    ],
-                },
-                crs=config.var("CRS"),
-            )
-            # NOTE: The point can be positioned on the interface of two or more
-            #       adjacent tiles.
-            tile_ids = self._index.overlay(tile_pt, keep_geom_type=False)["tid"]
+            tile_ids = self.bag3d_store.sample_tile(self._seeds)
             for tile_id in tile_ids:
                 if tile_id in sample:
                     continue
@@ -71,9 +33,8 @@ class BAG3DSampler(DataSampler):
                 #       preprocessing stage.
                 # NOTE: The selected tile IDs begin with 9 or 10.
                 if (
-                    self._index.loc[
-                        self._index["tid"] == tile_id,
-                        config.var("DEFAULT_GM_FIELD_NAME"),
+                    self.bag3d_store.index.loc[
+                        self.bag3d_store.index["tile_id"] == tile_id, "geometry"
                     ].area.iat[0]
                     > 1.1e6
                 ):
@@ -82,41 +43,29 @@ class BAG3DSampler(DataSampler):
                 # Process the tile.
                 print(f"Processing tile {tile_id}...")
                 # Download the corresponding 3DBAG data.
-                self.bag3d_downloader.download(tile_id)
-                # Parse the data.
-                self.bag3d_parser.parse(tile_id)
+                self.bag3d_store.download_tile(tile_id)
 
                 # Download the corresponding assets.
-                self.asset_downloader.download(tile_id)
+                self.bag3d_store.asset_manifest(
+                    tile_id,
+                    image_index=gpd.read_file(config.env("IMAGE_SHEET_INDEX")),
+                    lidar_index=gpd.read_file(config.env("LIDAR_SHEET_INDEX")),
+                ).downl(self.bag3d_store.dirpath).save(self.bag3d_store.dirpath)
+
                 # Parse the data.
                 self.image_parser.parse(tile_id)
                 self.lidar_parser.parse(tile_id)
 
                 # Create the raster stack.
-                RasterStackBuilder().merge(tile_id)
+                RasterStackBuilder(store=self.bag3d_store).merge(tile_id)
 
                 # Prepare the stacks for annotation.
-                print(f"Requesting at most {size-num_im} chips.")
-                new = split(tile_id, background_cutoff, limit=size - num_im)
+                print(f"Requesting at most {size - num_im} chips.")
+                new = split(
+                    self.bag3d_store, tile_id, background_cutoff, limit=size - num_im
+                )
                 print(f"Got {new} chips.")
                 num_im += new
                 # -----
                 sample.append(tile_id)
         return sample
-
-    def _gen_random_point(
-        self, seed: shapely.Point, radius: float = 15e3
-    ) -> shapely.Point:
-        # noinspection PyTypeChecker
-        off = self._rng.multivariate_normal(
-            mean=[0, 0],
-            # NOTE: The specified covariance along the x- and y-axes ensures that
-            #       approximately 99.7% of the sampled points are located within the
-            #       specified distance from their corresponding seed.
-            cov=[[1 / 9, 0], [0, 1 / 9]],
-        )
-        nrm = np.linalg.norm(off)
-        if nrm > 1:
-            off /= np.linalg.norm(off)
-        off *= radius
-        return shapely.Point(seed.x + off[0], seed.y + off[1])

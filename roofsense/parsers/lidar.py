@@ -19,17 +19,6 @@ from roofsense.utils.raster import DefaultProfile, Raster
 class LiDARParser(AssetParser):
     """AHN4 Tile Parser."""
 
-    def __init__(self, dirpath: str) -> None:
-        # TODO: Check whether the initializer documentation can be copied from the
-        #  parent class.
-        """Configure the parser.
-
-        Args:
-            dirpath:
-                The path to the data directory.
-        """
-        super().__init__(dirpath)
-
     @override
     def parse(self, tile_id: str, overwrite: bool = False) -> None:
         """Parse the AHN4 data corresponding to a particular 3DBAG tile.
@@ -100,8 +89,7 @@ class LiDARParser(AssetParser):
         dst_path = self.resolve_filepath(tile_id + ".LAZ")
         if confirm_write_op(dst_path, overwrite=overwrite):
             src_paths = [
-                self.resolve_filepath(id_ + ".LAZ")
-                for id_ in self._manifest["lidar"]["tid"]
+                self.resolve_filepath(id_ + ".LAZ") for id_ in self._manifest.lidar.tid
             ]
             pcloud.merge(
                 src_paths,
@@ -165,14 +153,14 @@ class LiDARParser(AssetParser):
         if not confirm_write_op(dst_path, overwrite=overwrite):
             return
 
-        buildings = self._surfaces.dissolve(by="id")
+        buildings = self._surfaces.dissolve(by="identificatie")
 
         ras = deepcopy(dsm)
         ras.data -= rasterio.features.rasterize(
             shapes=(
                 (building, med_roof_height)
                 for building, med_roof_height in zip(
-                    buildings.geometry, buildings["b3_h_dak_50p"]
+                    buildings.geometry, buildings["b3_h_50p"]
                 )
             ),
             transform=ras.transform,

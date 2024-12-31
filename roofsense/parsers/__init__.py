@@ -1,1 +1,1 @@
-from roofsense.parsers.base import AssetParser
+# from roofsense.parsers.base import AssetParser

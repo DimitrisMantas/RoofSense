@@ -21,7 +21,7 @@ _Timeout = Union[float, tuple[float, float], tuple[float, None]]
 _HookCallback = typing.Callable[[requests.Response], typing.Any]
 
 
-def get_default_data_dir(version: str) -> str:
+def get_default_dirpath(version: str) -> str:
     path = (pathlib.Path.home() / ".roofsense" / version).as_posix()
     os.makedirs(path, exist_ok=True)
     return path
@@ -68,8 +68,7 @@ def confirm_write_op(path: str, overwrite: bool = False) -> bool:
         )
         warnings.warn(msg, UserWarning)
 
-    if res_type == "d":
-        os.makedirs(path, exist_ok=True)
+    os.makedirs(path if res_type == "d" else os.path.dirname(path), exist_ok=True)
 
     return True
 
@@ -105,7 +104,7 @@ class FileDownloader(abc.ABC):
         pass
 
     def _fetch(self, url: str, filename: str) -> None:
-        if exists(filename) and not self._overwrite:
+        if os.path.exists(filename) and not self._overwrite:
             return
 
         with self._session.get(
@@ -160,17 +159,6 @@ class FileDownloader(abc.ABC):
                 progress_bar.update(len(chunk))
 
 
-# class BlockingFileDownloader(FileDownloader):
-#     def __init__(self, url: str, filename: str | bytes | PathLike, **kwargs) -> None:
-#         super().__init__(**kwargs)
-#
-#         self._url = url
-#         self._filename = filename
-#
-#     def download(self) -> None:
-#         self._fetch(self._url, self._filename)
-
-
 class ThreadedFileDownloader(FileDownloader):
     def __init__(
         self,
@@ -206,11 +194,3 @@ class ThreadedFileDownloader(FileDownloader):
                     except concurrent.futures.CancelledError:
                         pass
                     progress_bar.update()
-
-
-def exists(filename: str) -> bool:
-    return pathlib.Path(filename).is_file()
-
-
-def mkdirs(filename: str) -> None:
-    pathlib.Path(filename).mkdir(parents=True, exist_ok=True)

@@ -17,7 +17,7 @@ import rasterio.errors
 import rasterio.mask
 
 from roofsense import config
-from roofsense.utils.geom import read_surfaces
+from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
 
 
 class DatasetImporter(ABC):
@@ -76,7 +76,7 @@ class RoboflowDatasetImporter:
 
     split_names = ["training", "validation", "test"]
 
-    def __init__(self, src_dirpath: str) -> None:
+    def __init__(self, src_dirpath: str, store: BAG3DTileStore) -> None:
         """Configure the importer.
 
         Args:
@@ -97,6 +97,8 @@ class RoboflowDatasetImporter:
             self.__dict__[f"{name}_subset"]: list[str] | None = None
         # NOTE: This attribute will be populated when estimating the class weights.
         self.class_weights: np.ndarray[tuple[Any], np.dtype[np.float64]] | None = None
+
+        self.store = store
 
     def __len__(self) -> int:
         return len(self.src_maskpaths)
@@ -205,7 +207,7 @@ class RoboflowDatasetImporter:
         # }
         class_counts_data: dict[str, dict[int, int]] = collections.defaultdict(dict)
         for tile_id, paths in tile_groups.items():
-            surfs = read_surfaces(tile_id).dissolve()
+            surfs = self.store.read_tile(tile_id, lod=LevelOfDetail.LoD22).dissolve()
             src_path: str
             dst_path: str
             for src_path, dst_path in zip(paths["src"], paths["dst"]):

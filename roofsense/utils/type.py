@@ -1,13 +1,8 @@
 # TODO - Reformat, finalize function and variable names, and add documentation.
-from collections.abc import Callable, Sequence
-from typing import Any, Literal, Required, TypedDict, Union
-
-import requests
+from collections.abc import Sequence
+from typing import Literal, Required, TypedDict
 
 BoundingBoxLike = Sequence[float]
-Timeout = Union[float, tuple[float, float], tuple[float, None]]
-HookCallback = Callable[[requests.Response, ...], Any]
-AssetManifest = dict[str, list[str]]
 
 
 ####################################
