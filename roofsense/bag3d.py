@@ -81,7 +81,7 @@ class LevelOfDetail(StrEnum):
 class BAG3DTileStore:
     _BASE_URL: Final[str] = "https://data.3dbag.nl/"
     # TODO: Narrow this down.
-    _TILE_FMT: Final[re.Pattern[AnyStr]] = re.compile(r"^\d{1,2}-\d{3,4}-\d{2,4}$")
+    _TILE_FMT: Final[re.Pattern[AnyStr]] = re.compile(r"\d{1,2}-\d{3,4}-\d{2,4}")
 
     def __init__(self, dirpath: str | None = None, version: str = "2024.02.28") -> None:
         self._dirpath = get_default_dirpath(version) if dirpath is None else dirpath
@@ -239,6 +239,10 @@ class BAG3DTileStore:
         if tile_id not in self.index["tile_id"].values:
             raise ValueError(f"Failed to locate tile with ID: {tile_id} in index.")
         return tile_id.replace("/", "-")
+
+    def resolve_tile_id(self, filepath: str) -> str:
+        # TODO: Find the most appropriate search method.
+        return self._TILE_FMT.search(filepath).group(0)
 
 
 if __name__ == "__main__":
