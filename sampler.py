@@ -5,7 +5,7 @@ from roofsense.bag3d import BAG3DTileStore
 from roofsense.parsers.image import ImageParser
 from roofsense.parsers.lidar import LiDARParser
 from roofsense.stack import RasterStackBuilder
-from roofsense.training.splitter import split
+from splitter import split
 
 
 class BAG3DSampler:
