@@ -166,6 +166,8 @@ class AnnotationImporter(ABC):
         replicate_paper: bool = True,
         **kwargs,
     ) -> None:
+        os.makedirs(os.path.join(dst_dirpath, self.dst_mask_dirname), exist_ok=True)
+
         if replicate_paper:
             # TODO: Duplicated code fragment.
             self.CLASS_NAMES = {
@@ -174,6 +176,7 @@ class AnnotationImporter(ABC):
             self.CLASS_COLORS = {
                 new: self.CLASS_COLORS[old] for old, new in _PAPER_CLASS_MAPPING.items()
             }
+
         self._import_masks(dst_dirpath, replicate_paper=replicate_paper)
         self._split_dataset(dst_dirpath, splitting_method, lengths, seed, **kwargs)
         self._compute_training_subset_scales(dst_dirpath)
