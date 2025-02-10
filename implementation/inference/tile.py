@@ -1,6 +1,6 @@
 from terratorch.tasks.tiled_inference import TiledInferenceParameters
 
-from roofsense.inference.tiled import TiledInferenceEngine
+from roofsense.inference.tile import TiledInferenceEngine
 
 
 def main():
