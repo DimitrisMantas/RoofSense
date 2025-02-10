@@ -7,25 +7,26 @@ from typing_extensions import override
 
 
 class AppendTGI(IntensityAugmentationBase2D):
-    """Append the triangular greenness index to each batch sample."""
+    r"""Append the triangular greenness index to each batch sample."""
 
-    def __init__(self, red_idx: int = 0, green_idx: int = 1, blue_idx: int = 2) -> None:
-        r"""Configure the appender.
+    def __init__(self, r_idx: int = 0, g_idx: int = 1, b_idx: int = 2) -> None:
+        r"""Initialize the augmentation.
 
         Args:
-            red_idx:
-                The integer index of the red input channel.
-            green_idx:
-                The integer index of the green input channel.
-            blue_idx:
-                The integer index of the blue input channel.
+            r_idx:
+                The index of the red band in the input samples.
+            g_idx:
+                The index of the green band in the input samples.
+            b_idx:
+                The index of the blue band in the input samples.
 
         Notes:
-            The channels involved in the pertinent calculations are expected to
-            contain values which are in the interval :math:`\left[0, 1\right]`.
+            Each sample must contain at least three bands in the RGB configuration.
+            The default band order is [0, 1, 2].
+            Each band must  be scaled to the interval :math:`\left[0, 1\right]`.
         """
         super().__init__(p=1)
-        self.flags = {"red_idx": red_idx, "green_idx": green_idx, "blue_idx": blue_idx}
+        self.flags = {"r_idx": r_idx, "g_idx": g_idx, "b_idx": b_idx}
 
     @override
     def apply_transform(
@@ -35,11 +36,11 @@ class AppendTGI(IntensityAugmentationBase2D):
         flags: dict[str, Any],
         transform: Tensor | None = None,
     ) -> Tensor:
-        red = input[:, flags["red_idx"], ...]
-        green = input[:, flags["green_idx"], ...]
-        blue = input[:, flags["blue_idx"], ...]
+        r = input[:, flags["r_idx"], ...]
+        g = input[:, flags["g_idx"], ...]
+        b = input[:, flags["b_idx"], ...]
 
-        tgi = green - 0.39 * red - 0.61 * blue
+        tgi = g - 0.39 * r - 0.61 * b
         # Scale channel from [-1, 1] to [0, 1].
         tgi = 0.5 * (tgi + 1)
         tgi = tgi.unsqueeze(dim=1)

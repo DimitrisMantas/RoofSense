@@ -7,26 +7,21 @@ from typing_extensions import override
 
 
 class MinMaxScaling(IntensityAugmentationBase2D):
-    r"""Rescale batch-level features to the interval :math:`\left[0, 1\right]`."""
+    r"""Scale each band of each batch sample to the interval :math:`\left[0, 1\right]`."""
 
     def __init__(self, mins: Tensor, maxs: Tensor, eps: float = 1e-12) -> None:
-        r"""Configure the scaler.
+        r"""Initialize the augmentation.
 
         Args:
             mins:
-                An 1D tensor of shape :math:`\left(C,\right)` containing the minimum
-                value of each input channel.
-
+                An 1D tensor of shape :math:`\left(C,\right)` containing the global  minimum of each input  band.
             maxs:
-                An 1D tensor of shape :math:`\left(C,\right)` containing the maximum
-                value of each input channel.
-
+                An 1D tensor of shape :math:`\left(C,\right)` containing the global  maximum of each input  band.
             eps:
-                A small floating-point value to avoid division-by-zero errors.
+                A small positive value to avoid division-by-zero errors when the minimum and the maximum values of an input band are equal.
 
         Notes:
-            The input tensors are automatically transferred to the batch device and
-            cast to the corresponding data type upon applying the transformation.
+            The scale tensors are automatically transferred to the batch device and cast to the corresponding data type.
         """
         super().__init__(p=1, same_on_batch=True)
         self.flags = {

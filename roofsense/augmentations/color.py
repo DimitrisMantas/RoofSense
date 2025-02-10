@@ -11,16 +11,26 @@ from typing_extensions import override
 
 
 class AppendHSV(IntensityAugmentationBase2D):
-    """Append the triangular greenness index to each batch sample."""
+    r"""Append the triangular greenness index to each batch sample."""
 
-    def __init__(self):
-        r"""Configure the appender.
+    def __init__(self, r_idx: int = 0, g_idx: int = 1, b_idx: int = 2) -> None:
+        r"""Initialize the augmentation.
+
+        Args:
+            r_idx:
+                The index of the red band in the input samples.
+            g_idx:
+                The index of the green band in the input samples.
+            b_idx:
+                The index of the blue band in the input samples.
 
         Notes:
-            The channels involved in the pertinent calculations are expected to
-            contain values which are in the interval :math:`\left[0, 1\right]`.
+            Each sample must contain at least three bands in the RGB configuration.
+            The default band order is [0, 1, 2].
+            Each band must  be scaled to the interval :math:`\left[0, 1\right]`.
         """
         super().__init__(p=1)
+        self.flags = {"r_idx": r_idx, "g_idx": g_idx, "b_idx": b_idx}
 
     @override
     def apply_transform(
@@ -30,7 +40,9 @@ class AppendHSV(IntensityAugmentationBase2D):
         flags: dict[str, Any],
         transform: Tensor | None = None,
     ) -> Tensor:
-        hsv = kornia.color.rgb_to_hsv(input[:, :3, ...])
+        slice = [flags["r_idx"], flags["g_idx"], flags["b_idx"]]
+
+        hsv = kornia.color.rgb_to_hsv(input[:, slice, ...])
         # Scale channel from [0, 2π] to [0, 1].
         hsv[:, 0, ...] = hsv[:, 0, ...] / (2 * math.pi)
 
