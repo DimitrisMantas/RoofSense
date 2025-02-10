@@ -56,7 +56,7 @@ def split(
             num_local_processed_chips += 1
 
             chip_path = os.path.join(
-                "dataset",
+                "../dataset",
                 "imgs",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
@@ -92,7 +92,7 @@ def split(
                 chip.write(chip_data)
 
             png_path = os.path.join(
-                "dataset",
+                "../dataset",
                 "chps",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
