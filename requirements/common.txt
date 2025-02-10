@@ -32,3 +32,4 @@ pyarrow==17.0.0
 # read laszip files
 lazrs==0.6.2
 # torchseg==0.0.1a4
+terratorch==0.99.8
