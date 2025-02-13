@@ -17,6 +17,7 @@ import rasterio.errors
 import rasterio.mask
 from typing_extensions import override
 
+from roofsense.annotation.exporters import to_clr
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
 from roofsense.split import DatasetSplittingMethod, random_split, stratified_split
 
@@ -101,6 +102,7 @@ class AnnotationImporter(ABC):
     splits_filename = "splits.json"
     scales_filename = "scales.bin"
     weights_filename = "weights.bin"
+    clr_filename = "colors.clr"
 
     #########################################################################################################
 
@@ -305,6 +307,8 @@ class AnnotationImporter(ABC):
         }
         with open(os.path.join(dst_dirpath, self.class_colors_filename), mode="w") as f:
             json.dump(class_colors, f)
+
+        to_clr(class_names, class_colors, os.path.join(dst_dirpath, self.clr_filename))
 
     def _split_dataset(
         self,
