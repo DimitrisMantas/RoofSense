@@ -62,13 +62,17 @@ def confirm_write_op(path: str, overwrite: bool = False) -> bool:
         raise ValueError(msg)
 
     if not overwrite:
-        msg = (
-            f"The specified path: {path!r} does not exist in the system. The value of "
-            f"the 'overwrite' flag will be ignored."
-        )
-        warnings.warn(msg, UserWarning)
+        os.path.dirname(path)
+    msg = (
+        f"The specified path: {path!r} does not exist in the system. The value of "
+        f"the 'overwrite' flag will be ignored."
+    )
+    warnings.warn(msg, UserWarning)
 
-    os.makedirs(path if res_type == "d" else os.path.dirname(path), exist_ok=True)
+    if res_type == "d":
+        os.makedirs(path, exist_ok=True)
+    elif os.path.dirname(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
 
     return True
 
