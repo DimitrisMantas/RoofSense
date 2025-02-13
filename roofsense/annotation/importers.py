@@ -6,7 +6,7 @@ import os.path
 import warnings
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Sequence
 from enum import UNIQUE, Enum, auto, verify
 from operator import itemgetter
 from typing import Any, Final
@@ -54,10 +54,10 @@ class AnnotationImporter(ABC):
         13: "Vegetation",
     }
     """The names of the classes supported by the annotation provider.
-    May be joined to 'AnnotationImporter.CLASS_COLORS'.
+    Can be joined to 'AnnotationImporter.CLASS_COLORS'.
     """
 
-    CLASS_COLORS: Final[dict[int, Iterable[int]]] = {
+    CLASS_COLORS: Final[dict[int, Collection[int]]] = {
         0: [0, 0, 0, 255],
         1: [0, 0, 0, 255],
         2: [170, 109, 58, 255],
@@ -75,7 +75,7 @@ class AnnotationImporter(ABC):
     }
     """The colors of the classes supported by the annotation provider.
     Each color is defined using the RGBA model.
-    May be joined to 'AnnotationImporter.CLASS_NAMES'.
+    Can be joined to 'AnnotationImporter.CLASS_NAMES'.
     """
 
     # TODO: Make this attribute abstract.
@@ -430,5 +430,5 @@ _PAPER_CLASS_MAPPING = OrderedDict(
     }
 )
 """The class mapping used in 'https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549'.
-Keys are foreign to 'AnnotationImporter.CLASS_NAMES' and 'AnnotationImporter.CLASS_COLORS'.
+Can be joined to 'AnnotationImporter.CLASS_NAMES' and 'AnnotationImporter.CLASS_COLORS'.
 """

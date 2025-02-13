@@ -1,5 +1,5 @@
 import os
-from collections.abc import Iterable
+from collections.abc import Collection
 from typing import Any
 
 import numpy as np
@@ -10,7 +10,7 @@ from roofsense.utils.file import confirm_write_op
 
 def to_clr(
     class_names: dict[int, str],
-    class_colors: dict[int, Iterable[int]],
+    class_colors: dict[int, Collection[int]],
     filepath: str | bytes | os.PathLike[str],
     overwrite: bool = False,
     ignore_background: bool = True,
