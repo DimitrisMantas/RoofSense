@@ -33,7 +33,7 @@ class MaskGeneralizer:
             data = src.read(indexes=1)
             meta = src.profile
 
-        # TODO: Check whether this operation is necessary.
+        # This speeds up the process when partial tiles are processed.
         valid_surfs = all_surfs.overlay(bbox).geometry
 
         surf_labels = range(1, len(valid_surfs) + 1)
@@ -42,7 +42,7 @@ class MaskGeneralizer:
             out_shape=src.shape,
             transform=src.transform,
         )
-        for label in tqdm(surf_labels):
+        for label in tqdm(surf_labels, desc=self.__class__.__name__):
             query = mask == label
             if preserve_background:
                 query = np.logical_and(query, data != 0)

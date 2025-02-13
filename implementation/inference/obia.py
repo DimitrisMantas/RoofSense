@@ -3,6 +3,7 @@ from roofsense.inference.obia import MaskGeneralizer
 
 
 def main():
+    # TODO: Use the tile store to infer the tile ID.
     tile_id = "10-280-560"
 
     generalizer = MaskGeneralizer(tile_store=BAG3DTileStore(dirpath=r"data/store"))
