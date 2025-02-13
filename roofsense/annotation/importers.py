@@ -6,7 +6,7 @@ import os.path
 import warnings
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import UNIQUE, Enum, auto, verify
 from operator import itemgetter
 from typing import Any, Final
@@ -54,10 +54,10 @@ class AnnotationImporter(ABC):
         13: "Vegetation",
     }
     """The names of the classes supported by the annotation provider.
-    Keys are foreign to 'AnnotationImporter.CLASS_COLORS'.
+    May be joined to 'AnnotationImporter.CLASS_COLORS'.
     """
 
-    CLASS_COLORS: Final[dict[int, list[int, int, int, int]]] = {
+    CLASS_COLORS: Final[dict[int, Iterable[int]]] = {
         0: [0, 0, 0, 255],
         1: [0, 0, 0, 255],
         2: [170, 109, 58, 255],
@@ -75,7 +75,7 @@ class AnnotationImporter(ABC):
     }
     """The colors of the classes supported by the annotation provider.
     Each color is defined using the RGBA model.
-    Keys are foreign to 'AnnotationImporter.CLASS_NAMES'.
+    May be joined to 'AnnotationImporter.CLASS_NAMES'.
     """
 
     # TODO: Make this attribute abstract.
