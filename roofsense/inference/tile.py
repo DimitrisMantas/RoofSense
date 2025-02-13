@@ -14,6 +14,7 @@ from terratorch.tasks.tiled_inference import TiledInferenceParameters, tiled_inf
 import roofsense.training.task
 from roofsense.augmentations.feature import MinMaxScaling
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
+from roofsense.utils.file import confirm_write_op
 
 
 # TODO: Add support for changing the current model.
@@ -67,6 +68,9 @@ class TiledInferenceEngine:
     def run(
         self, tile_id: str, dst_filename: str, params: TiledInferenceParameters
     ) -> None:
+        if not confirm_write_op(dst_filename):
+            return
+
         surfs = self._tile_store.read_tile(tile_id, lod=LevelOfDetail.LoD22).dissolve()
 
         path = os.path.join(self._tile_store.dirpath, f"{tile_id}.stack.tif")
