@@ -5,6 +5,7 @@ import math
 import os
 import warnings
 from os import PathLike
+from typing import Any
 
 import numpy as np
 import rasterio.fill
@@ -177,3 +178,9 @@ class Raster:
             **self._meta,
         ) as f:
             f.write(self.data, indexes=1 if num_bands == 1 else None)
+
+
+def get_raster_metadata(filepath: str, attr: str, *attrs: str) -> list[Any]:
+    src: rasterio.io.DatasetReader
+    with rasterio.open(filepath) as src:
+        return [getattr(src, attr) for attr in [attr] + list(attrs)]
