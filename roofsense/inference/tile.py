@@ -15,6 +15,7 @@ import roofsense.training.task
 from roofsense.augmentations.feature import MinMaxScaling
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
 from roofsense.utils.file import confirm_write_op
+from roofsense.utils.raster import DefaultProfile
 
 
 # TODO: Add support for changing the current model.
@@ -66,9 +67,22 @@ class TiledInferenceEngine:
         )
 
     def run(
-        self, tile_id: str, dst_filename: str, params: TiledInferenceParameters
+        self, tile_id: str, dst_filepath: str, params: TiledInferenceParameters
     ) -> None:
-        if not confirm_write_op(dst_filename):
+        """Generate the pixelwise roofing material map of a given 3DBAG tile.
+
+        Args:
+            tile_id:
+                The ID of the input tile.
+            dst_filepath:
+                The path to the output map.
+            params:
+                The chipping parameters to split the tile into individual patches.
+
+        Warnings:
+            The output of multiple consecutive executions using the same input parameters may vary slightly in case the underlying model contains normalisation layers.
+        """
+        if not confirm_write_op(dst_filepath):
             return
 
         surfs = self._tile_store.read_tile(tile_id, lod=LevelOfDetail.LoD22).dissolve()
@@ -103,21 +117,13 @@ class TiledInferenceEngine:
         )
 
         # Write the map.
-        meta.update(count=1, dtype=np.uint8, nodata=0)
+        meta.update(count=1, nodata=0)
+        meta.update(
+            # Specify the output data type here to get the appropriate predictor
+            DefaultProfile(dtype=np.uint8)
+        )
         dst: rasterio.io.DatasetWriter
-        with rasterio.open(
-            dst_filename,
-            mode="w+",
-            # TODO: Consider exposing these parameter to the user.
-            interleave="BAND",
-            tiled=True,
-            blockxsize=512,
-            blockysize=512,
-            compress="LZW",
-            num_threads=os.cpu_count(),
-            predictor=2,
-            **meta,
-        ) as dst:
+        with rasterio.open(dst_filepath, mode="w+", **meta) as dst:
             dst.write(preds, indexes=1)
             # Remask the map
             preds, _ = rasterio.mask.mask(dst, shapes=surfs["geometry"], indexes=1)

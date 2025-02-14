@@ -13,7 +13,7 @@ def main():
         model_params={"encoder_params": {"block_args": {"attn_layer": "eca"}}},
     ).run(
         tile_id=tile_id,
-        dst_filename=rf"data/maps/pixel/{tile_id}.map.pixel.tif",
+        dst_filepath=rf"data/maps/pixel/{tile_id}.map.pixel.tif",
         params=TiledInferenceParameters(
             h_crop=512, h_stride=256, w_crop=512, w_stride=256
         ),
