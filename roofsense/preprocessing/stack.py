@@ -6,8 +6,8 @@ import rasterio.mask
 import rasterio.warp
 
 from roofsense.bag3d import BAG3DTileStore
-from roofsense.utils import raster
-from roofsense.utils.file import confirm_write_op
+from roofsense.utilities import raster
+from roofsense.utilities.file import confirm_write_op
 
 
 class RasterStackBuilder:

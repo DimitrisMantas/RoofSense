@@ -19,7 +19,11 @@ from typing_extensions import override
 
 from roofsense.annotation.exporters import to_clr
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
-from roofsense.split import DatasetSplittingMethod, random_split, stratified_split
+from roofsense.utilities.splits import (
+    DatasetSplittingMethod,
+    random_split,
+    stratified_split,
+)
 
 
 @verify(UNIQUE)

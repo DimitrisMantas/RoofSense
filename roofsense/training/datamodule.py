@@ -12,8 +12,8 @@ from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
 from roofsense.augmentations.color import AppendHSV
-from roofsense.augmentations.feature import MinMaxScaling
 from roofsense.augmentations.index import AppendTGI
+from roofsense.augmentations.scale import MinMaxScaling
 from roofsense.training.dataset import TrainingDataset
 
 

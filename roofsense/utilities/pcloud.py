@@ -13,9 +13,9 @@ import rasterio
 import scipy as sp
 import tqdm
 
-from roofsense.utils import raster
-from roofsense.utils.raster import DefaultProfile
-from roofsense.utils.type import BoundingBoxLike
+from roofsense.utilities import raster
+from roofsense.utilities.raster import DefaultProfile
+from roofsense.utilities.types import BoundingBoxLike
 
 
 class PointCloud:

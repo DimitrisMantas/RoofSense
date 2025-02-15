@@ -12,11 +12,14 @@ import rasterio.merge
 from typing_extensions import override
 
 from roofsense.bag3d import BAG3DTileStore
-from roofsense.parsers.base import BAG3DTileAssetParser, BAG3DTileAssetParsingStage
-from roofsense.utils import pcloud
-from roofsense.utils.file import confirm_write_op
-from roofsense.utils.pcloud import PointCloud
-from roofsense.utils.raster import DefaultProfile, Raster, get_raster_metadata
+from roofsense.preprocessing.parsers.generic import (
+    BAG3DTileAssetParser,
+    BAG3DTileAssetParsingStage,
+)
+from roofsense.utilities import pcloud
+from roofsense.utilities.file import confirm_write_op
+from roofsense.utilities.pcloud import PointCloud
+from roofsense.utilities.raster import DefaultProfile, Raster, get_raster_metadata
 
 
 def parse_elevation(parser: LiDARParser, tile_id: str, overwrite: bool) -> None:

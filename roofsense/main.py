@@ -1,6 +1,6 @@
 import config
 
-from roofsense.sampler import BAG3DSampler
+from roofsense.preprocessing.chip_samplers import BAG3DSampler
 
 
 def generate_pretraining_data(size: int = 300, background_cutoff: float = 0.8) -> None:

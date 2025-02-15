@@ -13,7 +13,7 @@ import rasterio.mask
 import rasterio.merge
 import rasterio.windows
 
-from roofsense.utils.type import BoundingBoxLike
+from roofsense.utilities.types import BoundingBoxLike
 
 
 class DefaultProfile(rasterio.profiles.Profile):

@@ -12,10 +12,10 @@ import torchgeo.transforms
 from terratorch.tasks.tiled_inference import TiledInferenceParameters, tiled_inference
 
 import roofsense.training.task
-from roofsense.augmentations.feature import MinMaxScaling
+from roofsense.augmentations.scale import MinMaxScaling
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
-from roofsense.utils.file import confirm_write_op
-from roofsense.utils.raster import DefaultProfile
+from roofsense.utilities.file import confirm_write_op
+from roofsense.utilities.raster import DefaultProfile
 
 
 # TODO: Add support for changing the current model.

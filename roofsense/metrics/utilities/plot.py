@@ -22,15 +22,14 @@ if _MATPLOTLIB_AVAILABLE:
 
     style_change = plt.style.context
 else:
-    _PLOT_OUT_TYPE = tuple[object, object]  # type: ignore[misc]
+    _PLOT_OUT_TYPE = tuple[object, object]
     _AX_TYPE = object
-    _CMAP_TYPE = object  # type: ignore[misc]
+    _CMAP_TYPE = object
 
     from contextlib import contextmanager
 
     @contextmanager
     def style_change(*args: Any, **kwargs: Any) -> Generator:
-        """No-ops decorator if matplotlib is not installed."""
         yield
 
 
@@ -43,7 +42,6 @@ _style = ["science"] if _SCIENCEPLOT_AVAILABLE and _LATEX_AVAILABLE else ["defau
 
 
 def _error_on_missing_matplotlib() -> None:
-    """Raise error if matplotlib is not installed."""
     if not _MATPLOTLIB_AVAILABLE:
         raise ModuleNotFoundError(
             "Plot function expects `matplotlib` to be installed. Please install with `pip install matplotlib`"
@@ -59,28 +57,6 @@ def plot_confusion_matrix(
     labels: list[int | str] | None = None,
     cmap: _CMAP_TYPE | None = None,
 ) -> _PLOT_OUT_TYPE:
-    """Plot an confusion matrix.
-
-    Inspired by: https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/metrics/_plot/confusion_matrix.py.
-    Works for both binary, multiclass and multilabel confusion matrices.
-
-    Args:
-        confmat: the confusion matrix. Either should be an [N,N] matrix in the binary and multiclass cases or an
-            [N, 2, 2] matrix for multilabel classification
-        ax: Axis from a figure. If not provided, a new figure and axis will be created
-        add_text: if text should be added to each cell with the given value
-        labels: labels to add the x- and y-axis
-        cmap: matplotlib colormap to use for the confusion matrix
-            https://matplotlib.org/stable/users/explain/colors/colormaps.html
-
-    Returns:
-        A tuple consisting of the figure and respective ax objects (or array of ax objects) of the generated figure
-
-    Raises:
-        ModuleNotFoundError:
-            If `matplotlib` is not installed
-
-    """
     _error_on_missing_matplotlib()
 
     if confmat.ndim == 3:  # multilabel

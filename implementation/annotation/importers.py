@@ -1,6 +1,6 @@
 from roofsense.annotation.importers import RoboflowAnnotationImporter
 from roofsense.bag3d import BAG3DTileStore
-from roofsense.split import DatasetSplittingMethod
+from roofsense.utilities.splits import DatasetSplittingMethod
 
 
 def main():

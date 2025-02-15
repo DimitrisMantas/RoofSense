@@ -9,7 +9,7 @@ import rasterio.windows
 
 from roofsense.annotation.exporters import to_png
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
-from roofsense.utils.file import confirm_write_op
+from roofsense.utilities.file import confirm_write_op
 
 
 def split(
@@ -56,7 +56,7 @@ def split(
             num_local_processed_chips += 1
 
             chip_path = os.path.join(
-                "../dataset",
+                "../../dataset",
                 "imgs",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
@@ -92,7 +92,7 @@ def split(
                 chip.write(chip_data)
 
             png_path = os.path.join(
-                "../dataset",
+                "../../dataset",
                 "chps",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )

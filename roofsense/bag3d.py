@@ -18,7 +18,7 @@ import numpy as np
 import requests
 import shapely
 
-from roofsense.utils.file import (
+from roofsense.utilities.file import (
     ThreadedFileDownloader,
     confirm_write_op,
     get_default_dirpath,
@@ -253,16 +253,10 @@ if __name__ == "__main__":
     )
     manf = store.asset_manifest(
         "9-284-556",
-        image_index=gpd.read_file(
-            r"C:\Documents\RoofSense\roofsense\data\index\image\image.gpkg"
-        ),
-        lidar_index=gpd.read_file(
-            r"C:\Documents\RoofSense\roofsense\data\index\lidar\lidar.gpkg"
-        ),
+        image_index=gpd.read_file(r"/roofsense/data/index/image/image.gpkg"),
+        lidar_index=gpd.read_file(r"/roofsense/data/index/lidar/lidar.gpkg"),
     )
     manf.save(dirpath=store.dirpath)
     manf.download(store.dirpath, overwrite=True)
-    sample = store.sample_tile(
-        gpd.read_file(r"C:\Documents\RoofSense\roofsense\data\cities.gpkg")
-    )
+    sample = store.sample_tile(gpd.read_file(r"/roofsense/data/cities.gpkg"))
     print(sample)

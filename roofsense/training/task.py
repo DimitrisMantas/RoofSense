@@ -37,7 +37,7 @@ from typing_extensions import override
 from roofsense.metrics.classification.confusion_matrix import MulticlassConfusionMatrix
 from roofsense.metrics.wrappers.macro_averaging import MacroAverageWrapper
 from roofsense.training.loss import CompoundLoss1
-from roofsense.utils.type import MetricKwargs
+from roofsense.utilities.types import MetricKwargs
 
 
 class TrainingTask(LightningModule):

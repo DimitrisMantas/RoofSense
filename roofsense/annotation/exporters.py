@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import rasterio
 
-from roofsense.utils.file import confirm_write_op
+from roofsense.utilities.file import confirm_write_op
 
 
 def to_clr(

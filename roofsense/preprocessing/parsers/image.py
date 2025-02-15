@@ -4,9 +4,12 @@ import numpy as np
 import rasterio.merge
 
 from roofsense.bag3d import BAG3DTileStore
-from roofsense.parsers.base import BAG3DTileAssetParser, BAG3DTileAssetParsingStage
-from roofsense.utils import raster
-from roofsense.utils.file import confirm_write_op
+from roofsense.preprocessing.parsers.generic import (
+    BAG3DTileAssetParser,
+    BAG3DTileAssetParsingStage,
+)
+from roofsense.utilities import raster
+from roofsense.utilities.file import confirm_write_op
 
 
 def merge_images(parser: BAG3DTileAssetParser, tile_id: str, overwrite: bool) -> None:
