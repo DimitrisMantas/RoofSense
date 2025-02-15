@@ -8,7 +8,6 @@ from typing import Any, Sequence
 import numpy as np
 import scipy as sp
 
-
 # @dataclass(frozen=True, slots=True)
 # class Split:
 #     tra: list[int]

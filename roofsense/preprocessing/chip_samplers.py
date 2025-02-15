@@ -1,25 +1,28 @@
 import geopandas as gpd
+from tile_splitters import split
 
-from roofsense import config
 from roofsense.bag3d import BAG3DTileStore
 from roofsense.preprocessing.parsers.image import ImageParser
 from roofsense.preprocessing.parsers.lidar import LiDARParser
 from roofsense.preprocessing.stack import RasterStackBuilder
-from tile_splitters import split
 
 
 class BAG3DSampler:
     def __init__(
         self,
+        seeds_filepath: str,
+        image_index_filepath: str,
+        lidar_index_filepath: str,
         bag3d_store: BAG3DTileStore = BAG3DTileStore(),
         image_parser_cls: type[ImageParser] = ImageParser,
         lidar_parser_cls: type[LiDARParser] = LiDARParser,
-        seeds: gpd.GeoDataFrame | None = gpd.read_file(config.env("CITIES")),
     ) -> None:
         self.bag3d_store = bag3d_store
         self.image_parser = image_parser_cls(tile_store=self.bag3d_store)
         self.lidar_parser = lidar_parser_cls(tile_store=self.bag3d_store)
-        self._seeds = seeds
+        self._seeds = gpd.read_file(seeds_filepath)
+        self.image_sheet_filepath = image_index_filepath
+        self.lidar_sheet_filepath = lidar_index_filepath
 
     def sample(self, size: int, background_cutoff: float) -> list[str]:
         num_im = 0
@@ -53,8 +56,8 @@ class BAG3DSampler:
                 # Download the corresponding assets.
                 self.bag3d_store.asset_manifest(
                     tile_id,
-                    image_index=gpd.read_file(config.env("IMAGE_SHEET_INDEX")),
-                    lidar_index=gpd.read_file(config.env("LIDAR_SHEET_INDEX")),
+                    image_index=gpd.read_file(self.image_sheet_filepath),
+                    lidar_index=gpd.read_file(self.lidar_sheet_filepath),
                 ).downl(self.bag3d_store.dirpath).save(self.bag3d_store.dirpath)
 
                 # Parse the data.

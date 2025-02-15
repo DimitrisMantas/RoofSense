@@ -20,7 +20,6 @@ from typing_extensions import override
 
 from roofsense.enums.band import Band
 
-
 # TODO: Plot single bands.
 
 
