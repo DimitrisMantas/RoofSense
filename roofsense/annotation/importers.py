@@ -6,7 +6,7 @@ import os.path
 import warnings
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from enum import UNIQUE, Enum, auto, verify
 from operator import itemgetter
 from typing import Any, Final
@@ -62,7 +62,7 @@ class AnnotationImporter(ABC):
     Can be joined to 'AnnotationImporter.CLASS_COLORS'.
     """
 
-    CLASS_COLORS: Final[dict[int, Collection[int]]] = {
+    CLASS_COLORS: Final[dict[int, Sequence[int]]] = {
         0: [0, 0, 0, 255],
         1: [0, 0, 0, 255],
         2: [170, 109, 58, 255],
