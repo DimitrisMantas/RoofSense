@@ -158,18 +158,11 @@ class LiDARParser(BAG3DTileAssetParser):
         # This is technically also a parsing stage, but, because it's significantly faster to keep the point cloud in memory instead of continuously re-reading it from disk, the corresponding callback must return.
         # Hence, this callback is handled differently than the rest for the sake of clarity.
         # It is also possible to register it as a normal callback, but the attribute assignment will be external to the class.
-        self._pntcl = self.parse_point_cloud(tile_id, overwrite, bbox)
+        self._pntcl = self._parse_point_cloud(tile_id, overwrite, bbox)
 
         super().parse(tile_id, overwrite)
 
-    # TODO: Refactor this method as a function in a tile utility module.
-    def _get_raster_metadata(self, tile_id: str, attr: str, *attrs: str) -> list[Any]:
-        src_path = self.resolve_filepath(tile_id + ".rgb.tif")
-        src: rasterio.io.DatasetReader
-        with rasterio.open(src_path) as src:
-            return [getattr(src, attr) for attr in [attr] + list(attrs)]
-
-    def parse_point_cloud(
+    def _parse_point_cloud(
         self, tile_id: str, overwrite: bool, bbox: Sequence[float]
     ) -> PointCloud:
         # TODO: Consider refactoring this block into a separate method.
