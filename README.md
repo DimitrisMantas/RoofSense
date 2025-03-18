@@ -2,11 +2,6 @@
 
 ![](docs/logo.png)
 
-<style>
-  table#badges td {
-    border: none;
-  }
-</style>
 <table id="badges">
   <tbody>
     <tr>
@@ -23,7 +18,6 @@
   * [Installation](#installation)
     * [End Users](#end-users)
     * [Developers](#developers)
-    * [Important (Training & Inference)](#important-training--inference)
   * [Documentation](#documentation)
     * [End Use](#end-use)
     * [Reproducibility](#reproducibility)
