@@ -314,7 +314,7 @@ class TrainingTask(LightningModule):
         if logger is not None:
             fig, _ = self.tst_confmat.plot(self.tst_confmat.compute(), cmap="Blues")
             logger.add_figure(
-                f"{TrainingStage.VAL}/ConfusionMatrix",
+                f"{TrainingStage.TST}/ConfusionMatrix",
                 fig,
                 global_step=self.global_step,
             )
