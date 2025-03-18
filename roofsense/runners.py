@@ -41,7 +41,7 @@ def train_supervised(
         if ckpt_dirname is None
         else os.path.join(logger.log_dir, ckpt_dirname),
         filename=ckpt_filename,
-        monitor=task.monitor,
+        monitor=task.monitor_train,
         save_last=True,
     )
     # Match log and checkpoint version numbers in the case of automatic versioning.

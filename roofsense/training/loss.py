@@ -22,7 +22,7 @@ Loss = (
 )
 
 
-class CompoundLoss1(torch.nn.modules.loss._Loss):
+class CompoundLoss(torch.nn.modules.loss._Loss):
     """Compound loss function."""
 
     losses = {
