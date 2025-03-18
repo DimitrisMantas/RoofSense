@@ -24,7 +24,7 @@ def test_supervised(
     torch.set_float32_matmul_precision("high")
     torch.backends.cudnn.allow_tf32 = True
 
-    lightning.pytorch.seed_everything(42, workers=True)
+    lightning.pytorch.seed_everything(0, workers=True)
 
     logger = TensorBoardLogger(
         save_dir=log_dirpath, name=study_name, version=experiment_name
