@@ -297,29 +297,28 @@ class TrainingTask(LightningModule):
         self.metrics[TrainingStage.VAL].update(pred, target)
         self.confmats[TrainingStage.VAL].update(pred, target)
 
-        # TODO: Clean up this block.
         # TODO: Plot only when specified by the trainer.
-        if (  # Plot the first 10 batches.
+        if (
+            # Plot the first 10 batches.
             batch_idx < 10 and self.can_plot
         ):
             batch["prediction"] = pred.argmax(dim=1)
             for key in batch.keys():
                 batch[key] = batch[key].cpu()
-            # Plot the first sample of the first 10 batches.
-            sample = unbind_samples(batch)[0]
 
-            fig: Figure | None = None
+            # Plot the first sample of each batch.
+            sample = unbind_samples(batch)[0]
             try:
                 fig = self.trainer.datamodule.plot(sample)
             except RGBBandsMissingError:
-                pass
-            if fig is not None:
-                logger = self.experiment
-                if logger is not None:
-                    logger.add_figure(
-                        f"Image/{batch_idx}", fig, global_step=self.global_step
-                    )
-                plt.close()
+                return
+
+            logger = self.experiment
+            if logger is not None:
+                logger.add_figure(
+                    f"Image/{batch_idx}", fig, global_step=self.global_step
+                )
+            plt.close()
 
     @override
     def on_validation_epoch_end(self) -> None:
