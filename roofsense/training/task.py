@@ -88,7 +88,7 @@ class TrainingTask(LightningModule):
         self.save_hyperparameters()
 
         self.model = self.configure_model()
-        self.losses = self.configure_losses()
+        self.loss = self.configure_loss()
         self.metrics, self.confmats = self.configure_metrics()
 
     def configure_model(self) -> torch.nn.Module:
@@ -121,7 +121,7 @@ class TrainingTask(LightningModule):
 
         return model
 
-    def configure_losses(self) -> torch.nn.modules.loss._Loss:
+    def configure_loss(self) -> torch.nn.modules.loss._Loss:
         return CompoundLoss(**self.hparams.loss_cfg)
 
     def configure_metrics(
@@ -362,7 +362,7 @@ class TrainingTask(LightningModule):
 
         pred: Tensor = self(input)
 
-        loss: Tensor = self.losses(pred, target)
+        loss: Tensor = self.loss(pred, target)
         self.log(f"{stage}/Loss", loss)
 
         return pred, target, loss
