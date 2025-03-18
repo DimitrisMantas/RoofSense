@@ -39,7 +39,6 @@ class DatasetSplittingMethod(Enum):
     """
 
 
-# TODO: Add documentation.
 @verify(UNIQUE)
 class SubsetHistogramNormalizationMethod(Enum):
     """Methods to normalize the histogram of a given subset."""
@@ -50,7 +49,6 @@ class SubsetHistogramNormalizationMethod(Enum):
     """Normalize a given subset histogram by its area."""
 
 
-# TODO: Add documentation.
 @verify(UNIQUE)
 class SubsetPairwiseDistanceReductionMethod(Enum):
     """Methods to reduce the pairwise distances amongst multiple given subsets."""
@@ -265,8 +263,7 @@ def _pairwise_distance(
     dists: list[float] = []
     for this, that in combinations(range(len(splits)), 2):
         dists.append(
-            # FIXME: Swap this metric with the Jensen–Shannon distance.
-            sp.stats.wasserstein_distance(hists[this], hists[that])
+            sp.spatial.distance.jensenshannon(hists[this], hists[that],base=class_counts.shape[1])
         )
 
     if reduction == SubsetPairwiseDistanceReductionMethod.AVG:
