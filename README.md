@@ -56,19 +56,6 @@ pip install -e .[dev]
 This will install an editable version of RoofSense along with any additional development requirements.
 It is always recommended that you install the program on a separate virtual environment.
 
-### Important (Training & Inference)
-
-RoofSense relies on [TorchSeg](https://github.com/isaaccorley/torchseg) to build its models because [TorchGeo](https://github.com/microsoft/torchgeo/blob/main/pyproject.toml), its other relevant dependency, uses [Segmentation Models Pytorch (SMP)](https://github.com/qubvel-org/segmentation_models.pytorch), which does not fully support [PyTorch Image Models (timm)](https://github.com/huggingface/pytorch-image-models) encoders.
-However, this functionality is required for specifying additional configuration parameters, such as stochastic depth and attention.
-
-Note that TorchSeg is *not* installed automatically due to dependency clashes between itself and TorchGeo, and must hence be must be installed manually by executing the following command:
-
-```txt
-pip install torchseg
-```
-
-on your terminal of choice *after* RoofSense has been installed.
-
 ## Documentation
 
 The various functions of RoofSense are presented in relevant [implementation examples](implementation).
