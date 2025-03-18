@@ -29,6 +29,7 @@ class TrainingDataModule(NonGeoDataModule):
         persistent_workers: bool = True,
         pin_memory: bool = True,
         slice=None,
+        auto_drop_last: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -167,6 +168,9 @@ class TrainingDataModule(NonGeoDataModule):
             num_workers=self.num_workers,
             collate_fn=self.collate_fn,
             pin_memory=self.pin_memory,
+            drop_last=len(self.train_dataset) % self.batch_size != 0
+            if (split == "train" and self.auto_drop_last)
+            else False,
             generator=torch.Generator().manual_seed(0),
             persistent_workers=self.persistent_workers,
         )
