@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os.path
 from enum import StrEnum
+from functools import cached_property
 from typing import Any, Final, Literal, Required, TypedDict
 
 import optuna
@@ -90,6 +91,23 @@ class TrainingTask(LightningModule):
         self.model = self.configure_model()
         self.loss = self.configure_loss()
         self.metrics, self.confmats = self.configure_metrics()
+
+    @cached_property
+    def can_plot(self) -> bool:
+        return hasattr(self.trainer, "datamodule") and hasattr(
+            self.trainer.datamodule, "plot"
+        )
+
+    # TODO: Add type hints.
+    @cached_property
+    def experiment(self) -> Any | None:
+        experiment = self.logger.experiment
+        if hasattr(experiment, "add_figure"):
+            # TensorBoard
+            return experiment
+        raise NotImplementedError(
+            "Figure logging in only currently supported in TensorBoard."
+        )
 
     def configure_model(self) -> torch.nn.Module:
         model_weights: str | None = self.hparams.model_weights
@@ -251,7 +269,7 @@ class TrainingTask(LightningModule):
 
         self.confmats[TrainingStage.TRA].update(pred, target)
         if self.trainer._logger_connector.should_update_logs:
-            logger = self._get_logger()
+            logger = self.experiment
             if logger is not None:
                 fig, _ = self.confmats[TrainingStage.TRA].plot(
                     self.confmats[TrainingStage.TRA].compute(), cmap="Blues"
@@ -281,11 +299,8 @@ class TrainingTask(LightningModule):
 
         # TODO: Clean up this block.
         # TODO: Plot only when specified by the trainer.
-        if (
-            # self.trainer._logger_connector.should_update_logs
-            # and
-            # Plot the first 10 batches.
-            batch_idx < 10 and self._has_plotter()
+        if (  # Plot the first 10 batches.
+            batch_idx < 10 and self.can_plot
         ):
             batch["prediction"] = pred.argmax(dim=1)
             for key in batch.keys():
@@ -299,7 +314,7 @@ class TrainingTask(LightningModule):
             except RGBBandsMissingError:
                 pass
             if fig is not None:
-                logger = self._get_logger()
+                logger = self.experiment
                 if logger is not None:
                     logger.add_figure(
                         f"Image/{batch_idx}", fig, global_step=self.global_step
@@ -311,7 +326,7 @@ class TrainingTask(LightningModule):
         self.log_dict(self.metrics[TrainingStage.VAL].compute())
         self.metrics[TrainingStage.VAL].reset()
 
-        logger = self._get_logger()
+        logger = self.experiment
         if logger is not None:
             fig, _ = self.confmats[TrainingStage.VAL].plot(
                 self.confmats[TrainingStage.VAL].compute(), cmap="Blues"
@@ -336,7 +351,7 @@ class TrainingTask(LightningModule):
         self.log_dict(self.metrics[TrainingStage.TST].compute())
         self.metrics[TrainingStage.TST].reset()
 
-        logger = self._get_logger()
+        logger = self.experiment
         if logger is not None:
             fig, _ = self.confmats[TrainingStage.TST].plot(
                 self.confmats[TrainingStage.TST].compute(), cmap="Blues"
@@ -366,21 +381,6 @@ class TrainingTask(LightningModule):
         self.log(f"{stage}/Loss", loss)
 
         return pred, target, loss
-
-    # TODO: Add type hints.
-    def _get_logger(self) -> Any | None:
-        experiment = self.logger.experiment
-        if hasattr(experiment, "add_figure"):
-            # TensorBoard
-            return experiment
-        raise NotImplementedError(
-            "Figure logging in only currently supported in TensorBoard."
-        )
-
-    def _has_plotter(self) -> bool:
-        return hasattr(self.trainer, "datamodule") and hasattr(
-            self.trainer.datamodule, "plot"
-        )
 
 
 class Sample(TypedDict, total=False):
