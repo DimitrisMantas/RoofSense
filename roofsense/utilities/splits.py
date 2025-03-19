@@ -177,7 +177,7 @@ def stratified_split(
         )
         if temp_dist < best_dist:
             print(
-                f"Mean Wasserstein distance improved in trial {num_trials} from {best_dist} to {temp_dist}."
+                f"Mean JS distance improved in trial {num_trials} from {best_dist} to {temp_dist}."
             )
             best_splits = temp_splits
             best_dist = temp_dist
@@ -263,7 +263,9 @@ def _pairwise_distance(
     dists: list[float] = []
     for this, that in combinations(range(len(splits)), 2):
         dists.append(
-            sp.spatial.distance.jensenshannon(hists[this], hists[that],base=class_counts.shape[1])
+            sp.spatial.distance.jensenshannon(
+                hists[this], hists[that], base=class_counts.shape[1]
+            )
         )
 
     if reduction == SubsetPairwiseDistanceReductionMethod.AVG:
@@ -303,17 +305,20 @@ def _optimize_splits(
     prev_dist: float | None = None
     curr_dist = _pairwise_distance(class_counts, splits)
     if isclose(curr_dist, 0):
-        return curr_dist
+        print("Splits are already optimized.")
+        return best_splits, curr_dist
 
     num_trials = 0
     max_trials = -1 if max_trials is None else max_trials
     while num_trials < max_trials:
         for this, that in combinations(range(len(splits)), 2):
             if isclose(curr_dist, 0):
-                return curr_dist
+                print("Splits are already optimized.")
+                return best_splits, curr_dist
 
             if prev_dist is not None and isclose(curr_dist, prev_dist, rel_tol=1e-6):
-                return curr_dist
+                print("Splits have stopped improving.")
+                return best_splits, curr_dist
 
             this_index = generator.choice(len(splits[this]))
             that_index = generator.choice(len(splits[that]))
