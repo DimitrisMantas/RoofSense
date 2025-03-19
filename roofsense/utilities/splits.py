@@ -317,7 +317,7 @@ def _optimize_splits(
                 return best_splits, curr_dist
 
             if prev_dist is not None and isclose(curr_dist, prev_dist, rel_tol=1e-6):
-                print("Splits have stopped improving.")
+                print(f"Splits have stopped improving. Best distance: {curr_dist}")
                 return best_splits, curr_dist
 
             this_index = generator.choice(len(splits[this]))
