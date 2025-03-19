@@ -5,7 +5,7 @@ import os
 import os.path
 import warnings
 from abc import ABC, abstractmethod
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from collections.abc import Sequence
 from enum import UNIQUE, Enum, auto, verify
 from operator import itemgetter
@@ -44,19 +44,15 @@ class AnnotationImporter(ABC):
     # TODO: Read the class names and colors from the dataset metadata.
     CLASS_NAMES: Final[dict[int, str]] = {
         0: "Background",
-        1: "Asphalt Shingle",
-        2: "Ceramic Tile",
-        3: "Concrete",
-        4: "Dark-coloured Membrane",
-        5: "Gravel",
-        6: "Invalid",
-        7: "Light-coloured Membrane",
-        8: "Light-permitting Surface",
-        9: "Metal",
-        10: "Other",
-        11: "Solar Panel",
-        12: "Stone Shingle",
-        13: "Vegetation",
+        1: "Ceramic Tile",
+        2: "Dark-coloured Membrane",
+        3: "Gravel",
+        4: "Invalid",
+        5: "Light-coloured Membrane",
+        6: "Light-permitting Surface",
+        7: "Metal",
+        8: "Solar Panel",
+        9: "Vegetation",
     }
     """The names of the classes supported by the annotation provider.
     Can be joined to 'AnnotationImporter.CLASS_COLORS'.
@@ -64,19 +60,15 @@ class AnnotationImporter(ABC):
 
     CLASS_COLORS: Final[dict[int, Sequence[int]]] = {
         0: [0, 0, 0, 255],
-        1: [0, 0, 0, 255],
-        2: [170, 109, 58, 255],
-        3: [0, 0, 0, 255],
-        4: [102, 102, 102, 255],
-        5: [160, 156, 148, 255],
-        6: [0, 0, 0, 255],
-        7: [225, 225, 225, 255],
-        8: [163, 193, 232, 255],
-        9: [179, 179, 179, 255],
-        10: [0, 0, 0, 255],
-        11: [41, 54, 83, 255],
-        12: [0, 0, 0, 255],
-        13: [122, 144, 94, 255],
+        1: [170, 109, 58, 255],
+        2: [102, 102, 102, 255],
+        3: [160, 156, 148, 255],
+        4: [0, 0, 0, 255],
+        5: [225, 225, 225, 255],
+        6: [163, 193, 232, 255],
+        7: [179, 179, 179, 255],
+        8: [41, 54, 83, 255],
+        9: [122, 144, 94, 255],
     }
     """The colors of the classes supported by the annotation provider.
     Each color is defined using the RGBA model.
@@ -169,26 +161,16 @@ class AnnotationImporter(ABC):
         weighting_method: DatasetWeightingMethod = DatasetWeightingMethod.CUSTOM,
         lengths: Sequence[float] = (0.70, 0.15, 0.15),
         seed: int = 0,
-        replicate_paper: bool = True,
         **kwargs,
     ) -> None:
         os.makedirs(os.path.join(dst_dirpath, self.dst_mask_dirname), exist_ok=True)
 
-        if replicate_paper:
-            # TODO: Duplicated code fragment.
-            self.CLASS_NAMES = {
-                new: self.CLASS_NAMES[old] for old, new in _PAPER_CLASS_MAPPING.items()
-            }
-            self.CLASS_COLORS = {
-                new: self.CLASS_COLORS[old] for old, new in _PAPER_CLASS_MAPPING.items()
-            }
-
-        self._import_masks(dst_dirpath, replicate_paper=replicate_paper)
+        self._import_masks(dst_dirpath)
         self._split_dataset(dst_dirpath, splitting_method, lengths, seed, **kwargs)
         self._compute_training_subset_scales(dst_dirpath)
         self._weigh_training_subset(dst_dirpath, weighting_method)
 
-    def _import_masks(self, dst_dirpath: str, replicate_paper: bool) -> None:
+    def _import_masks(self, dst_dirpath: str) -> None:
         # TODO: Import the masks only when required.
         # Build the output mask paths.
         dst_paths = [
@@ -267,16 +249,6 @@ class AnnotationImporter(ABC):
         # Map present class indices to a continuous range.
         class_counts = class_counts.sort_index(axis=1)
 
-        if replicate_paper:
-            class_mapping = {
-                class_index: _PAPER_CLASS_MAPPING[class_index]
-                for class_index in class_counts.columns
-                if class_index in _PAPER_CLASS_MAPPING
-            }
-            class_counts = class_counts.rename(columns=class_mapping).reindex(
-                columns=sorted(class_mapping.values())
-            )
-
         class_indices = {
             old: new for new, old in enumerate(class_counts.columns.values, start=1)
         }
@@ -290,9 +262,6 @@ class AnnotationImporter(ABC):
                     data = src.read()
                     for old, new in class_indices.items():
                         data[data == old] = new
-                    if replicate_paper:
-                        for old, new in _PAPER_CLASS_MAPPING.items():
-                            data[data == old] = new
                     src.write(data)
 
         # Update the relevant class attributes.
@@ -417,26 +386,3 @@ class RoboflowAnnotationImporter(AnnotationImporter):
     @override
     def sanitize_filepath(filepath: str) -> str:
         return os.path.basename(filepath[: filepath.index("_png")]) + ".tif"
-
-
-_PAPER_CLASS_MAPPING = OrderedDict(
-    {
-        0: 0,
-        1: 1,
-        2: 3,
-        3: 4,
-        4: 2,
-        5: 5,
-        6: 6,
-        7: 9,
-        8: 7,
-        9: 8,
-        10: 10,
-        11: 11,
-        12: 12,
-        13: 13,
-    }
-)
-"""The class mapping used in 'https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549'.
-Can be joined to 'AnnotationImporter.CLASS_NAMES' and 'AnnotationImporter.CLASS_COLORS'.
-"""
