@@ -11,4 +11,5 @@
 # Runtime-Generated Files
 /logs/
 /temp/
+/roofsense/dataset/
 /roofsense/temp/
