@@ -295,7 +295,6 @@ class TrainingTask(LightningModule):
 
     @override
     def training_step(self, batch: Batch) -> Tensor:
-        self.log("first bn gamma", float(self.model.encoder.model.bn1.weight[0]))
         pred, target, loss = self._compute_and_log_loss(batch, stage=TrainingStage.TRA)
 
         # Use manual logging.
