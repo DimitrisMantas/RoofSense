@@ -1,0 +1,44 @@
+import numpy as np
+import torch
+
+from implementation.training.utils import TrainingTaskConfig, create_model
+from roofsense.runners import train_supervised
+from roofsense.training.datamodule import TrainingDataModule
+from roofsense.training.task import TrainingTask
+
+
+def main():
+    config = TrainingTaskConfig()
+
+    for _ in range(3):
+        model = create_model(config)
+
+        task = TrainingTask(
+            model=model,
+            loss_cfg={
+                "names": ["crossentropyloss", "diceloss"],
+                "weight": torch.from_numpy(
+                    np.fromfile(r"C:\Documents\RoofSense\roofsense\dataset\weights.bin")
+                ).to(torch.float32),
+                "include_background": False,
+            },
+            optimizer_cfg={"eps": config.eps},
+            scheduler_cfg={"total_iters": 300, "power": config.power},
+        )
+
+        datamodule = TrainingDataModule(
+            root=r"C:\Documents\RoofSense\roofsense\dataset"
+        )
+
+        train_supervised(
+            task,
+            datamodule,
+            log_dirpath=r"C:\Documents\RoofSense\logs\3dgeoinfo",
+            study_name="baseline",
+            max_epochs=300,
+            test=False,
+        )
+
+
+if __name__ == "__main__":
+    main()

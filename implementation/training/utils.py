@@ -6,8 +6,7 @@ import segmentation_models_pytorch as smp
 import torch
 
 
-# TODO: Make this class frozen and add slots.
-@dataclass
+@dataclass(frozen=True, slots=True)
 class TrainingTaskConfig:
     """Grouped configuration options for the training task to simplify the hyperparameter optimization process."""
 
@@ -15,8 +14,6 @@ class TrainingTaskConfig:
     encoder: Literal["tu-resnet18", "tu-resnet18d"] = "tu-resnet18"
     drop_path_rate: float = 0
     attn_layer: Literal["eca", "se"] | None = None
-    # Decoder
-    decoder_atrous_rates: Iterable[int] = (6, 12, 18)
     # Loss
     label_smoothing: float = 0
     # Optimizer
@@ -27,8 +24,15 @@ class TrainingTaskConfig:
     scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
     warmup_epochs: int = 0
 
-    def __post_init__(self) -> None:
-        self.eps = 1e-7 if self.optimizer == "Adam" else 1e-8
+    # This should be a cached property, but using slots means that there is no underlying dictionary to store the returned value.
+    # The configuration is only meant to be used once anyway, so this is probably fine.
+    @property
+    def eps(self) -> float:
+        return 1e-7 if self.optimizer == "Adam" else 1e-8
+
+    @property
+    def power(self) -> float | None:
+        return 0.9 if self.scheduler == "PolynomialLR" else None
 
 
 def configure_weight_decay_parameter_groups(
@@ -55,6 +59,6 @@ def create_model(config: TrainingTaskConfig) -> torch.nn.Module:
         classes=9,
         drop_path_rate=config.drop_path_rate,
         block_args=dict(attn_layer=config.attn_layer),
-        decoder_atrous_rates=config.decoder_atrous_rates,
+        decoder_atrous_rates=(6, 12, 18),
         decoder_aspp_dropout=0,
     )
