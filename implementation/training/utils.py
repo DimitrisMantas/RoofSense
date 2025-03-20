@@ -1,11 +1,13 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
-import timm.layers
+import segmentation_models_pytorch as smp
+import torch
 
 
-@dataclass(frozen=True, slots=True)
+# TODO: Make this class frozen and add slots.
+@dataclass
 class TrainingTaskConfig:
     """Grouped configuration options for the training task to simplify the hyperparameter optimization process."""
 
@@ -26,4 +28,33 @@ class TrainingTaskConfig:
     warmup_epochs: int = 0
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "eps", 1e-7 if self.optimizer == "Adam" else 1e-8)
+        self.eps = 1e-7 if self.optimizer == "Adam" else 1e-8
+
+
+def configure_weight_decay_parameter_groups(
+    model: torch.nn.Module,
+) -> list[dict[str, Any]]:
+    # Weight Decay
+    # https://arxiv.org/pdf/1812.01187
+    weights = []
+    other = []
+    for name, param in model.named_parameters():
+        if "weight" in name and not isinstance(param, torch.nn.BatchNorm2d):
+            weights.append(param)
+        else:
+            other.append(param)
+    params = [{"params": weights}, {"params": other, "weight_decay": 0}]
+    return params
+
+
+def create_model(config: TrainingTaskConfig) -> torch.nn.Module:
+    return smp.create_model(
+        arch="deeplabv3plus",
+        encoder_name=config.encoder,
+        in_channels=7,
+        classes=9,
+        drop_path_rate=config.drop_path_rate,
+        block_args=dict(attn_layer=config.attn_layer),
+        decoder_atrous_rates=config.decoder_atrous_rates,
+        decoder_aspp_dropout=0,
+    )
