@@ -42,9 +42,7 @@ class TrainingStage(StrEnum):
     TST = "tst"
 
 
-# TODO: Support custom models.
 # TODO: Support multi-task learning.
-# TODO: Support optimizer parameter groups.
 class TrainingTask(LightningModule):
     """Task used for training and performance evaluation purposes."""
 
@@ -60,35 +58,63 @@ class TrainingTask(LightningModule):
     """The optimization direction of the hyperparameter optimization process with respect to the corresponding performance metric to monitor."""
 
     def __init__(
-        self,  # Model
-        encoder: str,  # The encoder of the model.
-        decoder: str,  # Loss
-        loss_cfg: dict[str, Any],  # Model
-        # The decoder of the model.
-        model_cfg: dict[str, Any]
-        | None = None,  # The arguments of the encoder and decoder factories.
-        model_weights: str | None = "imagenet",  # The pretrained model weights to use.
-        # A valid (https://smp.readthedocs.io/en/latest/encoders.html#choosing-the-right-encoder) weight name when using SMP encoders or any non-null string to load ImageNet-1K weights when using TIMM encoders.
-        # The decoder is randomly initialized in either case.
-        # Alternatively, pass a path to valid task checkpoint or None to randomly initialize the whole model.
-        freeze_encoder: bool = False,  # True to freeze the encoder; False otherwise.
-        freeze_decoder: bool = False,  # True to freeze the decoder; False otherwise.
+        self,
+        # Loss
+        loss_cfg: dict[str, Any],
+        # The loss parameters.
+        # Model
+        encoder: str | None = None,
+        # The model encoder.
+        # This parameter is used to build an encoder-decoder model using SMP.
+        # This parameter is ignored when a custom model is provided.
+        decoder: str | None = None,
+        # This parameter is used to build an encoder-decoder model using SMP.
+        # This parameter is ignored when a custom model is provided.
+        model: torch.nn.Module | None = None,
+        # A custom model.
+        # This functionality is still experimental!
+        model_cfg: dict[str, Any] | None = None,
+        # The model parameters.
+        # This parameter is ignored when a custom model is provided.
+        model_weights: str | None = "imagenet",
+        # The pretrained model weights to use.
+        # When using SAP to build the model:
+        #   - A valid (https://smp.readthedocs.io/en/latest/encoders.html#choosing-the-right-encoder) weight name.
+        #     The decoder is randomly initialized.
+        #   - Any non-null string to load ImageNet-1K weights when the encoder is provided by TIMM.
+        #     The decoder is randomly initialized.
+        # Alternatively, pass a path to valid task checkpoint.
+        # This parameter is ignored when a custom model is provided.
+        freeze_encoder: bool = False,
+        # True to freeze the encoder; False otherwise.
+        # This parameter is ignored when a custom model is provided.
+        freeze_decoder: bool = False,
+        # True to freeze the encoder; False otherwise.
+        # This parameter is ignored when a custom model is provided.
         # Optimizer
-        optimizer: str | type[Optimizer] = "Adam",  # The optimizer to use.
-        optimizer_cfg: dict[str, Any] = None,  # The arguments of the optimizer factory.
+        optimizer: str | type[Optimizer] = "Adam",
+        # The optimizer name.
+        optimizer_cfg: dict[str, Any] = None,
+        # The optimizer parameters.
         # LR Scheduler
-        scheduler: str
-        | type[LRScheduler] = "PolynomialLR",  # The learning rate scheduler to use.
-        scheduler_cfg: dict[str, Any] = None,  # The arguments of the scheduler factory.
-        warmup_epochs: int = 0,  # The length of the optional linear learning rate warmup period in epochs.
-        # Metrics
-        in_channels: int = 7,  # TODO: See if we can remove background predictions from the model output.
+        scheduler: str | type[LRScheduler] = "PolynomialLR",
+        # The learning rate scheduler name.
+        scheduler_cfg: dict[str, Any] = None,
+        # The learning rate scheduler parameters.
+        warmup_epochs: int = 0,
+        # The length of the optional linear learning rate warmup period, measured in epochs.
+        # TODO: Organize and document these parameters.
+        # TODO: Check whether background predictions can be removed from the model output entirely.
+        in_channels: int = 7,
         num_classes: int = 8 + 1,
     ):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore="model" if model is not None else None)
 
-        self.model = self.configure_model()
+        if model is not None:
+            self.model = model
+        else:
+            self.model = self.configure_models()
         self.loss = self.configure_loss()
         self.metrics, self.confmats = self.configure_metrics()
 
@@ -109,7 +135,9 @@ class TrainingTask(LightningModule):
             "Figure logging in only currently supported in TensorBoard."
         )
 
-    def configure_model(self) -> torch.nn.Module:
+    # configure_model is registered as a Lightning hook.
+    # TODO: Check whether the model initialization subroutine works in different strategy- and precision-aware contexts.
+    def configure_models(self) -> torch.nn.Module:
         model_weights: str | None = self.hparams.model_weights
         if os.path.isfile(model_weights):
             # A model checkpoint was passed.
@@ -221,13 +249,22 @@ class TrainingTask(LightningModule):
         }
 
     def _configure_optimizer(self) -> Optimizer:
+        # TODO: Add type hints.
+        params: list[dict[str, Any]] | None = self.hparams.optimizer_cfg.get(
+            "params", None
+        )
+
         optimizer_cls: type[torch.optim.optimizer.Optimizer] = getattr(
             torch.optim, self.hparams.optimizer, self.hparams.optimizer
         )
         optimizer_cfg: dict[str, Any] = self.hparams.optimizer_cfg
         if optimizer_cfg is None:
             optimizer_cfg = {}
-        return optimizer_cls(self.parameters(), **optimizer_cfg)
+        # This is useful in cases when parameter groups are optionally specified by external functions which otherwise return None.
+        optimizer_cfg.pop("params", None)
+        return optimizer_cls(
+            self.parameters() if params is None else params, **optimizer_cfg
+        )
 
     def _configure_scheduler(self, optimizer: Optimizer) -> LRScheduler:
         warmup_epochs: int = self.hparams.warmup_epochs
@@ -258,6 +295,7 @@ class TrainingTask(LightningModule):
 
     @override
     def training_step(self, batch: Batch) -> Tensor:
+        self.log("first bn gamma", float(self.model.encoder.model.bn1.weight[0]))
         pred, target, loss = self._compute_and_log_loss(batch, stage=TrainingStage.TRA)
 
         # Use manual logging.
@@ -309,7 +347,7 @@ class TrainingTask(LightningModule):
             # Plot the first sample of each batch.
             sample = unbind_samples(batch)[0]
             try:
-                fig = self.trainer.datamodule.plot(sample)
+                fig: Figure = self.trainer.datamodule.plot(sample)
             except RGBBandsMissingError:
                 return
 
