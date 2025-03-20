@@ -1,8 +1,8 @@
 import numpy as np
 import optuna
 import torch
+from config import Config
 
-from data import Config
 from roofsense.enums.band import Band
 from roofsense.runners import train_supervised
 from roofsense.training.datamodule import TrainingDataModule
