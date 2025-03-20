@@ -30,7 +30,11 @@ def main():
                 "weight_decay": config.weight_decay,
             },
             scheduler=config.scheduler,
-            scheduler_cfg={"total_iters": 300-config.warmup_epochs, "power": config.power},
+            scheduler_cfg={
+                "total_iters": 300 - config.warmup_epochs,
+                "power": config.power,
+            },
+            warmup_epochs=config.warmup_epochs,
         )
 
         datamodule = TrainingDataModule(

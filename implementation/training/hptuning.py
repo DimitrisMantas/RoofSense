@@ -77,6 +77,7 @@ def objective(trial: optuna.Trial) -> float:
         },
         scheduler=config.scheduler,
         scheduler_cfg={"T_max": 300 - config.warmup_epochs},
+        warmup_epochs=config.warmup_epochs,
     )
 
     datamodule = TrainingDataModule(root=r"C:\Documents\RoofSense\roofsense\dataset")
