@@ -21,9 +21,16 @@ def main():
                     np.fromfile(r"C:\Documents\RoofSense\roofsense\dataset\weights.bin")
                 ).to(torch.float32),
                 "include_background": False,
+                "label_smoothing": config.label_smoothing,
             },
-            optimizer_cfg={"eps": config.eps},
-            scheduler_cfg={"total_iters": 300, "power": config.power},
+            optimizer=config.optimizer,
+            optimizer_cfg={
+                "lr": config.lr,
+                "eps": config.eps,
+                "weight_decay": config.weight_decay,
+            },
+            scheduler=config.scheduler,
+            scheduler_cfg={"total_iters": 300-config.warmup_epochs, "power": config.power},
         )
 
         datamodule = TrainingDataModule(
