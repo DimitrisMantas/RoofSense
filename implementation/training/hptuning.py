@@ -2,6 +2,7 @@ from typing import cast
 
 import numpy as np
 import optuna
+import optunahub
 import torch
 from lightning import Callback
 from optuna_integration import PyTorchLightningPruningCallback
@@ -111,7 +112,9 @@ if __name__ == "__main__":
     # todo: check sampler and pruner
     study = optuna.create_study(
         storage="sqlite:///C:/Documents/RoofSense/logs/3dgeoinfo/hptuning/storage.db",
-        sampler=optuna.samplers.TPESampler(seed=0),
+        sampler=optunahub.load_module(package="samplers/auto_sampler").AutoSampler(
+            seed=0
+        ),
         pruner=optuna.pruners.NopPruner(),  # todo: use pruner?
         study_name="hptuning",
         direction=TrainingTask.monitor_optim_direction,
