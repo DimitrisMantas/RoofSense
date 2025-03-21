@@ -111,17 +111,37 @@ def _lookup_objective_value(trial: optuna.Trial) -> float | None:
 
 
 if __name__ == "__main__":
-    # todo: check sampler and pruner
-    study = optuna.create_study(
-        storage="sqlite:///C:/Documents/RoofSense/logs/3dgeoinfo/hptuning/storage.db",
-        sampler=optuna.samplers.GPSampler(seed=0),
-        pruner=optuna.pruners.NopPruner(),  # todo: use pruner?
-        study_name="hptuning",
-        direction=TrainingTask.monitor_optim_direction,
-    )
+    storage = "sqlite:///C:/Documents/RoofSense/logs/3dgeoinfo/hptuning/storage.db"
+    sampler = optuna.samplers.GPSampler(seed=0)
+    pruner = optuna.pruners.NopPruner()  # todo: use pruner?
+    study_name = "hptuning"
+    direction = TrainingTask.monitor_optim_direction
+
+    try:
+        study = optuna.create_study(
+            storage=storage,
+            sampler=sampler,
+            pruner=pruner,
+            study_name=study_name,
+            direction=direction,
+        )
+    except optuna.exceptions.DuplicatedStudyError:
+        # Load the study with any stale trials removed.
+        # TODO: This feature is experimental!
+        study = optuna.load_study(study_name=study_name, storage=storage)
+        trials = study.get_trials(
+            deepcopy=False, states=[optuna.trial.TrialState.COMPLETE]
+        )
+        optuna.delete_study(study_name=study_name, storage=storage)
+        study = optuna.create_study(
+            storage=storage,
+            sampler=sampler,
+            pruner=pruner,
+            study_name=study_name,
+            direction=direction,
+        )
+        study.add_trials(trials)
+
     study.optimize(
-        objective,
-        # This is roughly equal to the number of trials expected within a 24-hour time window (~30.64) on the development machine considering the slowest of 3 baseline trials.
-        n_trials=30,
-        timeout=24 * 60 * 60,
+        objective, n_trials=max(0, 50 - len(study.trials)), timeout=24 * 60 * 60
     )
