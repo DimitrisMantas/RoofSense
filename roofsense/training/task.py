@@ -3,12 +3,24 @@ from __future__ import annotations
 import os.path
 from enum import StrEnum
 from functools import cached_property
-from typing import Any, Final, Literal, Required, TypedDict
+from typing import (
+    IO,
+    Any,
+    Final,
+    Literal,
+    Optional,
+    Required,
+    Self,
+    TypedDict,
+    Union,
+    cast,
+)
 
 import optuna
 import segmentation_models_pytorch as smp
 import torch
 from lightning import LightningModule
+from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -111,10 +123,7 @@ class TrainingTask(LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore="model" if model is not None else None)
 
-        if model is not None:
-            self.model = model
-        else:
-            self.model = self.configure_models()
+        self.model = model if model is not None else None
         self.loss = self.configure_loss()
         self.metrics, self.confmats = self.configure_metrics()
 
@@ -135,9 +144,36 @@ class TrainingTask(LightningModule):
             "Figure logging in only currently supported in TensorBoard."
         )
 
-    # configure_model is registered as a Lightning hook.
-    # TODO: Check whether the model initialization subroutine works in different strategy- and precision-aware contexts.
-    def configure_models(self) -> torch.nn.Module:
+    @classmethod
+    def load_from_checkpoint(
+        cls,
+        checkpoint_path: Union[_PATH, IO],
+        map_location: _MAP_LOCATION_TYPE = None,
+        hparams_file: Optional[_PATH] = None,
+        strict: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> Self:
+        task = cast(
+            TrainingTask,
+            super().load_from_checkpoint(
+                checkpoint_path, map_location, hparams_file, strict, **kwargs
+            ),
+        )
+        # Ensure the passed model is set to the task mode.
+        model = task.model
+        if model is not None:
+            if model.training is not task.training:
+                if task.training:
+                    model.train()
+                else:
+                    model.eval()
+        return task
+
+    @override
+    def configure_model(self) -> None:
+        if self.model is not None:
+            return
+
         model_weights: str | None = self.hparams.model_weights
         if os.path.isfile(model_weights):
             # A model checkpoint was passed.
@@ -161,11 +197,11 @@ class TrainingTask(LightningModule):
             )
 
         if self.hparams.freeze_encoder:
-            freeze_component(self.model, "encoder")
+            freeze_component(model, "encoder")
         if self.hparams.freeze_decoder:
-            freeze_component(self.model, "decoder")
+            freeze_component(model, "decoder")
 
-        return model
+        self.model = model
 
     def configure_loss(self) -> torch.nn.modules.loss._Loss:
         return CompoundLoss(**self.hparams.loss_cfg)
