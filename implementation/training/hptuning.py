@@ -1,3 +1,4 @@
+import os
 from typing import cast
 
 import numpy as np
@@ -6,6 +7,7 @@ import torch
 from lightning import Callback
 from optuna_integration import PyTorchLightningPruningCallback
 
+from implementation.training.baseline import main
 from implementation.training.utils import (
     TrainingTaskConfig,
     configure_weight_decay_parameter_groups,
@@ -40,7 +42,7 @@ def objective(trial: optuna.Trial) -> float:
         lr=trial.suggest_float(name="lr", low=1e-4, high=0.01),
         weight_decay=trial.suggest_float(name="weight_decay", low=0, high=0.05),
         # LR Scheduler
-        scheduler="CosineAnnealingLR",
+        lr_scheduler="CosineAnnealingLR",
         warmup_epochs=trial.suggest_int(
             name="warmup_epochs",
             low=0,
@@ -74,8 +76,8 @@ def objective(trial: optuna.Trial) -> float:
             "eps": config.eps,
             "weight_decay": config.weight_decay,
         },
-        scheduler=config.scheduler,
-        scheduler_cfg={"T_max": 300 - config.warmup_epochs},
+        lr_scheduler=config.lr_scheduler,
+        lr_scheduler_cfg={"T_max": 300 - config.warmup_epochs},
         warmup_epochs=config.warmup_epochs,
     )
 
@@ -109,10 +111,19 @@ def _lookup_objective_value(trial: optuna.Trial) -> float | None:
 
 
 if __name__ == "__main__":
-    storage = "sqlite:///C:/Documents/RoofSense/logs/3dgeoinfo/hptuning/storage.db"
-    sampler = optuna.samplers.GPSampler(seed=0)
-    pruner = optuna.pruners.NopPruner()  # todo: use pruner?
+    # Establish the baseline.
+    main()
+
+    # Perform hyperparameter tuning.
     study_name = "hptuning"
+    log_dirpath = os.path.join(r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name)
+
+    os.makedirs(log_dirpath, exist_ok=True)
+
+    storage = f"sqlite:///{log_dirpath}/storage.db"
+    sampler = optuna.samplers.GPSampler(seed=0)
+    # TODO: Consider using a pruner.
+    pruner = optuna.pruners.NopPruner()
     direction = TrainingTask.monitor_optim_direction
 
     try:

@@ -1,7 +1,6 @@
-import warnings
 from collections import OrderedDict
 from functools import reduce
-from typing import List, Literal, Never, Tuple
+from typing import Literal, Never, Tuple
 
 import torch
 import torch.nn as nn

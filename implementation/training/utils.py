@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -21,7 +20,7 @@ class TrainingTaskConfig:
     lr: float = 1e-3
     weight_decay: float = 0
     # LR Scheduler
-    scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
+    lr_scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
     warmup_epochs: int = 0
 
     # This should be a cached property, but using slots means that there is no underlying dictionary to store the returned value.
@@ -32,7 +31,7 @@ class TrainingTaskConfig:
 
     @property
     def power(self) -> float | None:
-        return 0.9 if self.scheduler == "PolynomialLR" else None
+        return 0.9 if self.lr_scheduler == "PolynomialLR" else None
 
 
 def configure_weight_decay_parameter_groups(

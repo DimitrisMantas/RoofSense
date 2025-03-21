@@ -3,24 +3,13 @@ from __future__ import annotations
 import os.path
 from enum import StrEnum
 from functools import cached_property
-from typing import (
-    IO,
-    Any,
-    Final,
-    Literal,
-    Optional,
-    Required,
-    Self,
-    TypedDict,
-    Union,
-    cast,
-)
+from types import ModuleType
+from typing import Any, Final, Literal, Required, TypedDict, cast
 
 import optuna
 import segmentation_models_pytorch as smp
 import torch
 from lightning import LightningModule
-from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -109,9 +98,9 @@ class TrainingTask(LightningModule):
         optimizer_cfg: dict[str, Any] = None,
         # The optimizer parameters.
         # LR Scheduler
-        scheduler: str | type[LRScheduler] = "PolynomialLR",
+        lr_scheduler: str | type[LRScheduler] = "PolynomialLR",
         # The learning rate scheduler name.
-        scheduler_cfg: dict[str, Any] = None,
+        lr_scheduler_cfg: dict[str, Any] = None,
         # The learning rate scheduler parameters.
         warmup_epochs: int = 0,
         # The length of the optional linear learning rate warmup period, measured in epochs.
@@ -125,13 +114,12 @@ class TrainingTask(LightningModule):
 
         self.model = model if model is not None else None
         self.loss = self.configure_loss()
-        self.metrics, self.confmats = self.configure_metrics()
+        self.metrics, self.confusn = self.configure_metrics()
 
     @cached_property
     def can_plot(self) -> bool:
-        return hasattr(self.trainer, "datamodule") and hasattr(
-            self.trainer.datamodule, "plot"
-        )
+        trainer = self.trainer
+        return hasattr(trainer, "datamodule") and hasattr(trainer.datamodule, "plot")
 
     # TODO: Add type hints.
     @cached_property
@@ -144,30 +132,17 @@ class TrainingTask(LightningModule):
             "Figure logging in only currently supported in TensorBoard."
         )
 
-    @classmethod
-    def load_from_checkpoint(
-        cls,
-        checkpoint_path: Union[_PATH, IO],
-        map_location: _MAP_LOCATION_TYPE = None,
-        hparams_file: Optional[_PATH] = None,
-        strict: Optional[bool] = None,
-        **kwargs: Any,
-    ) -> Self:
-        task = cast(
-            TrainingTask,
-            super().load_from_checkpoint(
-                checkpoint_path, map_location, hparams_file, strict, **kwargs
-            ),
-        )
+    @override
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        super().on_load_checkpoint(checkpoint)
         # Ensure the passed model is set to the task mode.
-        model = task.model
+        model = self.model
         if model is not None:
-            if model.training is not task.training:
-                if task.training:
+            if model.training is not self.training:
+                if self.training:
                     model.train()
                 else:
                     model.eval()
-        return task
 
     @override
     def configure_model(self) -> None:
@@ -192,6 +167,7 @@ class TrainingTask(LightningModule):
         model = smp.create_model(**common_params, **optional_params)
         if model_weights is not self.hparams.model_weights:
             # A model checkpoint was passed.
+            # FIXME: This doesn't work.
             model.load_state_dict(
                 load_model_from_lightning_checkpoint(self.hparams.model_weights)
             )
@@ -217,12 +193,14 @@ class TrainingTask(LightningModule):
             None if self.hparams.loss_cfg.get("include_background", True) else 0
         )
 
-        def prefix_metric(metric_class: type[Metric], prefix: str = "") -> str:
+        def sanitize_and_prefix_metric_name(
+            metric_class: type[Metric], prefix: str = ""
+        ) -> str:
             return metric_class.__name__.replace("Multiclass", prefix)
 
         common_params = dict(num_classes=num_classes, ignore_index=ignore_index)
-        batch_avg_params = common_params | {"average": "none"}
         micro_avg_params = common_params | {"average": "micro"}
+        none_avg_params = common_params | {"average": "none"}
 
         metric_classes = [
             MulticlassAccuracy,
@@ -235,15 +213,17 @@ class TrainingTask(LightningModule):
             {
                 TrainingStage.TRA: MetricCollection(
                     {
-                        prefix_metric(metric_class, "Macro"): MacroAverageWrapper(
-                            metric_class(**batch_avg_params), ignore_index
+                        sanitize_and_prefix_metric_name(
+                            metric_class, "Macro"
+                        ): MacroAverageWrapper(
+                            metric_class(**none_avg_params), ignore_index
                         )
                         for metric_class in metric_classes
                     }
                     | {
-                        prefix_metric(metric_class, "Micro"): metric_class(
-                            **micro_avg_params
-                        )
+                        sanitize_and_prefix_metric_name(
+                            metric_class, "Micro"
+                        ): metric_class(**micro_avg_params)
                         for metric_class in metric_classes
                     },
                     prefix=f"{TrainingStage.TRA}/",
@@ -255,8 +235,9 @@ class TrainingTask(LightningModule):
         )
         metrics[TrainingStage.VAL].add_metrics(
             {
-                prefix_metric(metric_class): ClasswiseWrapper(
-                    metric_class(**batch_avg_params), prefix=prefix_metric(metric_class)
+                sanitize_and_prefix_metric_name(metric_class): ClasswiseWrapper(
+                    metric_class(**none_avg_params),
+                    prefix=sanitize_and_prefix_metric_name(metric_class),
                 )
                 for metric_class in metric_classes
             }
@@ -284,95 +265,32 @@ class TrainingTask(LightningModule):
             "lr_scheduler": {"scheduler": scheduler, "monitor": self.monitor_train},
         }
 
-    def _configure_optimizer(self) -> Optimizer:
-        # TODO: Add type hints.
-        params: list[dict[str, Any]] | None = self.hparams.optimizer_cfg.get(
-            "params", None
-        )
-
-        optimizer_cls: type[torch.optim.optimizer.Optimizer] = getattr(
-            torch.optim, self.hparams.optimizer, self.hparams.optimizer
-        )
-        optimizer_cfg: dict[str, Any] = self.hparams.optimizer_cfg
-        if optimizer_cfg is None:
-            optimizer_cfg = {}
-        # This is useful in cases when parameter groups are optionally specified by external functions which otherwise return None.
-        optimizer_cfg.pop("params", None)
-        return optimizer_cls(
-            self.parameters() if params is None else params, **optimizer_cfg
-        )
-
-    def _configure_scheduler(self, optimizer: Optimizer) -> LRScheduler:
-        warmup_epochs: int = self.hparams.warmup_epochs
-
-        scheduler_cls: type[LRScheduler] = getattr(
-            torch.optim.lr_scheduler, self.hparams.scheduler, self.hparams.scheduler
-        )
-        scheduler_cfg: dict[str, Any] = self.hparams.scheduler_cfg
-        if scheduler_cfg is None:
-            scheduler_cfg = {}
-        annealing_scheduler = scheduler_cls(optimizer, **scheduler_cfg)
-
-        if warmup_epochs == 0:
-            return annealing_scheduler
-
-        warmup_scheduler = LinearLR(
-            optimizer, start_factor=1e-6, total_iters=warmup_epochs
-        )
-        return SequentialLR(
-            optimizer,
-            schedulers=[warmup_scheduler, annealing_scheduler],
-            milestones=[warmup_epochs],
-        )
-
     @override
     def forward(self, image: Tensor) -> Tensor:
         return self.model(image)
 
     @override
     def training_step(self, batch: Batch) -> Tensor:
-        pred, target, loss = self._compute_and_log_loss(batch, stage=TrainingStage.TRA)
+        pred, loss = self._step(batch, TrainingStage.TRA)
 
-        # Use manual logging.
-        # See https://github.com/Lightning-AI/torchmetrics/issues/2683 for more information.
-        self.metrics[TrainingStage.TRA].update(pred, target)
         self.log_dict(
             self.metrics[TrainingStage.TRA].compute(), on_step=True, on_epoch=False
         )
-
-        self.confmats[TrainingStage.TRA].update(pred, target)
         if self.trainer._logger_connector.should_update_logs:
-            logger = self.experiment
-            if logger is not None:
-                fig, _ = self.confmats[TrainingStage.TRA].plot(
-                    self.confmats[TrainingStage.TRA].compute(), cmap="Blues"
-                )
-                logger.add_figure(
-                    f"{TrainingStage.TRA}/ConfusionMatrix",
-                    fig,
-                    global_step=self.global_step,
-                )
-                plt.close()
+            self._compute_and_log_confmat(TrainingStage.TRA)
 
         return loss
 
     @override
     def on_train_epoch_end(self) -> None:
-        self.metrics[TrainingStage.TRA].reset()
-        self.confmats[TrainingStage.TRA].reset()
+        self._reset_metrics(stage=TrainingStage.TRA)
 
     @override
     def validation_step(self, batch: Batch, batch_idx: int) -> None:
-        pred, target, loss = self._compute_and_log_loss(batch, stage=TrainingStage.VAL)
-
-        # Use manual logging.
-        # See https://github.com/Lightning-AI/torchmetrics/issues/2683 for more information.
-        self.metrics[TrainingStage.VAL].update(pred, target)
-        self.confmats[TrainingStage.VAL].update(pred, target)
+        pred, _ = self._step(batch, stage=TrainingStage.VAL)
 
         # TODO: Plot only when specified by the trainer.
-        if (
-            # Plot the first 10 batches.
+        if (  # Plot the first 10 batches.
             batch_idx < 10 and self.can_plot
         ):
             batch["prediction"] = pred.argmax(dim=1)
@@ -386,60 +304,73 @@ class TrainingTask(LightningModule):
             except RGBBandsMissingError:
                 return
 
-            logger = self.experiment
-            if logger is not None:
-                logger.add_figure(
-                    f"Image/{batch_idx}", fig, global_step=self.global_step
-                )
-            plt.close()
+            self._log_fig(f"Image/{batch_idx}", fig)
 
     @override
     def on_validation_epoch_end(self) -> None:
-        self.log_dict(self.metrics[TrainingStage.VAL].compute())
-        self.metrics[TrainingStage.VAL].reset()
-
-        logger = self.experiment
-        if logger is not None:
-            fig, _ = self.confmats[TrainingStage.VAL].plot(
-                self.confmats[TrainingStage.VAL].compute(), cmap="Blues"
-            )
-            logger.add_figure(
-                f"{TrainingStage.VAL}/ConfusionMatrix",
-                fig,
-                global_step=self.global_step,
-            )
-            plt.close()
-        self.confmats[TrainingStage.VAL].reset()
+        self._on_eval_epoch_end(TrainingStage.VAL)
 
     @override
     def test_step(self, batch: Batch) -> None:
-        pred, target, loss = self._compute_and_log_loss(batch, stage=TrainingStage.TST)
-
-        self.metrics[TrainingStage.TST].update(pred, target)
-        self.confmats[TrainingStage.TST].update(pred, target)
+        self._step(batch, TrainingStage.TST)
 
     @override
     def on_test_epoch_end(self) -> None:
-        self.log_dict(self.metrics[TrainingStage.TST].compute())
-        self.metrics[TrainingStage.TST].reset()
-
-        logger = self.experiment
-        if logger is not None:
-            fig, _ = self.confmats[TrainingStage.TST].plot(
-                self.confmats[TrainingStage.TST].compute(), cmap="Blues"
-            )
-            logger.add_figure(
-                f"{TrainingStage.TST}/ConfusionMatrix",
-                fig,
-                global_step=self.global_step,
-            )
-            plt.close()
-        self.confmats[TrainingStage.TST].reset()
+        self._on_eval_epoch_end(TrainingStage.TST)
 
     @override
     def predict_step(self, batch: Batch) -> Tensor:
         input = batch["image"]
         return self(input).softmax(dim=1)
+
+    @staticmethod
+    def _resolve_module_cls_and_cfg(
+        module: str | type[Optimizer | LRScheduler],
+        package: ModuleType,
+        cfg: dict[str, Any] | None,
+    ) -> tuple[type[Optimizer | LRScheduler], dict[str, Any]]:
+        cls_ = getattr(package, module, module)
+        cls_ = cast(cls_.__base__, cls_)
+
+        cfg = cfg if cfg is not None else {}
+
+        return cls_, cfg
+
+    def _configure_optimizer(self) -> Optimizer:
+        params: list[dict[str, Any]] | None = self.hparams.optimizer_cfg.get(
+            "params", None
+        )
+
+        cls_, cfg = self._resolve_module_cls_and_cfg(
+            self.hparams.optimizer, torch.optim, self.hparams.optimizer_cfg
+        )
+        # This is useful in cases when parameter groups are optionally specified by external functions which otherwise return None.
+        cfg.pop("params", None)
+
+        return cls_(self.parameters() if params is None else params, **cfg)
+
+    def _configure_scheduler(self, optimizer: Optimizer) -> LRScheduler:
+        warmup_epochs: int = self.hparams.warmup_epochs
+
+        cls_, cfg = self._resolve_module_cls_and_cfg(
+            self.hparams.lr_scheduler,
+            torch.optim.lr_scheduler,
+            self.hparams.lr_scheduler_cfg,
+        )
+
+        annealing_scheduler = cls_(optimizer, **cfg)
+
+        if warmup_epochs == 0:
+            return annealing_scheduler
+
+        warmup_scheduler = LinearLR(
+            optimizer, start_factor=1e-6, total_iters=warmup_epochs
+        )
+        return SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, annealing_scheduler],
+            milestones=[warmup_epochs],
+        )
 
     def _compute_and_log_loss(
         self, batch: Batch, stage: TrainingStage
@@ -453,6 +384,41 @@ class TrainingTask(LightningModule):
         self.log(f"{stage}/Loss", loss)
 
         return pred, target, loss
+
+    def _log_fig(self, name: str, fig: Figure) -> None:
+        # TODO: Support checking whether the logger exists before the figure is created.
+        logger = self.experiment
+        if logger is not None:
+            logger.add_figure(name, fig, global_step=self.global_step)
+        plt.close()
+
+    def _compute_and_log_confmat(self, stage: TrainingStage) -> None:
+        confmat, _ = self.confusn[stage].plot(
+            self.confusn[stage].compute(), cmap="Blues"
+        )
+        self._log_fig(f"{stage}/ConfusionMatrix", confmat)
+
+    def _reset_metrics(self, stage: TrainingStage) -> None:
+        self.metrics[stage].reset()
+        self.confusn[stage].reset()
+
+    def _step(
+        self, batch: Batch, stage: TrainingStage
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        pred, target, loss = self._compute_and_log_loss(batch, stage)
+
+        # Use manual logging.
+        # See https://github.com/Lightning-AI/torchmetrics/issues/2683 for more information.
+        self.metrics[stage].update(pred, target)
+        self.confusn[stage].update(pred, target)
+
+        return pred, loss
+
+    def _on_eval_epoch_end(self, stage: TrainingStage) -> None:
+        self.log_dict(self.metrics[stage].compute())
+        self._compute_and_log_confmat(stage)
+
+        self._reset_metrics(stage)
 
 
 class Sample(TypedDict, total=False):

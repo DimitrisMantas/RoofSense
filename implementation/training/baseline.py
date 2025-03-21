@@ -29,8 +29,8 @@ def main():
                 "eps": config.eps,
                 "weight_decay": config.weight_decay,
             },
-            scheduler=config.scheduler,
-            scheduler_cfg={
+            lr_scheduler=config.lr_scheduler,
+            lr_scheduler_cfg={
                 "total_iters": 300 - config.warmup_epochs,
                 "power": config.power,
             },

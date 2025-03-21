@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any, Iterable
+from typing import Iterable
 
 import numpy as np
 import rasterio
