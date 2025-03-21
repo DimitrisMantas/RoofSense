@@ -72,7 +72,7 @@ class TrainingTask(LightningModule):
         # This parameter is ignored when a custom model is provided.
         model: torch.nn.Module | None = None,
         # A custom model.
-        # This functionality is still experimental!
+        # This feature is experimental!
         model_cfg: dict[str, Any] | None = None,
         # The model parameters.
         # This parameter is ignored when a custom model is provided.
