@@ -38,9 +38,7 @@ def objective(trial: optuna.Trial) -> float:
         # Optimizer
         optimizer="AdamW",
         lr=trial.suggest_float(name="lr", low=1e-4, high=0.01),
-        weight_decay=trial.suggest_float(
-            name="weight_decay", low=0, high=0.05
-        ),
+        weight_decay=trial.suggest_float(name="weight_decay", low=0, high=0.05),
         # LR Scheduler
         scheduler="CosineAnnealingLR",
         warmup_epochs=trial.suggest_int(
