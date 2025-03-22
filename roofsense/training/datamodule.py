@@ -29,7 +29,7 @@ class TrainingDataModule(NonGeoDataModule):
         persistent_workers: bool = True,
         pin_memory: bool = True,
         slice=None,
-        auto_drop_last: bool = False,
+        auto_drop_last: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(

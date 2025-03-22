@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import cast
 
@@ -39,15 +40,19 @@ def objective(trial: optuna.Trial) -> float:
         label_smoothing=0.1,
         # Optimizer
         optimizer="AdamW",
-        lr=trial.suggest_float(name="lr", low=1e-4, high=0.01),
+        lr=trial.suggest_float(name="lr", low=1e-4, high=0.01, log=True),
         weight_decay=trial.suggest_float(name="weight_decay", low=0, high=0.05),
         # LR Scheduler
         lr_scheduler="CosineAnnealingLR",
         warmup_epochs=trial.suggest_int(
             name="warmup_epochs",
             low=0,
-            # All sources set this to max(5% of the total training time, 5) except one table in https://arxiv.org/abs/2301.00808 which sets it 20/300.
-            high=15 + 5,
+            # All sources set this to max(5% of the total training duration, 5) except one table in https://arxiv.org/abs/2301.00808 which sets it 20/300 epochs (~6.67% of the total training duration).
+            #
+            # The maximum warmup duration should be at most equal to 10% of the total training duration.
+            # However, if more than 5% of training is eventually performed under a warmup regime, then the total training durations might need to be further increased.
+            # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
+            high=30,
         ),
     )
 
@@ -77,7 +82,7 @@ def objective(trial: optuna.Trial) -> float:
             "weight_decay": config.weight_decay,
         },
         lr_scheduler=config.lr_scheduler,
-        lr_scheduler_cfg={"T_max": 300 - config.warmup_epochs},
+        lr_scheduler_cfg={"T_max": 300},
         warmup_epochs=config.warmup_epochs,
     )
 
@@ -92,7 +97,9 @@ def objective(trial: optuna.Trial) -> float:
         callbacks=cast(
             Callback, PyTorchLightningPruningCallback(trial, monitor=task.monitor_optim)
         ),
-        max_epochs=300,
+        # The warmup duration is additional to the annealing duration.
+        # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
+        max_epochs=300 + config.warmup_epochs,
         test=False,
     )
 
@@ -111,6 +118,9 @@ def _lookup_objective_value(trial: optuna.Trial) -> float | None:
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    logger.setLevel(logging.WARNING)
+
     # Establish the baseline.
     main()
 
@@ -151,6 +161,4 @@ if __name__ == "__main__":
         )
         study.add_trials(trials)
 
-    study.optimize(
-        objective, n_trials=max(0, 50 - len(study.trials)), timeout=24 * 60 * 60
-    )
+    study.optimize(objective, n_trials=max(0, 50 - len(study.trials)))
