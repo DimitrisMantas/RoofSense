@@ -1,14 +1,19 @@
+import logging
+
 import numpy as np
 import torch
 
-from implementation.training.utils import TrainingTaskConfig, create_model
+from implementation.training.utils import (
+    TrainingTaskHyperparameterTuningConfig,
+    create_model,
+)
 from roofsense.runners import train_supervised
 from roofsense.training.datamodule import TrainingDataModule
 from roofsense.training.task import TrainingTask
 
 
 def main():
-    config = TrainingTaskConfig()
+    config = TrainingTaskHyperparameterTuningConfig()
 
     for _ in range(3):
         model = create_model(config)
@@ -30,10 +35,7 @@ def main():
                 "weight_decay": config.weight_decay,
             },
             lr_scheduler=config.lr_scheduler,
-            lr_scheduler_cfg={
-                "total_iters": 300 - config.warmup_epochs,
-                "power": config.power,
-            },
+            lr_scheduler_cfg={"total_iters": 400, "power": config.power},
             warmup_epochs=config.warmup_epochs,
         )
 
@@ -46,10 +48,15 @@ def main():
             datamodule,
             log_dirpath=r"C:\Documents\RoofSense\logs\3dgeoinfo",
             study_name="baseline",
-            max_epochs=400,
+            # The warmup duration is additional to the annealing duration.
+            # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
+            max_epochs=400 + config.warmup_epochs,
             test=False,
         )
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
+    logger.setLevel(logging.WARNING)
+
     main()

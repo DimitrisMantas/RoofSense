@@ -6,11 +6,17 @@ import numpy as np
 import optuna
 import torch
 from lightning import Callback
+from optuna.terminator import (
+    TerminatorCallback,
+    Terminator,
+    EMMREvaluator,
+    MedianErrorEvaluator,
+)
 from optuna_integration import PyTorchLightningPruningCallback
 
 from implementation.training.baseline import main
 from implementation.training.utils import (
-    TrainingTaskConfig,
+    TrainingTaskHyperparameterTuningConfig,
     configure_weight_decay_parameter_groups,
     create_model,
 )
@@ -24,7 +30,7 @@ def objective(trial: optuna.Trial) -> float:
     # https://arxiv.org/pdf/2110.00476
     # https://arxiv.org/pdf/2201.03545
     # https://arxiv.org/abs/2301.00808
-    config = TrainingTaskConfig(
+    config = TrainingTaskHyperparameterTuningConfig(
         # Encoder
         encoder="tu-resnet18d",
         drop_path_rate=trial.suggest_float(
@@ -33,6 +39,7 @@ def objective(trial: optuna.Trial) -> float:
             # This covers all sources except some tables in https://arxiv.org/pdf/2201.03545 and https://arxiv.org/abs/2301.00808 which set it to [0.2, 0.5].
             high=0.1,
         ),
+        zero_init_last=True,
         # This proved to be useful in https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549.
         attn_layer="eca",
         # Loss
@@ -125,15 +132,17 @@ if __name__ == "__main__":
     main()
 
     # Perform hyperparameter tuning.
-    study_name = "hptuning"
+    study_name = "optim"
     log_dirpath = os.path.join(r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name)
 
     os.makedirs(log_dirpath, exist_ok=True)
 
     storage = f"sqlite:///{log_dirpath}/storage.db"
-    sampler = optuna.samplers.GPSampler(seed=0)
+    sampler = optuna.samplers.TPESampler(seed=0)
     # TODO: Consider using a pruner.
-    pruner = optuna.pruners.NopPruner()
+    pruner = optuna.pruners.HyperbandPruner(
+        min_resource=40, max_resource=400, reduction_factor=2
+    )
     direction = TrainingTask.monitor_optim_direction
 
     try:
@@ -161,4 +170,15 @@ if __name__ == "__main__":
         )
         study.add_trials(trials)
 
-    study.optimize(objective, n_trials=max(0, 50 - len(study.trials)))
+    study.optimize(
+        objective,
+        n_trials=max(0, 100 - len(study.trials)),
+        callbacks=[
+            TerminatorCallback(
+                Terminator(
+                    improvement_evaluator=EMMREvaluator(seed=0),
+                    error_evaluator=MedianErrorEvaluator(),
+                )
+            )
+        ],
+    )

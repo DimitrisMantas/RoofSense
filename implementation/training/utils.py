@@ -6,12 +6,11 @@ import torch
 
 
 @dataclass(frozen=True, slots=True)
-class TrainingTaskConfig:
-    """Grouped configuration options for the training task to simplify the hyperparameter optimization process."""
-
+class TrainingTaskHyperparameterTuningConfig:
     # Encoder
     encoder: Literal["tu-resnet18", "tu-resnet18d"] = "tu-resnet18"
     drop_path_rate: float = 0
+    zero_init_last: bool = False
     attn_layer: Literal["eca", "se"] | None = None
     # Loss
     label_smoothing: float = 0
@@ -34,30 +33,64 @@ class TrainingTaskConfig:
         return 0.9 if self.lr_scheduler == "PolynomialLR" else None
 
 
-def configure_weight_decay_parameter_groups(
-    model: torch.nn.Module,
-) -> list[dict[str, Any]]:
-    # Weight Decay
-    # https://arxiv.org/pdf/1812.01187
-    weights = []
-    other = []
-    for name, param in model.named_parameters():
-        if "weight" in name and not isinstance(param, torch.nn.BatchNorm2d):
-            weights.append(param)
-        else:
-            other.append(param)
-    params = [{"params": weights}, {"params": other, "weight_decay": 0}]
-    return params
-
-
-def create_model(config: TrainingTaskConfig) -> torch.nn.Module:
+def create_model(config: TrainingTaskHyperparameterTuningConfig) -> torch.nn.Module:
     return smp.create_model(
         arch="deeplabv3plus",
         encoder_name=config.encoder,
         in_channels=7,
-        classes=9,
+        classes=8 + 1,
         drop_path_rate=config.drop_path_rate,
+        zero_init_last=config.zero_init_last,
         block_args=dict(attn_layer=config.attn_layer),
         decoder_atrous_rates=(6, 12, 18),
         decoder_aspp_dropout=0,
     )
+
+
+# https://github.com/karpathy/minGPT/blob/3ed14b2cec0dfdad3f4b2831f2b4a86d11aef150/mingpt/model.py#L136
+def configure_weight_decay_parameter_groups(
+    model: torch.nn.Module,
+) -> list[dict[str, Any]]:
+    # Separate parameters.
+    enabled_weight_decay = set()
+    disabled_weight_decay = set()
+
+    whitelist_modules = (torch.nn.Conv1d, torch.nn.Conv2d)
+    blacklist_modules = (torch.nn.BatchNorm2d,)
+    for module_name, module in model.named_modules():
+        for param_name, _ in module.named_parameters():
+            full_param_name = (
+                f"{module_name}.{param_name}" if module_name else param_name
+            )
+            if param_name.endswith("bias"):
+                disabled_weight_decay.add(full_param_name)
+            elif param_name.endswith("weight") and isinstance(
+                module, whitelist_modules
+            ):
+                enabled_weight_decay.add(full_param_name)
+            elif param_name.endswith("weight") and isinstance(
+                module, blacklist_modules
+            ):
+                # Normalization Scale
+                disabled_weight_decay.add(full_param_name)
+
+    # Validate split.
+    params = {name: param for name, param in model.named_parameters()}
+    params_in_both_groups = enabled_weight_decay & disabled_weight_decay
+    params_in_none_groups = enabled_weight_decay | disabled_weight_decay
+    assert len(params_in_both_groups) == 0
+    assert len(params.keys() - params_in_none_groups) == 0
+
+    return [
+        {
+            "params": [
+                params[param_name] for param_name in sorted(list(enabled_weight_decay))
+            ]
+        },
+        {
+            "params": [
+                params[param_name] for param_name in sorted(list(disabled_weight_decay))
+            ],
+            "weight_decay": 0,
+        },
+    ]
