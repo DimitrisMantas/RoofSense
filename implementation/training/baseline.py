@@ -46,7 +46,7 @@ def main():
             datamodule,
             log_dirpath=r"C:\Documents\RoofSense\logs\3dgeoinfo",
             study_name="baseline",
-            max_epochs=300,
+            max_epochs=400,
             test=False,
         )
 

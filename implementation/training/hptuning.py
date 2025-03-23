@@ -52,7 +52,7 @@ def objective(trial: optuna.Trial) -> float:
             # The maximum warmup duration should be at most equal to 10% of the total training duration.
             # However, if more than 5% of training is eventually performed under a warmup regime, then the total training durations might need to be further increased.
             # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
-            high=30,
+            high=40,
         ),
     )
 
@@ -82,7 +82,7 @@ def objective(trial: optuna.Trial) -> float:
             "weight_decay": config.weight_decay,
         },
         lr_scheduler=config.lr_scheduler,
-        lr_scheduler_cfg={"T_max": 300},
+        lr_scheduler_cfg={"T_max": 400},
         warmup_epochs=config.warmup_epochs,
     )
 
@@ -99,7 +99,7 @@ def objective(trial: optuna.Trial) -> float:
         ),
         # The warmup duration is additional to the annealing duration.
         # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
-        max_epochs=300 + config.warmup_epochs,
+        max_epochs=400 + config.warmup_epochs,
         test=False,
     )
 
