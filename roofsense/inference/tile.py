@@ -47,7 +47,6 @@ class TiledInferenceEngine:
             roofsense.training.task.TrainingTask.load_from_checkpoint(
                 checkpoint_path,
                 map_location=map_location,
-                hparams_file=map_location,
                 **kwargs,
             )
         )
