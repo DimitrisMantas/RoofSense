@@ -9,11 +9,14 @@ import torch.utils.data
 import torchgeo.datasets
 import torchgeo.samplers
 import torchgeo.transforms
+from kornia.constants import DataKey, Resample
 from terratorch.tasks.tiled_inference import TiledInferenceParameters, tiled_inference
 
 import roofsense.training.task
+from roofsense.augmentations.color import AppendLab
 from roofsense.augmentations.scale import MinMaxScaling
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
+from roofsense.training.datamodule import TrainingDataModule
 from roofsense.utilities.file import confirm_write_op
 from roofsense.utilities.raster import DefaultProfile
 
@@ -59,11 +62,28 @@ class TiledInferenceEngine:
         scales = torch.from_numpy(
             np.fromfile(
                 # FIXME: Expose this parameter to the user.
-                r"C:\Documents\RoofSense\dataset\temp\scales.bin"
+                r"C:\Documents\RoofSense\roofsense\dataset\scales.bin"
             )
         )
         self._norm = torchgeo.transforms.AugmentationSequential(
-            MinMaxScaling(*torch.tensor_split(scales, 2)), data_keys=["image"]
+            *[MinMaxScaling(*torch.tensor_split(scales, 2)), AppendLab()],
+            **{
+                "data_keys": ["image"],
+                "extra_args": {
+                    # NOTE: We choose to always resample with bilinear interpolation to
+                    # preserve the scaled value range of the stack.
+                    # This is important because both reflectance and slope values have a
+                    # physical interpretation.
+                    # NOTE; Interpolation with aligned corners may disturb the spatial
+                    # inductive biases of the model.
+                    # See https://discuss.pytorch.org/t/what-we-should-use-align-corners
+                    # -false/22663/5 for more information.
+                    DataKey.IMAGE: {
+                        "resample": Resample.BILINEAR,
+                        "align_corners": False,
+                    }
+                },
+            },
         )
 
     def run(
