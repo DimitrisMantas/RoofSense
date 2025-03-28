@@ -13,7 +13,7 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.transforms import AugmentationSequential
 from typing_extensions import override
 
-from roofsense.augmentations.color import AppendHSV
+from roofsense.augmentations.color import AppendHSV, AppendLab
 from roofsense.augmentations.index import AppendTGI
 from roofsense.augmentations.scale import MinMaxScaling
 from roofsense.training.dataset import TrainingDataset
@@ -24,6 +24,7 @@ class TrainingDataModule(NonGeoDataModule):
         self,
         batch_size: int = 8,
         append_hsv: bool = False,
+        append_lab: bool = False,
         append_tgi: bool = False,
         num_workers: int | None = None,
         persistent_workers: bool = True,
@@ -78,6 +79,8 @@ class TrainingDataModule(NonGeoDataModule):
         # Color spaces & Spectral Indices
         if append_hsv:
             args.append(AppendHSV())
+        if append_lab:
+            args.append(AppendLab())
         if append_tgi:
             args.append(AppendTGI())
 
