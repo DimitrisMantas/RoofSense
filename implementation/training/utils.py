@@ -19,6 +19,7 @@ class TrainingTaskHyperparameterTuningConfig:
     drop_path_rate: float = 0
     zero_init_last: bool = False
     attn_layer: str | None = None
+    output_stride: int = 16
     # Decoder
     decoder_atrous_rate1: int = 6
     decoder_atrous_rate2: int = 12
@@ -57,6 +58,7 @@ def create_model(config: TrainingTaskHyperparameterTuningConfig) -> torch.nn.Mod
         drop_path_rate=config.drop_path_rate,
         zero_init_last=config.zero_init_last,
         block_args=dict(attn_layer=config.attn_layer),
+        encoder_output_stride=config.output_stride,
         decoder_atrous_rates=(
             config.decoder_atrous_rate1,
             config.decoder_atrous_rate2,

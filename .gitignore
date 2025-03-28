@@ -3,13 +3,12 @@
 /__pycache__/
 
 # Dataset
-/dataset/
+**/dataset/
+!/implementation/annotation/data/dataset
 
-# Thesis Stuff
-/internal/
+# Thesis
+**/.thesis/
 
 # Runtime-Generated Files
-/logs/
-/temp/
-/roofsense/dataset/
-/roofsense/temp/
+**/logs/
+**/temp/
