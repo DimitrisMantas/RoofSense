@@ -17,6 +17,7 @@ import geopandas as gpd
 import numpy as np
 import requests
 import shapely
+from shapely import GEOSException
 
 from roofsense.utilities.file import (
     ThreadedFileDownloader,
@@ -177,14 +178,30 @@ class BAG3DTileStore:
             shutil.copyfileobj(src, dst)
         os.unlink(temp.name)
 
-    def read_tile(self, tile_id: str, lod: LevelOfDetail) -> gpd.GeoDataFrame:
+    def read_tile(
+        self, tile_id: str, lod: LevelOfDetail, enforce_valid_geom: bool = True
+    ) -> gpd.GeoDataFrame:
         tile_id = self._validate_tile_id(tile_id)
         path = os.path.join(self._dirpath, f"{tile_id}.gpkg")
         if not os.path.exists(path):
             self.download_tile(tile_id)
-        return gpd.read_file(path, layer=f"{lod}_2d", force_2d=True).to_crs(
+        tile = gpd.read_file(path, layer=f"{lod}_2d", force_2d=True).to_crs(
             crs="EPSG:28992"
         )
+        try:
+            tile.dissolve()
+        except GEOSException as e:
+            if enforce_valid_geom:
+                tile = tile.buffer(0)
+            else:
+                raise e
+            try:
+                tile.dissolve()
+            except GEOSException:
+                raise RuntimeError(
+                    f"Failed to validate geometries in tile {tile_id!r}."
+                )
+        return tile
 
     def sample_tile(self, seeds: gpd.GeoDataFrame, radius: float = 15e3) -> list[str]:
         seed = seeds.sample(random_state=self.random)["geometry"]
