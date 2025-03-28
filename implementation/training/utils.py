@@ -2,21 +2,33 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import segmentation_models_pytorch as smp
+import timm.layers
 import torch
 
 
 @dataclass(frozen=True, slots=True)
 class TrainingTaskHyperparameterTuningConfig:
+    # Augmentations
+    append_lab: bool = False
+    append_tgi: bool = False
     # Encoder
     encoder: Literal["tu-resnet18", "tu-resnet18d"] = "tu-resnet18"
+    global_pool: str = "avg"
+    aa_layer: bool = False
+    drop_rate: float = 0
     drop_path_rate: float = 0
     zero_init_last: bool = False
-    attn_layer: Literal["eca", "se"] | None = None
+    attn_layer: str | None = None
+    # Decoder
+    decoder_atrous_rate1: int = 6
+    decoder_atrous_rate2: int = 12
+    decoder_atrous_rate3: int = 18
     # Loss
     label_smoothing: float = 0
     # Optimizer
     optimizer: Literal["Adam", "AdamW"] = "Adam"
     lr: float = 1e-3
+    beta2: float = 0.999
     weight_decay: float = 0
     # LR Scheduler
     lr_scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
@@ -37,12 +49,19 @@ def create_model(config: TrainingTaskHyperparameterTuningConfig) -> torch.nn.Mod
     return smp.create_model(
         arch="deeplabv3plus",
         encoder_name=config.encoder,
-        in_channels=7,
+        in_channels=7 + 3 * config.append_lab + config.append_tgi,
         classes=8 + 1,
+        global_pool=config.global_pool,
+        aa_layer=timm.layers.BlurPool2d if config.aa_layer else None,
+        drop_rate=config.drop_rate,
         drop_path_rate=config.drop_path_rate,
         zero_init_last=config.zero_init_last,
         block_args=dict(attn_layer=config.attn_layer),
-        decoder_atrous_rates=(6, 12, 18),
+        decoder_atrous_rates=(
+            config.decoder_atrous_rate1,
+            config.decoder_atrous_rate2,
+            config.decoder_atrous_rate3,
+        ),
         decoder_aspp_dropout=0,
     )
 
@@ -56,7 +75,11 @@ def configure_weight_decay_parameter_groups(
     disabled_weight_decay = set()
 
     whitelist_modules = (torch.nn.Conv1d, torch.nn.Conv2d)
-    blacklist_modules = (torch.nn.BatchNorm2d,)
+    blacklist_modules = (
+        torch.nn.BatchNorm2d,
+        # This is required for global context attention.
+        timm.layers.norm.LayerNorm2d,
+    )
     for module_name, module in model.named_modules():
         for param_name, _ in module.named_parameters():
             full_param_name = (

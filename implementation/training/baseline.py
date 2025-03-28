@@ -31,6 +31,7 @@ def main():
             optimizer=config.optimizer,
             optimizer_cfg={
                 "lr": config.lr,
+                "betas": (0.9, config.beta2),
                 "eps": config.eps,
                 "weight_decay": config.weight_decay,
             },
@@ -40,7 +41,9 @@ def main():
         )
 
         datamodule = TrainingDataModule(
-            root=r"C:\Documents\RoofSense\roofsense\dataset"
+            root=r"C:\Documents\RoofSense\roofsense\dataset",
+            append_lab=config.append_lab,
+            append_tgi=config.append_tgi,
         )
 
         train_supervised(

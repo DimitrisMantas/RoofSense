@@ -6,15 +6,8 @@ import numpy as np
 import optuna
 import torch
 from lightning import Callback
-from optuna.terminator import (
-    TerminatorCallback,
-    Terminator,
-    EMMREvaluator,
-    MedianErrorEvaluator,
-)
 from optuna_integration import PyTorchLightningPruningCallback
 
-from implementation.training.baseline import main
 from implementation.training.utils import (
     TrainingTaskHyperparameterTuningConfig,
     configure_weight_decay_parameter_groups,
@@ -31,33 +24,44 @@ def objective(trial: optuna.Trial) -> float:
     # https://arxiv.org/pdf/2201.03545
     # https://arxiv.org/abs/2301.00808
     config = TrainingTaskHyperparameterTuningConfig(
+        # Augmentations
+        append_lab=trial.suggest_categorical(name="lab", choices=[True, False]),
+        append_tgi=trial.suggest_categorical(name="tgi", choices=[True, False]),
         # Encoder
         encoder="tu-resnet18d",
-        drop_path_rate=trial.suggest_float(
-            name="drop_path_rate",
-            low=0,
-            # This covers all sources except some tables in https://arxiv.org/pdf/2201.03545 and https://arxiv.org/abs/2301.00808 which set it to [0.2, 0.5].
-            high=0.1,
+        global_pool=trial.suggest_categorical(
+            name="global_pool", choices=["avg", "avgmax", "catavgmax", "max"]
         ),
+        aa_layer=trial.suggest_categorical(name="aa_layer", choices=[True, False]),
+        drop_rate=trial.suggest_float(name="drop_rate", low=0, high=0.1),
+        drop_path_rate=trial.suggest_float(name="drop_path_rate", low=0, high=0.5),
         zero_init_last=True,
-        # This proved to be useful in https://resolver.tudelft.nl/uuid:c463e920-61e6-40c5-89e9-25354fadf549.
-        attn_layer="eca",
+        # Promoted from relevant preliminary study.
+        attn_layer=trial.suggest_categorical(
+            name="attn_layer", choices=["cbam", "eca", "ecam", "gca", "ge", "se", None]
+        ),
+        # Decoder
+        decoder_atrous_rate1=trial.suggest_int(
+            name="decoder_atrous_rate1", low=1, high=21
+        ),
+        decoder_atrous_rate2=trial.suggest_int(
+            name="decoder_atrous_rate2", low=1, high=21
+        ),
+        decoder_atrous_rate3=trial.suggest_int(
+            name="decoder_atrous_rate3", low=1, high=21
+        ),
         # Loss
-        # This covers all sources except one table in https://arxiv.org/abs/2301.00808 which sets it to 0.2.
         label_smoothing=0.1,
         # Optimizer
         optimizer="AdamW",
-        lr=trial.suggest_float(name="lr", low=1e-4, high=0.01, log=True),
+        lr=trial.suggest_float(name="lr", low=1e-5, high=0.01, log=True),
+        beta2=trial.suggest_float(name="beta2", low=0.9, high=0.999),
         weight_decay=trial.suggest_float(name="weight_decay", low=0, high=0.05),
         # LR Scheduler
         lr_scheduler="CosineAnnealingLR",
         warmup_epochs=trial.suggest_int(
             name="warmup_epochs",
             low=0,
-            # All sources set this to max(5% of the total training duration, 5) except one table in https://arxiv.org/abs/2301.00808 which sets it 20/300 epochs (~6.67% of the total training duration).
-            #
-            # The maximum warmup duration should be at most equal to 10% of the total training duration.
-            # However, if more than 5% of training is eventually performed under a warmup regime, then the total training durations might need to be further increased.
             # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
             high=40,
         ),
@@ -85,6 +89,7 @@ def objective(trial: optuna.Trial) -> float:
         optimizer_cfg={
             "params": configure_weight_decay_parameter_groups(model),
             "lr": config.lr,
+            "betas": (0.9, config.beta2),
             "eps": config.eps,
             "weight_decay": config.weight_decay,
         },
@@ -93,7 +98,11 @@ def objective(trial: optuna.Trial) -> float:
         warmup_epochs=config.warmup_epochs,
     )
 
-    datamodule = TrainingDataModule(root=r"C:\Documents\RoofSense\roofsense\dataset")
+    datamodule = TrainingDataModule(
+        root=r"C:\Documents\RoofSense\roofsense\dataset",
+        append_lab=config.append_lab,
+        append_tgi=config.append_tgi,
+    )
 
     trainer = train_supervised(
         task,
@@ -128,9 +137,6 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.WARNING)
 
-    # Establish the baseline.
-    main()
-
     # Perform hyperparameter tuning.
     study_name = "optim"
     log_dirpath = os.path.join(r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name)
@@ -139,10 +145,7 @@ if __name__ == "__main__":
 
     storage = f"sqlite:///{log_dirpath}/storage.db"
     sampler = optuna.samplers.TPESampler(seed=0)
-    # TODO: Consider using a pruner.
-    pruner = optuna.pruners.HyperbandPruner(
-        min_resource=40, max_resource=400, reduction_factor=2
-    )
+    pruner = optuna.pruners.NopPruner()
     direction = TrainingTask.monitor_optim_direction
 
     try:
@@ -170,15 +173,4 @@ if __name__ == "__main__":
         )
         study.add_trials(trials)
 
-    study.optimize(
-        objective,
-        n_trials=max(0, 100 - len(study.trials)),
-        callbacks=[
-            TerminatorCallback(
-                Terminator(
-                    improvement_evaluator=EMMREvaluator(seed=0),
-                    error_evaluator=MedianErrorEvaluator(),
-                )
-            )
-        ],
-    )
+    study.optimize(objective, n_trials=max(0, 50 - len(study.trials)))
