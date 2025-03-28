@@ -1,4 +1,5 @@
 import os.path
+from typing import IO
 
 import lightning
 import numpy as np
@@ -10,13 +11,13 @@ import torchgeo.datasets
 import torchgeo.samplers
 import torchgeo.transforms
 from kornia.constants import DataKey, Resample
+from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from terratorch.tasks.tiled_inference import TiledInferenceParameters, tiled_inference
 
 import roofsense.training.task
 from roofsense.augmentations.color import AppendLab
 from roofsense.augmentations.scale import MinMaxScaling
 from roofsense.bag3d import BAG3DTileStore, LevelOfDetail
-from roofsense.training.datamodule import TrainingDataModule
 from roofsense.utilities.file import confirm_write_op
 from roofsense.utilities.raster import DefaultProfile
 
@@ -27,8 +28,8 @@ class TiledInferenceEngine:
 
     def __init__(
         self,
-        ckpt_path: str,
-        hparams_path: str | None = None,
+        checkpoint_path: _PATH | IO,
+        map_location: _MAP_LOCATION_TYPE = None,
         tile_store: BAG3DTileStore = BAG3DTileStore(),
         seed: int | None = None,
         tf32: bool = True,
@@ -42,17 +43,11 @@ class TiledInferenceEngine:
             torch.backends.cudnn.allow_tf32 = True
 
         # Initialize the model.
-        # The trainer is necessary to detect the best available accelerator.
-        trainer = lightning.Trainer(
-            # TODO: Check whether this parameter alters any global settings.
-            benchmark=True,
-            logger=False,
-        )
         self._model: roofsense.training.task.TrainingTask = (
             roofsense.training.task.TrainingTask.load_from_checkpoint(
-                ckpt_path,
-                map_location=trainer.strategy.root_device.type,
-                hparams_file=hparams_path,
+                checkpoint_path,
+                map_location=map_location,
+                hparams_file=map_location,
                 **kwargs,
             )
         )
