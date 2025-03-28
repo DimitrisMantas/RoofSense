@@ -8,7 +8,7 @@ def main():
     tile_id = "10-280-560"
 
     TiledInferenceEngine(
-        ckpt_path=r"data/model/roofsense.paper.ckpt",
+        checkpoint_path=r"data/model/roofsense.paper.ckpt",
         tile_store=BAG3DTileStore(dirpath=r"data/store"),
         model_params={"encoder_params": {"block_args": {"attn_layer": "eca"}}},
     ).run(
