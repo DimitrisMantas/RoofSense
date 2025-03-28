@@ -192,7 +192,7 @@ class BAG3DTileStore:
             tile.dissolve()
         except GEOSException as e:
             if enforce_valid_geom:
-                tile = tile.buffer(0)
+                tile.geometry = tile.geometry.buffer(0)
             else:
                 raise e
             try:
