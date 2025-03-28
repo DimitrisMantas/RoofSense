@@ -148,6 +148,8 @@ class LiDARParser(BAG3DTileAssetParser):
 
     @override
     def parse(self, tile_id: str, overwrite: bool = False) -> None:
+        self._update(tile_id)
+
         bbox, resol = get_raster_metadata(
             self.resolve_filepath(tile_id + ".rgb.tif"), "bounds", "res"
         )
@@ -160,7 +162,7 @@ class LiDARParser(BAG3DTileAssetParser):
         # It is also possible to register it as a normal callback, but the attribute assignment will be external to the class.
         self._pntcl = self._parse_point_cloud(tile_id, overwrite, bbox)
 
-        super().parse(tile_id, overwrite)
+        self._execute(tile_id, overwrite)
 
     def _parse_point_cloud(
         self, tile_id: str, overwrite: bool, bbox: Sequence[float]
