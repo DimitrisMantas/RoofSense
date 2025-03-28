@@ -30,7 +30,8 @@ def merge_images(parser: BAG3DTileAssetParser, tile_id: str, overwrite: bool) ->
             # NOTE: The data type is specified in order for a descriptor to be
             # able to be assigned to the output profile.
             dtype=np.uint8
-        ),
+        )  # BM5 imagery has a YCBCR photometric profile for some reason.
+        | {"photometric": "RGB"},
     )
 
 
