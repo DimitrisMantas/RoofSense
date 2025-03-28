@@ -21,17 +21,22 @@ def merge_images(parser: BAG3DTileAssetParser, tile_id: str, overwrite: bool) ->
     src_paths = [
         parser.resolve_filepath(id_ + ".tif") for id_ in parser.manifest.image.tid
     ]
+
+    dst_profile = raster.DefaultProfile(
+        # NOTE: The data type is specified in order for a descriptor to be
+        # able to be assigned to the output profile.
+        dtype=np.uint8
+    )
+    dst_profile.update(
+        # BM5 imagery has a YCBCR photometric profile which is not supported by the GDAL LZW compressor.
+        photometric="RGB"
+    )
     rasterio.merge.merge(
         src_paths,
         bounds=parser.surfaces.total_bounds.tolist(),
         target_aligned_pixels=True,
         dst_path=dst_path,
-        dst_kwds=raster.DefaultProfile(
-            # NOTE: The data type is specified in order for a descriptor to be
-            # able to be assigned to the output profile.
-            dtype=np.uint8
-        )  # BM5 imagery has a YCBCR photometric profile for some reason.
-        | {"photometric": "RGB"},
+        dst_kwds=dst_profile,
     )
 
 
