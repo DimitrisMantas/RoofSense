@@ -45,9 +45,7 @@ class TiledInferenceEngine:
         # Initialize the model.
         self._model: roofsense.training.task.TrainingTask = (
             roofsense.training.task.TrainingTask.load_from_checkpoint(
-                checkpoint_path,
-                map_location=map_location,
-                **kwargs,
+                checkpoint_path, map_location=map_location, **kwargs
             )
         )
         self._model.freeze()

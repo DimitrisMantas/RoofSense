@@ -1,10 +1,13 @@
 import logging
+import os
 
 import numpy as np
+import optuna
 import torch
 
-from implementation.training.utils import (
+from implementation.training.utilities import (
     TrainingTaskHyperparameterTuningConfig,
+    configure_weight_decay_parameter_groups,
     create_model,
 )
 from roofsense.runners import train_supervised
@@ -13,11 +16,35 @@ from roofsense.training.task import TrainingTask
 
 
 def main():
-    # config = TrainingTaskHyperparameterTuningConfig(append_hsv=True)
+    study_name = "optimization"
+    optim_log_dirpath = os.path.join(
+        r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name
+    )
 
-    for experiment_name in ["avgmax", "catavgmax", "max"]:
-        config = TrainingTaskHyperparameterTuningConfig(global_pool=experiment_name)
+    study = optuna.load_study(
+        study_name="optim", storage=f"sqlite:///{optim_log_dirpath}/storage.db"
+    )
 
+    best_params = study.best_params
+    # Convert parameter format.
+    for param in ["lab", "tgi"]:
+        best_params[f"append_{param}"] = best_params.pop(param)
+
+    config = TrainingTaskHyperparameterTuningConfig(
+        # Add constant settings.
+        # Encoder
+        encoder="tu-resnet18d",
+        zero_init_last=True,
+        # Loss
+        label_smoothing=0.1,
+        # Optimizer
+        optimizer="AdamW",
+        # LR Scheduler
+        lr_scheduler="CosineAnnealingLR",
+        **best_params,
+    )
+
+    for _ in range(2):
         model = create_model(config)
 
         task = TrainingTask(
@@ -32,13 +59,14 @@ def main():
             },
             optimizer=config.optimizer,
             optimizer_cfg={
+                "params": configure_weight_decay_parameter_groups(model),
                 "lr": config.lr,
                 "betas": (0.9, config.beta2),
                 "eps": config.eps,
                 "weight_decay": config.weight_decay,
             },
             lr_scheduler=config.lr_scheduler,
-            lr_scheduler_cfg={"total_iters": 400, "power": config.power},
+            lr_scheduler_cfg={"T_max": 400},
             warmup_epochs=config.warmup_epochs,
         )
 
@@ -51,9 +79,8 @@ def main():
         train_supervised(
             task,
             datamodule,
-            log_dirpath=r"C:\Documents\RoofSense\logs\3dgeoinfo\prelim",
-            study_name="global_pool",
-            experiment_name=experiment_name,
+            log_dirpath=optim_log_dirpath,
+            study_name="validation",
             # The warmup duration is additional to the annealing duration.
             # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
             max_epochs=400 + config.warmup_epochs,

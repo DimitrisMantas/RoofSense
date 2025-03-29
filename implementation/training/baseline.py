@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import torch
 
-from implementation.training.utils import (
+from implementation.training.utilities import (
     TrainingTaskHyperparameterTuningConfig,
     create_model,
 )

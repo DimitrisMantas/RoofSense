@@ -107,7 +107,10 @@ class TrainingTask(LightningModule):
         # TODO: Organize and document these parameters.
         # TODO: Check whether background predictions can be removed from the model output entirely.
         in_channels: int = 7,
+        # The number of input channels to the model.
+        # This parameter is ignored when a custom model is provided.
         num_classes: int = 8 + 1,
+        # The number of output classes including the background.
     ):
         super().__init__()
         self.save_hyperparameters(ignore="model" if model is not None else None)

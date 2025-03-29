@@ -8,7 +8,7 @@ import torch
 from lightning import Callback
 from optuna_integration import PyTorchLightningPruningCallback
 
-from implementation.training.utils import (
+from implementation.training.utilities import (
     TrainingTaskHyperparameterTuningConfig,
     configure_weight_decay_parameter_groups,
     create_model,
