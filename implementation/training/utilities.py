@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Literal
 
+import lightning
 import segmentation_models_pytorch as smp
 import timm.layers
 import torch
@@ -33,6 +34,8 @@ class TrainingTaskHyperparameterTuningConfig:
     # LR Scheduler
     lr_scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
     warmup_epochs: int = 0
+    # Miscellaneous
+    in_channels: int = 7
 
     # This should be a cached property, but using slots means that there is no underlying dictionary to store the returned value.
     # The configuration is only meant to be used once anyway, so this is probably fine.
@@ -46,10 +49,13 @@ class TrainingTaskHyperparameterTuningConfig:
 
 
 def create_model(config: TrainingTaskHyperparameterTuningConfig) -> torch.nn.Module:
+    # Ensure the model is always initialized using the same weights.
+    lightning.seed_everything(0, workers=True, verbose=False)
+
     return smp.create_model(
         arch="deeplabv3plus",
         encoder_name=config.encoder,
-        in_channels=7 + 3 * config.append_lab + config.append_tgi,
+        in_channels=config.in_channels + 3 * config.append_lab + config.append_tgi,
         classes=8 + 1,
         global_pool=config.global_pool,
         aa_layer=timm.layers.BlurPool2d if config.aa_layer else None,
