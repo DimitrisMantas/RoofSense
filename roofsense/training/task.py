@@ -6,6 +6,7 @@ from functools import cached_property
 from types import ModuleType
 from typing import Any, Final, Literal, Required, TypedDict, cast
 
+import lightning
 import optuna
 import segmentation_models_pytorch as smp
 import torch
@@ -106,7 +107,7 @@ class TrainingTask(LightningModule):
         # The length of the optional linear learning rate warmup period, measured in epochs.
         # TODO: Organize and document these parameters.
         # TODO: Check whether background predictions can be removed from the model output entirely.
-        in_channels: int = 7,
+        in_channels: int | None = None,
         # The number of input channels to the model.
         # This parameter is ignored when a custom model is provided.
         num_classes: int = 8 + 1,
@@ -166,6 +167,9 @@ class TrainingTask(LightningModule):
         )
         optional_params: dict[str, Any] | None = self.hparams.model_cfg
         optional_params = optional_params if optional_params is not None else {}
+
+        # Ensure the model is always initialized using the same weights.
+        lightning.seed_everything(0, workers=True, verbose=False)
 
         model = smp.create_model(**common_params, **optional_params)
         if model_weights is not self.hparams.model_weights:

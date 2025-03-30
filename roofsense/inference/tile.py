@@ -37,7 +37,7 @@ class TiledInferenceEngine:
     ) -> None:
         self._tile_store = tile_store
 
-        lightning.pytorch.seed_everything(seed, workers=True)
+        lightning.pytorch.seed_everything(seed, workers=True, verbose=False)
         if tf32:
             torch.set_float32_matmul_precision("high")
             torch.backends.cudnn.allow_tf32 = True
