@@ -10,7 +10,6 @@ from implementation.training.utilities import (
     configure_weight_decay_parameter_groups,
     create_model,
 )
-from roofsense.enums.band import Band
 from roofsense.runners import train_supervised
 from roofsense.training.datamodule import TrainingDataModule
 from roofsense.training.task import TrainingTask
