@@ -50,7 +50,7 @@ def main():
             task,
             datamodule,
             log_dirpath=r"C:\Documents\RoofSense\logs\3dgeoinfo",
-            study_name="baseline",
+            study_name="reproducibility",
             # The warmup duration is additional to the annealing duration.
             # https://developers.google.com/machine-learning/guides/deep-learning-tuning-playbook/faq#how_to_apply_learning_rate_warmup
             max_epochs=400 + config.warmup_epochs,

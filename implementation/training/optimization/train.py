@@ -80,7 +80,7 @@ def objective(trial: optuna.Trial) -> float:
         loss_cfg={
             "names": ["crossentropyloss", "diceloss"],
             "weight": torch.from_numpy(
-                np.fromfile(r"C:\Documents\RoofSense\roofsense\dataset\weights.bin")
+                np.fromfile(r"/roofsense/dataset/weights.bin")
             ).to(torch.float32),
             "include_background": False,
             "label_smoothing": config.label_smoothing,
@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     # Perform hyperparameter tuning.
     study_name = "optim"
-    log_dirpath = os.path.join(r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name)
+    log_dirpath = os.path.join(r"/logs/3dgeoinfo", study_name)
 
     os.makedirs(log_dirpath, exist_ok=True)
 

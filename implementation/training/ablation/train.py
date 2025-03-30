@@ -18,9 +18,7 @@ from roofsense.training.task import TrainingTask
 
 def main():
     study_name = "optimization"
-    optim_log_dirpath = os.path.join(
-        r"C:\Documents\RoofSense\logs\3dgeoinfo", study_name
-    )
+    optim_log_dirpath = os.path.join(r"/logs/3dgeoinfo", study_name)
 
     study = optuna.load_study(
         study_name="optim", storage=f"sqlite:///{optim_log_dirpath}/storage.db"
@@ -32,15 +30,10 @@ def main():
         best_params[f"append_{param}"] = best_params.pop(param)
 
     for ablation, bands in zip(
+        ["density", "lidar", "ndrm", "reflectance", "slope"],
         [
-            # "dens", "lidar",
-            "ndrm",
-            "reflectance",
-            "slope",
-        ],
-        [
-            # [0, 1, 2, 3, 4, 5],  # dens
-            # [0, 1, 2],  # lidar
+            [0, 1, 2, 3, 4, 5],  # density
+            [0, 1, 2],  # lidar
             [0, 1, 2, 3, 4, 6],  # ndrm
             [0, 1, 2, 4, 5, 6],  # reflectance
             [0, 1, 2, 3, 5, 6],  # slope
@@ -71,9 +64,7 @@ def main():
                 loss_cfg={
                     "names": ["crossentropyloss", "diceloss"],
                     "weight": torch.from_numpy(
-                        np.fromfile(
-                            r"C:\Documents\RoofSense\roofsense\dataset\weights.bin"
-                        )
+                        np.fromfile(r"/roofsense/dataset/weights.bin")
                     ).to(torch.float32),
                     "include_background": False,
                     "label_smoothing": config.label_smoothing,
