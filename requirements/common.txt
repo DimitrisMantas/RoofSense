@@ -14,8 +14,8 @@ requests==2.32.3
 scipy==1.13.0
 shapely==2.0.6
 # pin to ==2.2.2 to allow mypy
-# torch==2.2.2+cu121
-torch==2.2.2
+# torch==2.6.0+cu121
+torch==2.6.0
 torchgeo==0.6.1
 torchmetrics==1.4.1
 # torchseg==0.0.1a4
