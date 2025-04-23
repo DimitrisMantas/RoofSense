@@ -1,6 +1,9 @@
 from collections.abc import Iterable
-from typing import Literal
-
+from functools import partial
+from types import ModuleType
+from typing import Literal, Any, cast
+from typing_extensions import override
+import monai
 import torch
 from monai.losses import (
     DiceLoss,
@@ -21,6 +24,65 @@ Loss = (
     | HausdorffDTLoss
 )
 
+
+class CrossEntropyBasedCompositeLoss(torch.nn.CrossEntropyLoss):
+    def __init__(
+        self,
+        weight: Tensor | None = None,
+        ignore_background: bool = True,
+        reduction: str = "mean",
+        label_smoothing: float = 0.0,
+        complement: str | type[torch.nn.modules.loss._Loss] | None = None,
+        # The complement loss name.
+        complement_cfg: dict[str, Any] = None,
+        # The compliment loss configuration.
+        lambdas: Iterable[float] = (1, 1),
+        # The compliment loss weight in the total loss calculations.
+        loss_reduction: Literal["mean", "mul", "sum"] = "sum",
+        # The loss component reduction strategy.
+    ) -> None:
+        super().__init__(
+            weight,
+            ignore_index=0 if ignore_background else -100,
+            reduction=reduction,
+            label_smoothing=label_smoothing,
+        )
+
+        if complement is None:
+            return
+
+        self.is_monai_used: bool = False
+        try:
+            complement_cls = getattr(monai.losses, complement)
+        except AttributeError:
+            complement_cls = complement
+        else:
+            self.is_monai_used = True
+
+        complement_cls = cast(complement_cls.__base__, complement_cls)
+
+        self.complement = complement_cls(
+            **complement_cfg if complement_cfg is not None else {}
+        )
+
+        self.lambdas = lambdas
+        self.loss_reduction = loss_reduction
+
+    @override
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        this = super().forward(input, target)
+
+        if self.is_monai_used:
+            # NOTE: Target tensors are of shape BxHxW but MONAI requires it to be BxCxHxW.
+            target = torch.unsqueeze(target, dim=1)
+        that=self.complement(input, target)
+
+        if self.loss_reduction == "mean":
+            pass
+        elif self.loss_reduction == "mul":
+            pass
+        elif self.loss_reduction == "sum":
+            pass
 
 class CompoundLoss(torch.nn.modules.loss._Loss):
     """Compound loss function."""
