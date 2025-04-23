@@ -3,12 +3,13 @@
 /__pycache__/
 
 # Dataset
-**/dataset/
+**/*dataset/
 !/implementation/annotation/data/dataset
 
-# Thesis
-**/.thesis/
+# Thesis & Results
+**/*thesis/
+**/*results/
 
 # Runtime-Generated Files
-**/logs/
-**/temp/
+**/*logs/
+**/*temp/

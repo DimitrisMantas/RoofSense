@@ -1,10 +1,10 @@
 import geopandas as gpd
-from tile_splitters import split
 
 from roofsense.bag3d import BAG3DTileStore
 from roofsense.preprocessing.parsers.image import ImageParser
 from roofsense.preprocessing.parsers.lidar import LiDARParser
 from roofsense.preprocessing.stack import RasterStackBuilder
+from roofsense.preprocessing.tile_splitters import split
 
 
 class BAG3DSampler:
