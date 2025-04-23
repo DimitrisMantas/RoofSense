@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os.path
+from dataclasses import dataclass
 from enum import StrEnum
 from functools import cached_property
 from types import ModuleType
@@ -29,6 +30,7 @@ from torchmetrics.classification import (
 )
 from typing_extensions import override
 
+from roofsense.enums.stage import TrainingStage
 from roofsense.metrics.classification.confusion_matrix import MulticlassConfusionMatrix
 from roofsense.metrics.wrappers.macro_averaging import MacroAverageWrapper
 from roofsense.training.loss import CompoundLoss
@@ -38,10 +40,45 @@ from roofsense.utilities.model import (
 )
 
 
-class TrainingStage(StrEnum):
-    TRA = "tra"
-    VAL = "val"
-    TST = "tst"
+@dataclass(frozen=True, slots=True)
+class TrainingTaskConfig:
+    # Augmentations
+    append_lab: bool = False
+    append_tgi: bool = False
+    # Encoder
+    encoder: Literal["tu-resnet18", "tu-resnet18d"] = "tu-resnet18"
+    global_pool: str = "avg"
+    aa_layer: bool = False
+    drop_rate: float = 0
+    drop_path_rate: float = 0
+    zero_init_last: bool = False
+    attn_layer: str | None = None
+    # Decoder
+    decoder_atrous_rate1: int = 6
+    decoder_atrous_rate2: int = 12
+    decoder_atrous_rate3: int = 18
+    # Loss
+    label_smoothing: float = 0
+    # Optimizer
+    optimizer: Literal["Adam", "AdamW"] = "Adam"
+    lr: float = 1e-3
+    beta2: float = 0.999
+    weight_decay: float = 0
+    # LR Scheduler
+    lr_scheduler: Literal["CosineAnnealingLR", "PolynomialLR"] = "PolynomialLR"
+    warmup_epochs: int = 0
+    # Miscellaneous
+    in_channels: int = 7
+
+    # This should be a cached property, but using slots means that there is no underlying dictionary to store the returned value.
+    # The configuration is only meant to be used once anyway, so this is probably fine.
+    @property
+    def eps(self) -> float:
+        return 1e-7 if self.optimizer == "Adam" else 1e-8
+
+    @property
+    def power(self) -> float | None:
+        return 0.9 if self.lr_scheduler == "PolynomialLR" else None
 
 
 # TODO: Support multi-task learning.
@@ -80,7 +117,7 @@ class TrainingTask(LightningModule):
         # This parameter is ignored when a custom model is provided.
         model_weights: str | None = "imagenet",
         # The pretrained model weights to use.
-        # When using SAP to build the model:
+        # When using SMP to build the model:
         #   - A valid (https://smp.readthedocs.io/en/latest/encoders.html#choosing-the-right-encoder) weight name.
         #     The decoder is randomly initialized.
         #   - Any non-null string to load ImageNet-1K weights when the encoder is provided by TIMM.
@@ -114,6 +151,9 @@ class TrainingTask(LightningModule):
         # The number of output classes including the background.
     ):
         super().__init__()
+        # TODO: hparams.yaml is wrong when passing a custom model.
+        # TODO: hparams.yaml includes parameter groups when they are specified.
+        #       This is unnecessary and can result in very large configuration files.
         self.save_hyperparameters(ignore="model" if model is not None else None)
 
         self.model = model if model is not None else None
@@ -173,6 +213,9 @@ class TrainingTask(LightningModule):
 
         model = smp.create_model(**common_params, **optional_params)
         if model_weights is not self.hparams.model_weights:
+            raise NotImplementedError(
+                "Custom model checkpoints are not currently supported."
+            )
             # A model checkpoint was passed.
             # FIXME: This doesn't work.
             model.load_state_dict(
@@ -277,7 +320,7 @@ class TrainingTask(LightningModule):
         return self.model(image)
 
     @override
-    def training_step(self, batch: Batch) -> Tensor:
+    def training_step(self, batch: _Batch) -> Tensor:
         pred, loss = self._step(batch, TrainingStage.TRA)
 
         self.log_dict(
@@ -293,7 +336,7 @@ class TrainingTask(LightningModule):
         self._reset_metrics(stage=TrainingStage.TRA)
 
     @override
-    def validation_step(self, batch: Batch, batch_idx: int) -> None:
+    def validation_step(self, batch: _Batch, batch_idx: int) -> None:
         pred, _ = self._step(batch, stage=TrainingStage.VAL)
 
         # TODO: Plot only when specified by the trainer.
@@ -318,7 +361,7 @@ class TrainingTask(LightningModule):
         self._on_eval_epoch_end(TrainingStage.VAL)
 
     @override
-    def test_step(self, batch: Batch) -> None:
+    def test_step(self, batch: _Batch) -> None:
         self._step(batch, TrainingStage.TST)
 
     @override
@@ -326,7 +369,7 @@ class TrainingTask(LightningModule):
         self._on_eval_epoch_end(TrainingStage.TST)
 
     @override
-    def predict_step(self, batch: Batch) -> Tensor:
+    def predict_step(self, batch: _Batch) -> Tensor:
         input = batch["image"]
         return self(input).softmax(dim=1)
 
@@ -380,7 +423,7 @@ class TrainingTask(LightningModule):
         )
 
     def _compute_and_log_loss(
-        self, batch: Batch, stage: TrainingStage
+        self, batch: _Batch, stage: TrainingStage
     ) -> tuple[Tensor, Tensor, Tensor]:
         input: Tensor = batch["image"]
         target: Tensor = batch["mask"]
@@ -410,7 +453,7 @@ class TrainingTask(LightningModule):
         self.confusn[stage].reset()
 
     def _step(
-        self, batch: Batch, stage: TrainingStage
+        self, batch: _Batch, stage: TrainingStage
     ) -> tuple[torch.Tensor, torch.Tensor]:
         pred, target, loss = self._compute_and_log_loss(batch, stage)
 
@@ -428,11 +471,7 @@ class TrainingTask(LightningModule):
         self._reset_metrics(stage)
 
 
-class Sample(TypedDict, total=False):
+class _Batch(TypedDict):
     image: Required[Tensor]
     mask: Required[Tensor]
     prediction: Tensor
-
-
-class Batch(Sample):
-    pass
