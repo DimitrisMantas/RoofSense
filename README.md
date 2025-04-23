@@ -2,15 +2,8 @@
 
 ![](docs/logo.png)
 
-<table id="badges">
-  <tbody>
-    <tr>
-      <td><img src="https://app.roboflow.com/images/download-dataset-badge.svg" alt="" /></td>
-      <td><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md.svg" alt="" /></td>
-    </tr>
-  </tbody>
-</table>
-
+[![Model on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md.svg)](https://huggingface.co/DimitrisMantas/RoofSense)
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/DimitrisMantas/RoofSense)
 
 <h2>Table of Contents</h2>
 

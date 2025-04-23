@@ -94,7 +94,7 @@ def split(
             png_path = os.path.join(
                 "../../dataset",
                 "chps",
-                f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
+                f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.png",
             )
             if confirm_write_op(png_path, overwrite=overwrite):
                 # TODO: expose exporter to user
