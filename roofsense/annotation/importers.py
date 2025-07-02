@@ -44,7 +44,7 @@ class AnnotationImporter(ABC):
     # TODO: Read the class names and colors from the dataset metadata.
     CLASS_NAMES: Final[dict[int, str]] = {
         0: "Background",
-        1: "Ceramic Tile",
+        1: "Tile",
         2: "Dark-coloured Membrane",
         3: "Gravel",
         4: "Invalid",
