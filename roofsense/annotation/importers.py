@@ -81,12 +81,12 @@ class AnnotationImporter(ABC):
 
     #########################################################################################################
     # todo
-    dst_image_dirname = "imgs"
+    dst_image_dirname = "images"
     """The name of the dataset subdirectory containing the original images.
     Must already exist.
     """
 
-    dst_mask_dirname = "msks"
+    dst_mask_dirname = "masks"
     """The name of the dataset subdirectory containing the imported masks."""
 
     SPLIT_NAMES: Final[list[str]] = ["training", "validation", "test"]
@@ -156,13 +156,15 @@ class AnnotationImporter(ABC):
 
     def import_(
         self,
-        dst_dirpath: str,
+        dst_dirpath: str | None = None,
         splitting_method: DatasetSplittingMethod = DatasetSplittingMethod.STRATIFIED,
         weighting_method: DatasetWeightingMethod = DatasetWeightingMethod.CUSTOM,
         lengths: Sequence[float] = (0.70, 0.15, 0.15),
         seed: int = 0,
         **kwargs,
     ) -> None:
+        if dst_dirpath is None:
+            dst_dirpath = os.path.join(self._tile_store.dirpath, "dataset")
         os.makedirs(os.path.join(dst_dirpath, self.dst_mask_dirname), exist_ok=True)
 
         self._import_masks(dst_dirpath)

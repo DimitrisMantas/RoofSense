@@ -18,7 +18,10 @@ def split(
     background_cutoff: float,
     limit: int,
     overwrite: bool = False,
+    dst_dirpath=None,
 ) -> int:
+    if dst_dirpath is None:
+        dst_dirpath = os.path.join(store.dirpath, "dataset")
     surfs = store.read_tile(
         tile_id, lod=LevelOfDetail.LoD22
     ).dissolve()  # todo: does this speed up masking?
@@ -56,8 +59,8 @@ def split(
             num_local_processed_chips += 1
 
             chip_path = os.path.join(
-                "../../dataset",
-                "imgs",
+                dst_dirpath,
+                "images",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.tif",
             )
 
@@ -92,8 +95,8 @@ def split(
                 chip.write(chip_data)
 
             png_path = os.path.join(
-                "../../dataset",
-                "chps",
+                dst_dirpath,
+                "chips",
                 f"{pathlib.Path(stack_path).stem.replace('.stack', '')}_{row}_{col}.png",
             )
             if confirm_write_op(png_path, overwrite=overwrite):
