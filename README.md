@@ -85,6 +85,8 @@ python ./roofsense/main.py
 
 without modification on your terminal of choice.
 Note that an active internet connection is required to initially download the required source datasets.
+Furthermore, there may be minor differences in the RGB component of some images due to upstream changes made by Het Waterschapshuis between the initial release of RoofSense and this repository.
+In any case, these differences are minor and not expected to significantly influence any experimental results obtained using the original model and dataset.
 
 This script will generate the image component of RoofSense in the current user's home directory.
 The dataset directory should initially have the following structure:
