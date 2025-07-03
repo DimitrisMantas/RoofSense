@@ -80,7 +80,8 @@ Hence, there may be slight differences between the two dataset versions.
 To generate RoofSense from scratch, execute
 
 ```txt
-python ./roofsense/main.py
+cd roofsense
+python ./main.py
 ```
 
 without modification on your terminal of choice.
